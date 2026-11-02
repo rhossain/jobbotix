@@ -8,7 +8,8 @@
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint",
     "typecheck": "nx run-many -t typecheck",
-    "format": "nx format:write"
+    "format": "nx format:write",
+    "db:test": "bash tools/db-test.sh"
   },
   "private": true,
   "dependencies": {
