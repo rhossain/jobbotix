@@ -1,0 +1,17 @@
+// Global SCSS for Jobbotix. Tailwind is loaded from tailwind.css (a separate
+// style entry) because Sass would try to resolve Tailwind's @import itself.
+
+:root {
+  color-scheme: light dark;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}

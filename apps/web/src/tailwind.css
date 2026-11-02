@@ -1,0 +1,13 @@
+@import 'tailwindcss';
+
+/* Tailwind v4 is configured in CSS. Design tokens for Jobbotix live here;
+   component-level SCSS stays in styles.scss and in each component. */
+@theme {
+  --font-sans: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  --color-brand-50: #e2f1ef;
+  --color-brand-500: #0f6e6e;
+  --color-brand-600: #0b5a5a;
+  --color-brand-700: #084646;
+}
