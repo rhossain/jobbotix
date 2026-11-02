@@ -55,3 +55,6 @@ vitest.config.*.timestamp*
 .nx/self-healing
 .nx/migrate-runs
 __screenshots__/
+
+# Hosted Supabase project settings (anon key only); copy from environment.production.example.ts
+apps/web/src/environments/environment.production.ts

@@ -1,20 +1,9 @@
 /**
- * Shared types for Jobbotix, used by the Angular app and the Supabase Edge
- * Functions. Keep this file free of runtime dependencies.
- *
- * The database schema is the source of truth; these types will be regenerated
- * from it (supabase gen types) once the Phase 0 migrations land. Until then
- * they mirror the data model in the plan.
+ * Application-level types shared by the Angular app, the Edge Functions and the
+ * scheduled-task prompt. Database row shapes live in database.types.ts; this
+ * file holds the wire formats and constants built on top of them.
  */
-
-export type RoleStatus =
-  | 'new'
-  | 'shortlist'
-  | 'applied'
-  | 'interview'
-  | 'offer'
-  | 'rejected'
-  | 'skipped';
+import type { EmploymentType, RoleStatus } from './database.types';
 
 export const ROLE_STATUSES: readonly RoleStatus[] = [
   'new',
@@ -26,45 +15,81 @@ export const ROLE_STATUSES: readonly RoleStatus[] = [
   'skipped',
 ] as const;
 
-export type EmploymentType = 'Full-time' | 'Contract';
+export const ROLE_STATUS_LABELS: Record<RoleStatus, string> = {
+  new: 'New',
+  shortlist: 'To apply',
+  applied: 'Applied',
+  interview: 'Interview',
+  offer: 'Offer',
+  rejected: 'Rejected',
+  skipped: 'Skipped',
+};
 
-/** One job posting as it is stored per user. */
-export interface Role {
-  id: string;
-  userId: string;
-  company: string;
-  title: string;
-  url: string;
-  source: string;
-  location: string;
-  type: EmploymentType;
-  salary: string;
-  /** ISO date the posting went live, or empty when unknown. */
-  posted: string;
-  stack: string;
-  /** 0-100 fit score against the user's search profile. */
-  score: number;
-  aiMatch: boolean;
-  status: RoleStatus;
-  reasons: string[];
-  gaps: string[];
-  coverLetter: string;
-  qa: ScreeningAnswer[];
-  notes: string;
-  /** ISO timestamp of the run that found it. */
-  foundAt: string;
-  updatedAt: string;
-}
+export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
+  full_time: 'Full-time',
+  contract: 'Contract',
+};
 
 export interface ScreeningAnswer {
   q: string;
   a: string;
 }
 
-/** Summary of one scheduled search run, shown at the top of the tracker. */
+/**
+ * One role as a search run posts it to `POST /functions/v1/ingest-roles`.
+ * This is deliberately close to the tracker artifact's document shape so the
+ * existing scheduled task needs only a destination change.
+ */
+export interface IngestRole {
+  company: string;
+  title: string;
+  url: string;
+  source?: string;
+  location?: string;
+  /** "Full-time" | "Contract" as the task writes them, or the enum value. */
+  type?: 'Full-time' | 'Contract' | EmploymentType;
+  salary?: string;
+  /** ISO date or '' */
+  posted?: string;
+  /** Comma-separated line or array; stored as an array. */
+  stack?: string | string[];
+  score: number;
+  aiMatch?: boolean;
+  reasons?: string[];
+  gaps?: string[];
+  coverLetter?: string;
+  qa?: ScreeningAnswer[];
+  postingText?: string;
+}
+
+export interface IngestExcluded {
+  company?: string;
+  title?: string;
+  url?: string;
+  reason: string;
+}
+
+/** Body of one ingest call: everything one run found. */
+export interface IngestPayload {
+  /** ISO timestamp of the run. */
+  runAt: string;
+  searched: number;
+  roles: IngestRole[];
+  excluded?: IngestExcluded[];
+}
+
+export interface IngestResult {
+  inserted: number;
+  updated: number;
+  skipped: number;
+  excludedStored: number;
+  errors: { url: string; message: string }[];
+}
+
+/** Summary of the last run, shown at the top of Today. */
 export interface RunSummary {
   at: string;
   searched: number;
   added: number;
-  excluded: string;
+  excluded: number;
 }

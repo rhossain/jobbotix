@@ -1,19 +1,41 @@
 <header class="border-b border-neutral-200 dark:border-neutral-800">
-  <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+  <div
+    class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3"
+  >
     <a
       routerLink="/"
       class="text-lg font-semibold tracking-tight text-brand-600 dark:text-brand-50"
     >
       {{ title }}
     </a>
-    <nav class="flex gap-4 text-sm text-neutral-600 dark:text-neutral-300">
+    @if (auth.isSignedIn()) {
+    <nav
+      class="flex items-center gap-4 text-sm text-neutral-600 dark:text-neutral-300"
+    >
       <a routerLink="/today" routerLinkActive="font-semibold">Today</a>
       <a routerLink="/roles" routerLinkActive="font-semibold">Roles</a>
       <a routerLink="/board" routerLinkActive="font-semibold">Board</a>
+      @if (auth.isAdmin()) {
+      <a routerLink="/admin/invites" routerLinkActive="font-semibold"
+        >Invites</a
+      >
+      }
+      <span class="hidden text-neutral-400 sm:inline" aria-hidden="true"
+        >·</span
+      >
+      <span class="hidden sm:inline"
+        >{{ auth.profile()?.name || auth.user()?.email }}</span
+      >
+      <button type="button" class="jb-btn" (click)="signOut()">Sign out</button>
     </nav>
+    }
   </div>
 </header>
 
 <main class="mx-auto max-w-5xl px-4 py-8">
+  @if (auth.status() === 'loading') {
+  <p class="text-sm text-neutral-500" role="status">Loading…</p>
+  } @else {
   <router-outlet></router-outlet>
+  }
 </main>
