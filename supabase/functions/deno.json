@@ -1,0 +1,8 @@
+{
+  "tasks": {
+    "test": "deno test _shared/",
+    "check": "deno check ingest-roles/index.ts"
+  },
+  "lint": { "rules": { "tags": ["recommended"] } },
+  "fmt": { "singleQuote": true, "lineWidth": 120 }
+}

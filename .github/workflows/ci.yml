@@ -38,3 +38,16 @@ jobs:
           sudo apt-get install -y -qq postgresql-16 >/dev/null
       - name: Migrations and RLS tests
         run: sudo -u postgres PGBIN=/usr/lib/postgresql/16/bin bash tools/db-test.sh
+
+  functions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Edge Function tests and type-check
+        working-directory: supabase/functions
+        run: |
+          deno task test
+          deno task check
