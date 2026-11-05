@@ -459,6 +459,21 @@
     }
   }
 
+  // ---------- Count badge beside a heading ----------
+  .jb-count {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.5rem;
+    height: 1.375rem;
+    padding: 0 0.4rem;
+    border-radius: 999px;
+    background: var(--surface-sunken);
+    color: var(--ink-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
   // ---------- Section headings ----------
   .jb-section-title {
     color: var(--ink);

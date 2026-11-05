@@ -24,9 +24,11 @@ export async function copyText(text: string): Promise<boolean> {
   selector: 'jb-copy-button',
   imports: [Button, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'inline-flex' },
   template: `
     <button
       type="button"
+      class="w-full"
       [jbButton]="variant()"
       [size]="size()"
       [iconOnly]="iconOnly()"
