@@ -119,6 +119,7 @@ export type RoleRow = Timestamps & {
   posting_text: string;
   posting_hash: string;
   status_changed_at: string;
+  follow_up_days: number;
 };
 
 export type RoleEventRow = {
@@ -303,6 +304,7 @@ export type Database = {
           | 'posting_text'
           | 'posting_hash'
           | 'status_changed_at'
+          | 'follow_up_days'
           | 'created_at'
           | 'updated_at'
         >
@@ -399,6 +401,7 @@ export type Database = {
       resolve_ingest_key: { Args: { p_key: string }; Returns: string | null };
       keep_alive: { Args: Record<string, never>; Returns: undefined };
       flag_stale_shortlist: { Args: Record<string, never>; Returns: undefined };
+      flag_follow_ups: { Args: Record<string, never>; Returns: undefined };
     };
     Enums: {
       role_status: RoleStatus;

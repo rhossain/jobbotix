@@ -62,6 +62,7 @@ const seed: Seed[] = [
       'Hi Northwind team,\n\nI am applying for the Senior Frontend Engineer (Angular) role. Angular with NgRx and hand-written SCSS is most of my last decade, and your note about AI coding assistants describes how I already work.\n\n(Demo letter: in a real run this is written for the specific posting.)\n\nMd. Sazzad Hossain\nrshossain.me',
     notes: '',
     status_changed_at: daysAgo(0),
+    follow_up_days: 0,
   },
   {
     id: 'r-harbor',
@@ -95,6 +96,7 @@ const seed: Seed[] = [
     cover_letter: '',
     notes: '',
     status_changed_at: daysAgo(0),
+    follow_up_days: 0,
   },
   {
     id: 'r-lumen',
@@ -130,6 +132,7 @@ const seed: Seed[] = [
     notes:
       'Applied via their form on Monday? No, still pending. Need to tailor the React angle.',
     status_changed_at: daysAgo(5),
+    follow_up_days: 0,
   },
   {
     id: 'r-kestrel',
@@ -154,6 +157,7 @@ const seed: Seed[] = [
     cover_letter: '',
     notes: 'Applied 3 days ago. Recruiter: Dana. Follow up next week.',
     status_changed_at: daysAgo(3),
+    follow_up_days: 0,
   },
   {
     id: 'r-meridian',
@@ -179,6 +183,7 @@ const seed: Seed[] = [
     notes:
       'First interview Thursday 15:00 Dhaka with the Head of Product. Prepare the design-token story.',
     status_changed_at: daysAgo(2),
+    follow_up_days: 0,
   },
   {
     id: 'r-brightline',
@@ -200,6 +205,7 @@ const seed: Seed[] = [
     cover_letter: '',
     notes: '',
     status_changed_at: daysAgo(4),
+    follow_up_days: 0,
   },
   {
     id: 'r-saltmarsh',
@@ -223,6 +229,7 @@ const seed: Seed[] = [
     cover_letter: '',
     notes: 'Rejected: they went with someone in their timezone.',
     status_changed_at: daysAgo(1),
+    follow_up_days: 0,
   },
   {
     id: 'r-quill',
@@ -249,6 +256,7 @@ const seed: Seed[] = [
       'Hello Quill team,\n\nI am applying for the Senior Angular Engineer (AI Products) role.\n\n(Demo letter: in a real run this is written for the specific posting.)\n\nMd. Sazzad Hossain\nrshossain.me',
     notes: '',
     status_changed_at: daysAgo(0),
+    follow_up_days: 0,
   },
 ];
 

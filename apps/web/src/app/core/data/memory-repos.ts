@@ -180,7 +180,28 @@ export class MemoryRolesRepo extends RolesRepo {
   );
 
   async load() {
-    /* nothing to fetch */
+    // What pg_cron's flag_follow_ups() does nightly on the hosted project.
+    this.patch((s) => {
+      for (const m of [7, 14]) {
+        for (const r of s.roles) {
+          if (r.status !== 'applied' || r.follow_up_days >= m) continue;
+          if (
+            Date.now() - new Date(r.status_changed_at).getTime() <
+            m * 86_400_000
+          )
+            continue;
+          r.follow_up_days = m;
+          s.events.push({
+            id: newId(),
+            user_id: DEMO_USER_ID,
+            role_id: r.id,
+            kind: 'reminder',
+            payload: { reason: 'follow_up', days: m },
+            created_at: new Date().toISOString(),
+          });
+        }
+      }
+    });
   }
 
   async setStatus(id: string, status: RoleStatus) {
@@ -188,6 +209,7 @@ export class MemoryRolesRepo extends RolesRepo {
       const role = s.roles.find((r) => r.id === id);
       if (!role || role.status === status) return;
       const now = new Date().toISOString();
+      role.follow_up_days = 0;
       s.events.push({
         id: newId(),
         user_id: DEMO_USER_ID,
@@ -285,6 +307,7 @@ export class MemoryRolesRepo extends RolesRepo {
         posting_text: ex.postingText,
         posting_hash: '',
         status_changed_at: now,
+        follow_up_days: 0,
         created_at: now,
         updated_at: now,
       });

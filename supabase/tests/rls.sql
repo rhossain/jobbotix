@@ -169,4 +169,31 @@ do $$ begin
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- ---------------------------------------------------------------------------
+-- Follow-up reminders: 7 and 14 days after applying, once each, dismiss sticks
+-- ---------------------------------------------------------------------------
+update public.roles set status = 'applied' where company = 'Acme';
+update public.roles set status_changed_at = now() - interval '8 days' where company = 'Acme';
+select public.flag_follow_ups();
+select public.flag_follow_ups();
+do $$ begin
+  if (select count(*) from public.role_events where kind = 'reminder' and payload->>'reason' = 'follow_up') <> 1 then
+    raise exception 'FAIL: expected exactly one 7-day follow-up, got %', (select count(*) from public.role_events where kind = 'reminder' and payload->>'reason' = 'follow_up');
+  end if;
+end $$;
+delete from public.role_events where kind = 'reminder' and payload->>'reason' = 'follow_up';
+select public.flag_follow_ups();
+do $$ begin
+  if (select count(*) from public.role_events where kind = 'reminder' and payload->>'reason' = 'follow_up') <> 0 then
+    raise exception 'FAIL: dismissed follow-up was re-flagged';
+  end if;
+end $$;
+update public.roles set status_changed_at = now() - interval '15 days' where company = 'Acme';
+select public.flag_follow_ups();
+do $$ begin
+  if (select payload->>'days' from public.role_events where kind = 'reminder' and payload->>'reason' = 'follow_up') <> '14' then
+    raise exception 'FAIL: expected the 14-day follow-up';
+  end if;
+end $$;
+
 \echo RLS tests passed

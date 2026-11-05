@@ -6,7 +6,9 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { RoleEventRow, RoleRow } from '@jobbotix/shared-types';
+import { Auth } from '../../core/auth';
 import { RolesRepo } from '../../core/data/repos';
+import { Toast } from '../../shared/toast';
 import { daysSince, relativeDay } from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
 
@@ -14,6 +16,7 @@ interface Reminder {
   event: RoleEventRow;
   role: RoleRow;
   days: number;
+  kind: 'stale' | 'follow_up';
 }
 
 /** Morning view: what the last run found, and what has gone quiet. */
@@ -53,13 +56,30 @@ interface Reminder {
                     class="font-medium hover:underline"
                     >{{ r.role.title }}</a
                   >
-                  at {{ r.role.company }} has been in <b>To apply</b> for
-                  {{ r.days }} days.
+                  at {{ r.role.company }}
+                  @if (r.kind === 'follow_up') {
+                    — applied {{ r.days }} days ago with no reply. A short
+                    follow-up now is normal; after 14 days, move on.
+                  } @else {
+                    has been in <b>To apply</b> for {{ r.days }} days.
+                  }
                 </span>
                 <span class="flex gap-2">
-                  <a [routerLink]="['/roles', r.role.id]" class="jb-btn-primary"
-                    >Apply now</a
-                  >
+                  @if (r.kind === 'follow_up') {
+                    <button
+                      type="button"
+                      class="jb-btn-primary"
+                      (click)="copyFollowUp(r)"
+                    >
+                      Copy follow-up
+                    </button>
+                  } @else {
+                    <a
+                      [routerLink]="['/roles', r.role.id]"
+                      class="jb-btn-primary"
+                      >Apply now</a
+                    >
+                  }
                   <button
                     type="button"
                     class="jb-btn"
@@ -115,6 +135,8 @@ interface Reminder {
 })
 export class Today {
   protected readonly repo = inject(RolesRepo);
+  private readonly auth = inject(Auth);
+  private readonly toast = inject(Toast);
 
   readonly run = this.repo.lastRun;
   readonly runWhen = computed(() => relativeDay(this.run()?.at));
@@ -140,17 +162,29 @@ export class Today {
 
   readonly reminders = computed<Reminder[]>(() => {
     const byId = new Map(this.repo.roles().map((r) => [r.id, r]));
-    return this.repo
-      .reminders()
-      .map((event) => ({
-        event,
-        role: event.role_id ? byId.get(event.role_id) : undefined,
-      }))
-      .filter(
-        (x): x is { event: RoleEventRow; role: RoleRow } =>
-          !!x.role && x.role.status === 'shortlist',
-      )
-      .map((x) => ({ ...x, days: daysSince(x.role.status_changed_at) }));
+    return (
+      this.repo
+        .reminders()
+        .map((event) => ({
+          event,
+          role: event.role_id ? byId.get(event.role_id) : undefined,
+        }))
+        .filter((x): x is { event: RoleEventRow; role: RoleRow } => !!x.role)
+        .map((x) => {
+          const reason = (x.event.payload as { reason?: string } | null)
+            ?.reason;
+          const kind: Reminder['kind'] =
+            reason === 'follow_up' ? 'follow_up' : 'stale';
+          return { ...x, kind, days: daysSince(x.role.status_changed_at) };
+        })
+        // a reminder only stands while the role is still where it was flagged
+        .filter((r) =>
+          r.kind === 'follow_up'
+            ? r.role.status === 'applied'
+            : r.role.status === 'shortlist',
+        )
+        .sort((a, b) => b.days - a.days)
+    );
   });
 
   constructor() {
@@ -159,5 +193,20 @@ export class Today {
 
   dismiss(id: string) {
     void this.repo.dismissReminder(id);
+  }
+
+  /** A short, non-pushy follow-up the user can paste into email or LinkedIn. */
+  copyFollowUp(r: Reminder) {
+    const applied = new Date(r.role.status_changed_at).toLocaleDateString(
+      'en',
+      { day: 'numeric', month: 'long' },
+    );
+    const text =
+      `Hi,\n\nI applied for the ${r.role.title} role at ${r.role.company} on ${applied} and wanted to check in: is the position still open, and is there anything you need from me to move forward?\n\n` +
+      `Happy to do a short call or a take-home whenever suits your team.\n\nThanks,\n${this.auth.profile()?.name || ''}`.trim();
+    void navigator.clipboard?.writeText(text).then(
+      () => this.toast.show('Follow-up copied'),
+      () => this.toast.show('Could not copy; your browser blocked it'),
+    );
   }
 }
