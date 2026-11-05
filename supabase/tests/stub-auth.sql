@@ -31,4 +31,9 @@ create schema if not exists net;
 create or replace function net.http_post(url text, headers jsonb default '{}', body jsonb default '{}', timeout_milliseconds int default 5000)
 returns bigint language sql as $$ select 1::bigint $$;
 create schema if not exists vault;
-create table if not exists vault.decrypted_secrets (name text primary key, decrypted_secret text);
+create table if not exists vault.secrets (id uuid primary key default gen_random_uuid(), name text unique, secret text);
+create view vault.decrypted_secrets as select id, name, secret as decrypted_secret from vault.secrets;
+create or replace function vault.create_secret(new_secret text, new_name text) returns uuid language sql as $$
+  insert into vault.secrets (name, secret) values (new_name, new_secret) returning id $$;
+create or replace function vault.update_secret(secret_id uuid, new_secret text) returns void language sql as $$
+  update vault.secrets set secret = new_secret where id = secret_id $$;

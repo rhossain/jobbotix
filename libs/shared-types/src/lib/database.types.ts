@@ -384,6 +384,11 @@ export type Database = {
         };
         Returns: string;
       };
+      vault_upsert_secret: {
+        Args: { p_name: string; p_secret: string };
+        Returns: undefined;
+      };
+      vault_delete_secret: { Args: { p_name: string }; Returns: undefined };
       request_invite: {
         Args: { p_email: string; p_note?: string };
         Returns: undefined;

@@ -1,7 +1,8 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import type { Session, User } from '@supabase/supabase-js';
 import type { ProfileRow } from '@jobbotix/shared-types';
 import type { AuthStatus } from './auth';
+import { MemoryRolesRepo } from './data/memory-repos';
 import { DEMO_USER_ID } from './data/sample-data';
 
 /**
@@ -10,18 +11,8 @@ import { DEMO_USER_ID } from './data/sample-data';
  */
 @Injectable()
 export class DemoAuth {
-  private readonly demoProfile: ProfileRow = {
-    id: DEMO_USER_ID,
-    email: 'demo@jobbotix.local',
-    name: 'Demo user',
-    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-    invite_code: null,
-    anthropic_key_ref: null,
-    default_model: 'claude-sonnet-4-5',
-    is_admin: true,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
+  private readonly state = inject(MemoryRolesRepo);
+  private readonly demoProfile: ProfileRow = this.state.snapshot().profileRow;
   private readonly demoUser = {
     id: DEMO_USER_ID,
     email: this.demoProfile.email,
@@ -29,7 +20,10 @@ export class DemoAuth {
 
   private readonly _status = signal<AuthStatus>('signed_in');
   readonly session = signal<Session | null>(null).asReadonly();
-  readonly profile = signal<ProfileRow | null>(this.demoProfile).asReadonly();
+  /** Live view of the demo profile so Settings edits show up in the header. */
+  readonly profile = computed<ProfileRow | null>(
+    () => this.state.snapshot().profileRow,
+  );
   readonly status = this._status.asReadonly();
   readonly user = computed<User | null>(() =>
     this._status() === 'signed_in' ? this.demoUser : null,

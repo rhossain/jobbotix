@@ -27,8 +27,12 @@
       <span class="hidden text-neutral-400 sm:inline" aria-hidden="true"
         >·</span
       >
-      <span class="hidden sm:inline"
-        >{{ auth.profile()?.name || auth.user()?.email }}</span
+      <a
+        routerLink="/settings"
+        routerLinkActive="font-semibold"
+        class="hidden sm:inline"
+        title="Settings"
+        >{{ auth.profile()?.name || auth.user()?.email }}</a
       >
       <button type="button" class="jb-btn" (click)="signOut()">Sign out</button>
     </nav>

@@ -1,7 +1,10 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import type { VariantDiff } from '@jobbotix/shared-types';
 import type {
+  AiUsageRow,
+  IngestKeyRow,
   Json,
+  ProfileRow,
   ResumeRow,
   ResumeSections,
   ResumeVariantRow,
@@ -15,9 +18,11 @@ import type {
 import { Auth } from '../auth';
 import { injectSupabase } from '../supabase';
 import {
+  ModelChoice,
   ResumesRepo,
   RolesRepo,
   SavedViewsRepo,
+  SettingsRepo,
   VariantsRepo,
   SearchProfileInput,
   SearchProfileRepo,
@@ -346,17 +351,19 @@ export class SupabaseVariantsRepo extends VariantsRepo {
     return data ?? null;
   }
 
-  async generate(roleId: string) {
+  async generate(roleId: string, model?: string) {
     const { data, error } = await this.supabase.functions.invoke<{
       variant?: ResumeVariantRow;
+      method?: 'ai' | 'local';
+      model?: string;
       error?: string;
     }>('tailor-resume', {
-      body: { roleId },
+      body: model ? { roleId, model } : { roleId },
     });
     if (error) throw new Error(await describeFunctionError(error));
     if (!data?.variant)
       throw new Error(data?.error ?? 'Could not generate the variant');
-    return data.variant;
+    return { ...data.variant, method: data.method, model: data.model };
   }
 
   async saveDiff(
@@ -386,5 +393,92 @@ export class SupabaseVariantsRepo extends VariantsRepo {
       .single();
     if (error) throw error;
     return data;
+  }
+}
+
+@Injectable()
+export class SupabaseSettingsRepo extends SettingsRepo {
+  private readonly supabase = injectSupabase();
+  private readonly auth = inject(Auth);
+  private readonly _profile = signal<ProfileRow | null>(null);
+  private readonly _models = signal<ModelChoice[]>([]);
+  private readonly _usage = signal<AiUsageRow[]>([]);
+  private readonly _keys = signal<IngestKeyRow[]>([]);
+  readonly profile = this._profile.asReadonly();
+  readonly models = this._models.asReadonly();
+  readonly usage = this._usage.asReadonly();
+  readonly ingestKeys = this._keys.asReadonly();
+
+  async load() {
+    const userId = this.auth.user()?.id;
+    if (!userId) return;
+    const [profile, usage, keys] = await Promise.all([
+      this.supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+      this.supabase
+        .from('ai_usage')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(500),
+      this.supabase
+        .from('ingest_keys')
+        .select('*')
+        .order('created_at', { ascending: false }),
+    ]);
+    this._profile.set(profile.data ?? null);
+    this._usage.set(usage.data ?? []);
+    this._keys.set(keys.data ?? []);
+    // settings.models is admin-only; fall back to the built-in list for everyone else
+    this._models.set([
+      { id: 'claude-haiku-4-5', label: 'Haiku 4.5 (fast, cheapest)' },
+      { id: 'claude-sonnet-4-5', label: 'Sonnet 4.5 (default)' },
+      { id: 'claude-opus-4-1', label: 'Opus 4.1 (best, priciest)' },
+    ]);
+  }
+
+  async updateProfile(patch: {
+    name?: string;
+    timezone?: string;
+    default_model?: string;
+  }) {
+    const userId = this.auth.user()?.id;
+    if (!userId) throw new Error('Not signed in');
+    const { data, error } = await this.supabase
+      .from('profiles')
+      .update(patch)
+      .eq('id', userId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    this._profile.set(data);
+    await this.auth.refreshProfile();
+  }
+
+  async setAnthropicKey(key: string) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      stored: boolean;
+      last4?: string;
+      error?: string;
+    }>('set-anthropic-key', { body: { key } });
+    if (error) throw new Error(await describeFunctionError(error));
+    await this.load();
+    return data?.last4 ?? '';
+  }
+
+  async clearAnthropicKey() {
+    const { error } = await this.supabase.functions.invoke(
+      'set-anthropic-key',
+      { method: 'DELETE' },
+    );
+    if (error) throw new Error(await describeFunctionError(error));
+    await this.load();
+  }
+
+  async revokeIngestKey(id: string) {
+    const { error } = await this.supabase
+      .from('ingest_keys')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('id', id);
+    if (error) throw error;
+    await this.load();
   }
 }

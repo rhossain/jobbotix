@@ -8,6 +8,9 @@ import {
   type VariantDiff,
 } from '@jobbotix/shared-types';
 import type {
+  AiUsageRow,
+  IngestKeyRow,
+  ProfileRow,
   Json,
   RoleEventRow,
   RoleRow,
@@ -21,9 +24,11 @@ import type {
   SearchProfileRow,
 } from '@jobbotix/shared-types';
 import {
+  ModelChoice,
   ResumesRepo,
   RolesRepo,
   SavedViewsRepo,
+  SettingsRepo,
   VariantsRepo,
   SearchProfileInput,
   SearchProfileRepo,
@@ -47,6 +52,9 @@ interface DemoState {
   views: SavedViewRow[];
   resumes: ResumeRow[];
   variants: ResumeVariantRow[];
+  profileRow: ProfileRow;
+  ingestKeys: IngestKeyRow[];
+  usage: AiUsageRow[];
 }
 
 /** Reads the demo state from localStorage; falls back to the sample data. */
@@ -79,6 +87,25 @@ function loadState(): DemoState {
     views: [],
     resumes: seedResumes(),
     variants: [],
+    profileRow: seedProfile(),
+    ingestKeys: [],
+    usage: [],
+  };
+}
+
+function seedProfile(): ProfileRow {
+  const now = new Date().toISOString();
+  return {
+    id: DEMO_USER_ID,
+    email: 'demo@jobbotix.local',
+    name: 'Demo user',
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    invite_code: null,
+    anthropic_key_ref: null,
+    default_model: 'claude-sonnet-4-5',
+    is_admin: true,
+    created_at: now,
+    updated_at: now,
   };
 }
 
@@ -293,13 +320,23 @@ export class MemorySearchProfileRepo extends SearchProfileRepo {
   }
 
   async createIngestKey(label: string) {
-    void label;
     const bytes = new Uint8Array(24);
     crypto.getRandomValues(bytes);
-    return (
+    const key =
       'jbx_demo_' +
-      Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
-    );
+      Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    this.roles.patch((s) => {
+      s.ingestKeys.push({
+        id: newId(),
+        user_id: DEMO_USER_ID,
+        key_hash: 'demo',
+        label,
+        last_used_at: null,
+        revoked_at: null,
+        created_at: new Date().toISOString(),
+      });
+    });
+    return key;
   }
 }
 
@@ -399,7 +436,8 @@ export class MemoryVariantsRepo extends VariantsRepo {
     );
   }
 
-  async generate(roleId: string) {
+  async generate(roleId: string, model?: string) {
+    void model;
     const st = this.roles.snapshot();
     const role = st.roles.find((r) => r.id === roleId);
     const master = st.resumes.find((r) => r.is_master);
@@ -495,5 +533,75 @@ export class MemoryVariantsRepo extends VariantsRepo {
     });
     if (!out) throw new Error('Variant not found');
     return out;
+  }
+}
+
+@Injectable()
+export class MemorySettingsRepo extends SettingsRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+  readonly profile = computed<ProfileRow | null>(
+    () => this.roles.snapshot().profileRow,
+  );
+  readonly models = signal<ModelChoice[]>([
+    { id: 'claude-haiku-4-5', label: 'Haiku 4.5 (fast, cheapest)' },
+    { id: 'claude-sonnet-4-5', label: 'Sonnet 4.5 (default)' },
+    { id: 'claude-opus-4-1', label: 'Opus 4.1 (best, priciest)' },
+  ]);
+  readonly usage = computed(() => this.roles.snapshot().usage);
+  readonly ingestKeys = computed(() =>
+    [...this.roles.snapshot().ingestKeys].sort((a, b) =>
+      b.created_at.localeCompare(a.created_at),
+    ),
+  );
+
+  async load() {
+    /* nothing to fetch */
+  }
+
+  async updateProfile(patch: {
+    name?: string;
+    timezone?: string;
+    default_model?: string;
+  }) {
+    this.roles.patch((s) => {
+      s.profileRow = {
+        ...s.profileRow,
+        ...patch,
+        updated_at: new Date().toISOString(),
+      };
+    });
+  }
+
+  async setAnthropicKey(key: string) {
+    if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(key.trim()))
+      throw new Error(
+        'That does not look like an Anthropic API key (they start with sk-ant-).',
+      );
+    // demo never stores the key; only the fact that one was set
+    this.roles.patch((s) => {
+      s.profileRow = {
+        ...s.profileRow,
+        anthropic_key_ref: 'demo',
+        updated_at: new Date().toISOString(),
+      };
+    });
+    return key.trim().slice(-4);
+  }
+
+  async clearAnthropicKey() {
+    this.roles.patch((s) => {
+      s.profileRow = {
+        ...s.profileRow,
+        anthropic_key_ref: null,
+        updated_at: new Date().toISOString(),
+      };
+    });
+  }
+
+  async revokeIngestKey(id: string) {
+    this.roles.patch((s) => {
+      const k = s.ingestKeys.find((x) => x.id === id);
+      if (k) k.revoked_at = new Date().toISOString();
+    });
   }
 }

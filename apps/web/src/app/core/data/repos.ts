@@ -1,6 +1,9 @@
 import type { Signal } from '@angular/core';
 import type { VariantDiff } from '@jobbotix/shared-types';
 import type {
+  AiUsageRow,
+  IngestKeyRow,
+  ProfileRow,
   Json,
   RoleEventRow,
   RoleRow,
@@ -87,7 +90,10 @@ export abstract class VariantsRepo {
    * user has a key, local heuristics in demo) and stores them as a draft.
    * Existing decisions on unchanged proposals are kept.
    */
-  abstract generate(roleId: string): Promise<ResumeVariantRow>;
+  abstract generate(
+    roleId: string,
+    model?: string,
+  ): Promise<ResumeVariantRow & { method?: 'ai' | 'local'; model?: string }>;
   /** Persists decisions and the resulting sections. */
   abstract saveDiff(
     variantId: string,
@@ -95,4 +101,26 @@ export abstract class VariantsRepo {
     sections: ResumeSections,
   ): Promise<ResumeVariantRow>;
   abstract approve(variantId: string): Promise<ResumeVariantRow>;
+}
+
+export interface ModelChoice {
+  id: string;
+  label: string;
+}
+
+export abstract class SettingsRepo {
+  abstract readonly profile: Signal<ProfileRow | null>;
+  abstract readonly models: Signal<ModelChoice[]>;
+  abstract readonly usage: Signal<AiUsageRow[]>;
+  abstract readonly ingestKeys: Signal<IngestKeyRow[]>;
+  abstract load(): Promise<void>;
+  abstract updateProfile(patch: {
+    name?: string;
+    timezone?: string;
+    default_model?: string;
+  }): Promise<void>;
+  /** Stores the key server-side (Vault). Resolves with the last 4 characters for display. */
+  abstract setAnthropicKey(key: string): Promise<string>;
+  abstract clearAnthropicKey(): Promise<void>;
+  abstract revokeIngestKey(id: string): Promise<void>;
 }

@@ -12,6 +12,7 @@ import {
   MemoryRolesRepo,
   MemorySavedViewsRepo,
   MemorySearchProfileRepo,
+  MemorySettingsRepo,
   MemoryVariantsRepo,
 } from './core/data/memory-repos';
 import {
@@ -19,6 +20,7 @@ import {
   RolesRepo,
   SavedViewsRepo,
   SearchProfileRepo,
+  SettingsRepo,
   VariantsRepo,
 } from './core/data/repos';
 import {
@@ -26,6 +28,7 @@ import {
   SupabaseRolesRepo,
   SupabaseSavedViewsRepo,
   SupabaseSearchProfileRepo,
+  SupabaseSettingsRepo,
   SupabaseVariantsRepo,
 } from './core/data/supabase-repos';
 import { DemoAuth } from './core/demo-auth';
@@ -40,6 +43,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: SavedViewsRepo, useClass: MemorySavedViewsRepo },
       { provide: ResumesRepo, useClass: MemoryResumesRepo },
       { provide: VariantsRepo, useClass: MemoryVariantsRepo },
+      { provide: SettingsRepo, useClass: MemorySettingsRepo },
     ]
   : [
       { provide: RolesRepo, useClass: SupabaseRolesRepo },
@@ -47,6 +51,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: SavedViewsRepo, useClass: SupabaseSavedViewsRepo },
       { provide: ResumesRepo, useClass: SupabaseResumesRepo },
       { provide: VariantsRepo, useClass: SupabaseVariantsRepo },
+      { provide: SettingsRepo, useClass: SupabaseSettingsRepo },
     ];
 
 export const appConfig: ApplicationConfig = {

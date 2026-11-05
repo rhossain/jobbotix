@@ -41,8 +41,11 @@ Deno.serve(async (req) => {
     return json(401, { error: 'Session expired; sign in again' });
   const userId = userData.user.id;
 
-  const { roleId } = (await req.json().catch(() => ({}))) as {
+  const { roleId, model: modelOverride } = (await req
+    .json()
+    .catch(() => ({}))) as {
     roleId?: string;
+    model?: string;
   };
   if (!roleId) return json(400, { error: 'roleId is required' });
 
@@ -102,7 +105,13 @@ Deno.serve(async (req) => {
     ? await readVaultSecret(admin, profile.anthropic_key_ref)
     : null;
   if (apiKey) {
-    const model = profile?.default_model || 'claude-sonnet-4-5';
+    const model =
+      (typeof modelOverride === 'string' &&
+      /^claude-[a-z0-9-]+$/.test(modelOverride)
+        ? modelOverride
+        : '') ||
+      profile?.default_model ||
+      'claude-sonnet-4-5';
     try {
       const ai = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -183,7 +192,16 @@ Deno.serve(async (req) => {
     kind: 'generated',
     payload: { what: 'resume variant', method },
   });
-  return json(200, { variant: saved.data, method });
+  return json(200, {
+    variant: saved.data,
+    method,
+    model:
+      method === 'ai'
+        ? (typeof modelOverride === 'string' && modelOverride) ||
+          profile?.default_model ||
+          'claude-sonnet-4-5'
+        : undefined,
+  });
 });
 
 async function readVaultSecret(

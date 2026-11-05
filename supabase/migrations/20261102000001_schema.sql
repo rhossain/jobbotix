@@ -449,4 +449,4 @@ begin
   returning user_id into v_user;
   return v_user;
 end $$;
-revoke execute on function public.resolve_ingest_key(text) from anon, authenticated;
+revoke execute on function public.resolve_ingest_key(text) from public, anon, authenticated;

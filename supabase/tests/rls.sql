@@ -104,4 +104,36 @@ do $$ begin
   if public.resolve_ingest_key('jbx_nope') is not null then raise exception 'FAIL: bogus key resolved'; end if;
 end $$;
 
+
+-- ---------------------------------------------------------------------------
+-- Vault helpers: service role only, upsert then delete
+-- ---------------------------------------------------------------------------
+select public.vault_upsert_secret('anthropic_key_test', 'sk-ant-one');
+select public.vault_upsert_secret('anthropic_key_test', 'sk-ant-two');
+do $$ begin
+  if (select decrypted_secret from vault.decrypted_secrets where name = 'anthropic_key_test') <> 'sk-ant-two' then
+    raise exception 'FAIL: vault upsert did not update';
+  end if;
+end $$;
+select public.vault_delete_secret('anthropic_key_test');
+do $$ begin
+  if exists (select 1 from vault.secrets where name = 'anthropic_key_test') then raise exception 'FAIL: vault delete'; end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  perform public.vault_upsert_secret('x', 'y');
+  raise exception 'FAIL: authenticated user could call vault_upsert_secret';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  perform public.resolve_ingest_key('jbx_x');
+  raise exception 'FAIL: authenticated user could call resolve_ingest_key';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

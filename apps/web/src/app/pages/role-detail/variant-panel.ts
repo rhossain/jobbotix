@@ -8,6 +8,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
   applyVariant,
@@ -19,14 +20,14 @@ import {
   type VariantChange,
   type VariantDiff,
 } from '@jobbotix/shared-types';
-import { ResumesRepo, VariantsRepo } from '../../core/data/repos';
+import { ResumesRepo, SettingsRepo, VariantsRepo } from '../../core/data/repos';
 import { ResumePreview } from '../../shared/resume-preview';
 import { Toast } from '../../shared/toast';
 
 /** The Resume tab on a role: tailored changes to accept or reject, keyword coverage, PDF. */
 @Component({
   selector: 'jb-variant-panel',
-  imports: [RouterLink, ResumePreview],
+  imports: [NgTemplateOutlet, RouterLink, ResumePreview],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!resumes.master()) {
@@ -41,7 +42,7 @@ import { Toast } from '../../shared/toast';
         <b>No tailored resume for this role yet.</b>
         Generate one: Jobbotix proposes changes to your master resume for this
         posting, and you accept or reject each one.
-        <div class="mt-3">
+        <div class="mt-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
             class="jb-btn-primary"
@@ -50,6 +51,7 @@ import { Toast } from '../../shared/toast';
           >
             {{ busy() ? 'Working…' : 'Generate tailored resume' }}
           </button>
+          <ng-container *ngTemplateOutlet="modelPicker" />
         </div>
       </div>
     } @else {
@@ -62,8 +64,18 @@ import { Toast } from '../../shared/toast';
             @if (variant()?.status === 'approved') {
               <span class="jb-tag jb-tag-ai ml-2">approved</span>
             }
+            @if (lastMethod(); as lm) {
+              <div class="text-xs text-neutral-500">
+                {{
+                  lm.method === 'ai'
+                    ? 'Written by ' + (lm.model || 'the model') + ' on your key'
+                    : 'Local suggestions (no model call)'
+                }}
+              </div>
+            }
           </div>
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <ng-container *ngTemplateOutlet="modelPicker" />
             <button
               type="button"
               class="jb-btn"
@@ -195,6 +207,28 @@ import { Toast } from '../../shared/toast';
         <jb-resume-preview [r]="applied()" [print]="true" />
       </div>
     }
+
+    <ng-template #modelPicker>
+      @if (hasKey()) {
+        <select
+          class="jb-input jb-input-inline"
+          aria-label="Model for this generation"
+          [value]="model()"
+          (change)="model.set($any($event.target).value)"
+        >
+          <option value="">Default model</option>
+          @for (m of settings.models(); track m.id) {
+            <option [value]="m.id">{{ m.label }}</option>
+          }
+        </select>
+      } @else {
+        <span class="text-xs text-neutral-500"
+          >No AI key: local suggestions only.
+          <a routerLink="/settings" class="underline">Add a key</a> for
+          model-written changes.</span
+        >
+      }
+    </ng-template>
   `,
   styles: `
     .jb-btn-on {
@@ -206,7 +240,16 @@ import { Toast } from '../../shared/toast';
 })
 export class VariantPanel {
   protected readonly resumes = inject(ResumesRepo);
+  protected readonly settings = inject(SettingsRepo);
   private readonly variants = inject(VariantsRepo);
+  readonly model = signal('');
+  readonly lastMethod = signal<{
+    method: 'ai' | 'local';
+    model?: string;
+  } | null>(null);
+  readonly hasKey = computed(
+    () => !!this.settings.profile()?.anthropic_key_ref,
+  );
   private readonly toast = inject(Toast);
 
   readonly role = input.required<RoleRow>();
@@ -244,6 +287,7 @@ export class VariantPanel {
 
   constructor() {
     void this.resumes.load();
+    void this.settings.load();
     effect(() => {
       const id = this.role().id;
       untracked(
@@ -269,7 +313,12 @@ export class VariantPanel {
   async generate() {
     this.busy.set(true);
     try {
-      this.variant.set(await this.variants.generate(this.role().id));
+      const v = await this.variants.generate(
+        this.role().id,
+        this.model() || undefined,
+      );
+      this.variant.set(v);
+      this.lastMethod.set({ method: v.method ?? 'local', model: v.model });
       this.toast.show('Changes proposed. Review each one.');
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not generate');
