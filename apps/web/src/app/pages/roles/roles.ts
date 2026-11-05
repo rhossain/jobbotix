@@ -6,7 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   EMPLOYMENT_TYPE_LABELS,
   ROLE_STATUSES,
@@ -383,8 +383,15 @@ export class Roles {
     });
   });
 
+  private readonly route = inject(ActivatedRoute);
+
   constructor() {
     void this.repo.load();
+    const status = this.route.snapshot.queryParamMap.get(
+      'status',
+    ) as RoleStatus | null;
+    if (status && (ROLE_STATUSES as readonly string[]).includes(status))
+      this.set('status', status);
     // keep the active row inside the list when filters shrink it
     effect(() => {
       const n = this.rows().length;

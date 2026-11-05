@@ -16,6 +16,12 @@ export const appRoutes: Route[] = [
     title: 'Roles · Jobbotix',
   },
   {
+    path: 'board',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/board/board').then((m) => m.Board),
+    title: 'Board · Jobbotix',
+  },
+  {
     path: 'login',
     canActivate: [guestGuard],
     loadComponent: () => import('./pages/auth/login').then((m) => m.Login),
