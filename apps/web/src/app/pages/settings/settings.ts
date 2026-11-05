@@ -17,23 +17,25 @@ import { RouterLink } from '@angular/router';
 import { LettersRepo, SettingsRepo } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
+import { Theme, type ThemePreference } from '../../core/theme';
+import { Confirm, PageHeader, Tabs, type TabItem } from '../../ui';
 
 /** Account, AI key and model, usage, ingest keys. */
 @Component({
   selector: 'jb-settings',
-  imports: [ReactiveFormsModule, RouterLink, RelativeDayPipe],
+  imports: [PageHeader, ReactiveFormsModule, RelativeDayPipe, RouterLink, Tabs],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="flex max-w-3xl flex-col gap-10">
-      <header>
-        <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
-      </header>
-
+    <jb-page-header
+      title="Settings"
+      lead="Your account, appearance, AI key and the keys your scheduled runs use."
+    />
+    <section class="mt-8 flex max-w-3xl flex-col gap-5">
       <!-- Profile -->
       <form
         [formGroup]="profileForm"
         (ngSubmit)="saveProfile()"
-        class="flex flex-col gap-4"
+        class="jb-card flex flex-col gap-4 p-5 md:p-6"
         novalidate
       >
         <h2 class="jb-section-title">Account</h2>
@@ -78,8 +80,28 @@ import { Toast } from '../../shared/toast';
         </div>
       </form>
 
+      <!-- Appearance -->
+      <section
+        class="jb-card flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between md:p-6"
+      >
+        <div>
+          <h2 class="jb-section-title">Appearance</h2>
+          <p class="mt-1 text-sm text-ink-muted">
+            Match your system, or keep Jobbotix light or dark.
+          </p>
+        </div>
+        <jb-tabs
+          variant="segmented"
+          prefix="appearance"
+          label="Theme"
+          [tabs]="themes"
+          [value]="theme.preference()"
+          (valueChange)="theme.set($any($event))"
+        />
+      </section>
+
       <!-- AI -->
-      <section class="flex flex-col gap-4">
+      <section class="jb-card flex flex-col gap-4 p-5 md:p-6">
         <h2 class="jb-section-title">AI</h2>
         <p class="text-sm text-ink-muted">
           Your daily search already produces scores, letters and answers through
@@ -89,7 +111,7 @@ import { Toast } from '../../shared/toast';
         </p>
         @if (hasKey()) {
           <div
-            class="jb-card flex flex-wrap items-center justify-between gap-3 p-3 text-sm"
+            class="flex flex-wrap items-center justify-between gap-3 rounded-control bg-brand-tint p-3.5 text-sm text-brand-ink"
           >
             <span
               >Anthropic key on file{{ last4() ? ' · ending ' + last4() : '' }}.
@@ -160,7 +182,7 @@ import { Toast } from '../../shared/toast';
       </section>
 
       <!-- Usage -->
-      <section class="flex flex-col gap-3">
+      <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
         <h2 class="jb-section-title">AI usage on your key</h2>
         @if (usageByModel().length === 0) {
           <p class="text-sm text-ink-muted">No in-app AI calls yet.</p>
@@ -193,7 +215,7 @@ import { Toast } from '../../shared/toast';
       </section>
 
       <!-- Voice samples -->
-      <section class="flex flex-col gap-3">
+      <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
         <h2 class="jb-section-title">Voice samples</h2>
         <p class="text-sm text-ink-muted">
           Up to three cover letters or emails you wrote yourself. Drafts copy
@@ -201,7 +223,9 @@ import { Toast } from '../../shared/toast';
           oldest is replaced when you add a fourth.
         </p>
         @for (v of letters.voiceSamples(); track v.id) {
-          <article class="jb-card p-3 text-sm">
+          <article
+            class="rounded-control border border-line bg-sunken p-3.5 text-sm"
+          >
             <div class="flex items-start justify-between gap-2">
               <span class="text-xs text-ink-muted"
                 >{{ v.word_count ?? 0 }} words · added
@@ -209,7 +233,7 @@ import { Toast } from '../../shared/toast';
               >
               <button
                 type="button"
-                class="jb-btn px-2 py-1"
+                class="jb-btn jb-btn-ghost jb-btn-sm"
                 (click)="removeSample(v.id)"
                 [disabled]="busy()"
               >
@@ -244,13 +268,14 @@ import { Toast } from '../../shared/toast';
       </section>
 
       <!-- Ingest keys -->
-      <section class="flex flex-col gap-3">
+      <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
         <h2 class="jb-section-title">Ingest keys</h2>
         <p class="text-sm text-ink-muted">
           Each key lets one scheduled task post results under your account.
           Create one from
-          <a routerLink="/search" class="underline">Search profile</a>; revoke
-          it here if it leaks.
+          <a routerLink="/search" class="text-brand-ink underline"
+            >Search profile</a
+          >; revoke it here if it leaks.
         </p>
         @if (repo.ingestKeys().length === 0) {
           <p class="text-sm text-ink-muted">No keys yet.</p>
@@ -266,13 +291,15 @@ import { Toast } from '../../shared/toast';
                     · last used {{ k.last_used_at | relativeDay }}
                   }
                   @if (k.revoked_at) {
-                    <span class="jb-tag ml-1">revoked</span>
+                    <span class="jb-tag ml-1 bg-bad-tint text-bad"
+                      >Revoked</span
+                    >
                   }
                 </span>
                 @if (!k.revoked_at) {
                   <button
                     type="button"
-                    class="jb-btn"
+                    class="jb-btn jb-btn-sm text-bad"
                     (click)="revoke(k.id)"
                     [disabled]="busy()"
                   >
@@ -288,6 +315,14 @@ import { Toast } from '../../shared/toast';
   `,
 })
 export class Settings {
+  protected readonly theme = inject(Theme);
+  private readonly confirm = inject(Confirm);
+  protected readonly themes: TabItem<ThemePreference>[] = [
+    { id: 'system', label: 'System', icon: 'monitor' },
+    { id: 'light', label: 'Light', icon: 'sun' },
+    { id: 'dark', label: 'Dark', icon: 'moon' },
+  ];
+
   protected readonly repo = inject(SettingsRepo);
   protected readonly letters = inject(LettersRepo);
   readonly sampleForm = new FormGroup({
@@ -401,6 +436,13 @@ export class Settings {
   }
 
   async clearKey() {
+    const ok = await this.confirm.ask({
+      title: 'Remove your Anthropic key?',
+      body: 'In-app generation falls back to local drafts until you add a key again. Your scheduled runs are not affected.',
+      action: 'Remove key',
+      danger: true,
+    });
+    if (!ok) return;
     this.busy.set(true);
     try {
       await this.repo.clearAnthropicKey();
@@ -426,6 +468,13 @@ export class Settings {
   }
 
   async removeSample(id: string) {
+    const ok = await this.confirm.ask({
+      title: 'Remove this voice sample?',
+      body: 'Drafts stop copying its tone.',
+      action: 'Remove sample',
+      danger: true,
+    });
+    if (!ok) return;
     this.busy.set(true);
     try {
       await this.letters.removeVoiceSample(id);
@@ -435,6 +484,13 @@ export class Settings {
   }
 
   async revoke(id: string) {
+    const ok = await this.confirm.ask({
+      title: 'Revoke this ingest key?',
+      body: 'Any scheduled task using it stops posting results until you give it a new key.',
+      action: 'Revoke key',
+      danger: true,
+    });
+    if (!ok) return;
     this.busy.set(true);
     try {
       await this.repo.revokeIngestKey(id);

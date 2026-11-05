@@ -21,6 +21,7 @@ import {
 import { Auth } from '../../core/auth';
 import { SearchProfileRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
+import { CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
 import { environment } from '../../../environments/environment';
 
 const splitLines = (s: string) =>
@@ -32,25 +33,28 @@ const splitLines = (s: string) =>
 /** What the daily run looks for, and the prompt that drives it. */
 @Component({
   selector: 'jb-search-profile',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [
+    CopyButton,
+    Icon,
+    PageHeader,
+    ReactiveFormsModule,
+    RouterLink,
+    Skeleton,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="flex flex-col gap-8">
-      <header>
-        <h1 class="text-2xl font-semibold tracking-tight">Search profile</h1>
-        <p class="mt-1 text-sm text-ink-muted">
-          What the daily run looks for. Save, then generate the prompt for your
-          scheduled task.
-        </p>
-      </header>
-
+    <jb-page-header
+      title="Search profile"
+      lead="What the daily run looks for. Save, then copy the prompt into your scheduled task."
+    />
+    <section class="mt-8 flex flex-col gap-6">
       @if (!repo.loaded()) {
-        <p class="text-sm text-ink-muted" role="status">Loading…</p>
+        <jb-skeleton shape="tile" [count]="3" />
       } @else {
         <form
           [formGroup]="form"
           (ngSubmit)="save()"
-          class="grid gap-6 md:grid-cols-2"
+          class="jb-card grid gap-6 p-5 md:grid-cols-2 md:gap-x-8 md:p-7"
           novalidate
         >
           <label class="flex flex-col gap-1 text-sm">
@@ -80,8 +84,8 @@ const splitLines = (s: string) =>
             ></textarea>
           </label>
 
-          <fieldset class="flex flex-col gap-2 text-sm">
-            <legend class="jb-section-title mb-1">Remote</legend>
+          <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
+            <legend class="jb-section-title mb-2">Remote</legend>
             <label class="flex items-center gap-2"
               ><input
                 id="sp-worldwide"
@@ -112,8 +116,8 @@ const splitLines = (s: string) =>
             </label>
           </fieldset>
 
-          <fieldset class="flex flex-col gap-2 text-sm">
-            <legend class="jb-section-title mb-1">Exclude</legend>
+          <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
+            <legend class="jb-section-title mb-2">Exclude</legend>
             <label class="flex items-center gap-2"
               ><input
                 id="sp-visa"
@@ -146,14 +150,14 @@ const splitLines = (s: string) =>
                 min="7"
                 max="120"
                 formControlName="olderThanDays"
-                class="jb-input jb-input-inline w-20"
+                class="jb-input jb-input-inline w-24"
               />
               days
             </label>
           </fieldset>
 
-          <fieldset class="flex flex-col gap-2 text-sm">
-            <legend class="jb-section-title mb-1">Employment</legend>
+          <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
+            <legend class="jb-section-title mb-2">Employment</legend>
             <label class="flex items-center gap-2"
               ><input id="sp-ft" type="checkbox" formControlName="fullTime" />
               Full-time</label
@@ -176,8 +180,8 @@ const splitLines = (s: string) =>
             </label>
           </fieldset>
 
-          <fieldset class="flex flex-col gap-2 text-sm">
-            <legend class="jb-section-title mb-1">Digest</legend>
+          <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
+            <legend class="jb-section-title mb-2">Digest</legend>
             <label class="flex items-center gap-2">
               <input
                 id="sp-digest-on"
@@ -207,8 +211,7 @@ const splitLines = (s: string) =>
               @for (d of weekdays; track d.n) {
                 <button
                   type="button"
-                  class="jb-btn px-2 py-1"
-                  [class.jb-btn-on]="digestDays().includes(d.n)"
+                  class="jb-chip"
                   [attr.aria-pressed]="digestDays().includes(d.n)"
                   (click)="toggleDay(d.n)"
                 >
@@ -225,7 +228,7 @@ const splitLines = (s: string) =>
                 max="100"
                 step="5"
                 formControlName="digestMinScore"
-                class="jb-input jb-input-inline w-20"
+                class="jb-input jb-input-inline w-24"
               />
             </label>
             <p class="text-ink-muted">
@@ -234,10 +237,18 @@ const splitLines = (s: string) =>
             </p>
           </fieldset>
 
-          <fieldset class="flex flex-col gap-2 text-sm md:col-span-2">
-            <legend class="jb-section-title mb-1 flex items-center gap-3">
+          <fieldset
+            class="jb-sp-group flex flex-col gap-2.5 text-sm md:col-span-2"
+          >
+            <legend
+              class="jb-section-title mb-2 flex w-full items-center justify-between gap-3"
+            >
               Scoring
-              <button type="button" class="jb-btn" (click)="resetWeights()">
+              <button
+                type="button"
+                class="jb-btn jb-btn-ghost jb-btn-sm"
+                (click)="resetWeights()"
+              >
                 Reset to defaults
               </button>
             </legend>
@@ -259,38 +270,47 @@ const splitLines = (s: string) =>
                     max="50"
                     step="1"
                     [formControlName]="k"
-                    class="jb-input jb-input-inline w-20 text-right"
+                    class="jb-input jb-input-inline w-24 text-right"
                   />
                 </label>
               }
             </div>
           </fieldset>
 
-          <div class="flex items-center gap-3 md:col-span-2">
+          <div
+            class="flex items-center gap-3 border-t border-line pt-5 md:col-span-2"
+          >
             <button
               type="submit"
-              class="jb-btn-primary"
+              class="jb-btn-primary jb-btn-lg"
+              [attr.aria-busy]="saving() ? 'true' : null"
               [disabled]="form.pristine || saving()"
             >
-              {{ saving() ? 'Saving…' : 'Save profile' }}
+              Save profile
             </button>
-            @if (savedAt()) {
-              <span class="text-sm text-ink-muted" role="status">Saved</span>
+            @if (savedAt() && form.pristine) {
+              <span
+                class="inline-flex items-center gap-1.5 text-sm text-good"
+                role="status"
+              >
+                <jb-icon name="circle-check" [size]="17" /> Saved
+              </span>
             }
           </div>
         </form>
 
-        <section class="flex flex-col gap-3">
-          <div class="flex flex-wrap items-center justify-between gap-2">
+        <section class="jb-card flex flex-col gap-4 p-5 md:p-7">
+          <div class="flex flex-wrap items-center justify-between gap-3">
             <h2 class="jb-section-title">Scheduled-task prompt</h2>
             <div class="flex gap-2">
               <button
                 type="button"
                 class="jb-btn"
-                (click)="newKey()"
+                [attr.aria-busy]="keyBusy() ? 'true' : null"
                 [disabled]="keyBusy()"
+                (click)="newKey()"
               >
-                {{ keyBusy() ? 'Creating…' : 'New ingest key' }}
+                <jb-icon name="key-round" /> New ingest key
               </button>
               <button
                 type="button"
@@ -313,11 +333,24 @@ const splitLines = (s: string) =>
             }
           </p>
           @if (ingestKey()) {
-            <p
-              class="jb-letter max-w-none font-mono text-xs"
-              aria-label="Ingest key"
+            <div
+              class="flex flex-col gap-2 rounded-control bg-signal-tint p-3.5 sm:flex-row sm:items-center"
             >
-              {{ ingestKey() }}
+              <p
+                class="min-w-0 flex-1 font-mono text-xs break-all text-ink"
+                aria-label="Ingest key"
+              >
+                {{ ingestKey() }}
+              </p>
+              <jb-copy-button
+                [text]="ingestKey()"
+                label="Copy key"
+                size="sm"
+                confirm="Ingest key copied"
+              />
+            </div>
+            <p class="text-xs text-signal-ink">
+              Shown once. Copy it now if you need it elsewhere.
             </p>
           }
           <pre
@@ -325,12 +358,30 @@ const splitLines = (s: string) =>
             >{{ prompt() }}</pre>
           <p class="text-xs text-ink-muted">
             Results arrive on
-            <a routerLink="/today" class="underline">Today</a>. The run never
-            submits applications.
+            <a routerLink="/today" class="text-brand-ink underline">Today</a>.
+            The run never submits applications.
           </p>
         </section>
       }
     </section>
+  `,
+  styles: `
+    .jb-sp-group {
+      min-width: 0;
+      margin: 0;
+      padding: 1rem;
+      border: 1px solid var(--line);
+      border-radius: var(--r-card);
+      background: color-mix(in srgb, var(--surface-sunken) 45%, var(--surface));
+    }
+    .jb-sp-group > legend {
+      float: left;
+      width: 100%;
+      padding: 0;
+    }
+    .jb-sp-group > legend + * {
+      clear: both;
+    }
   `,
 })
 export class SearchProfile {
