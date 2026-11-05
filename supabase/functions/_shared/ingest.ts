@@ -71,28 +71,50 @@ export interface NormalisedRole {
   qa: ScreeningAnswer[];
 }
 
-const str = (v: unknown, max = 2000): string => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const str = (v: unknown, max = 2000): string =>
+  typeof v === 'string' ? v.trim().slice(0, max) : '';
 const strs = (v: unknown, max = 20): string[] =>
-  Array.isArray(v) ? v.filter((x) => typeof x === 'string').map((x) => x.trim()).filter(Boolean).slice(0, max) : [];
+  Array.isArray(v)
+    ? v
+        .filter((x) => typeof x === 'string')
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .slice(0, max)
+    : [];
 
-export function normaliseRole(raw: IngestRole | null | undefined): NormalisedRole | null {
+export function normaliseRole(
+  raw: IngestRole | null | undefined,
+): NormalisedRole | null {
   if (!raw) return null;
   const company = str(raw.company, 200);
   const title = str(raw.title, 200);
   const url = str(raw.url, 1000);
   const score = Number(raw.score);
-  if (!company || !title || !/^https?:\/\//i.test(url) || !Number.isFinite(score)) return null;
+  if (
+    !company ||
+    !title ||
+    !/^https?:\/\//i.test(url) ||
+    !Number.isFinite(score)
+  )
+    return null;
 
   const stack =
     typeof raw.stack === 'string'
-      ? raw.stack.split(/[,;]/).map((s) => s.trim()).filter(Boolean).slice(0, 40)
+      ? raw.stack
+          .split(/[,;]/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .slice(0, 40)
       : strs(raw.stack, 40);
 
   const posted = str(raw.posted, 10);
   const posted_at = /^\d{4}-\d{2}-\d{2}$/.test(posted) ? posted : null;
 
   const typeRaw = String(raw.type ?? '').toLowerCase();
-  const type: 'full_time' | 'contract' = typeRaw.includes('contract') || typeRaw.includes('freelance') ? 'contract' : 'full_time';
+  const type: 'full_time' | 'contract' =
+    typeRaw.includes('contract') || typeRaw.includes('freelance')
+      ? 'contract'
+      : 'full_time';
 
   const posting_text = str(raw.postingText, 50_000);
   const qa = Array.isArray(raw.qa)

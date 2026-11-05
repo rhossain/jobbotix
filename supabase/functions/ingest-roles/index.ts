@@ -10,23 +10,15 @@
 // any edited cover letter, and only metadata the run can improve is refreshed.
 // Every run writes one "run" event so Today can show the summary.
 
-import { createClient } from 'npm:@supabase/supabase-js@2';
-import { normaliseRole, type IngestPayload, type IngestResult } from '../_shared/ingest.ts';
-
-const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-
-const json = (status: number, body: unknown) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=utf-8' },
-  });
+import { json, resolveIngestKey, serviceClient } from '../_shared/auth.ts';
+import {
+  normaliseRole,
+  type IngestPayload,
+  type IngestResult,
+} from '../_shared/ingest.ts';
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(405, { error: 'POST only' });
-
-  const bearer = req.headers.get('authorization')?.replace(/^Bearer\s+/i, '').trim();
-  if (!bearer || !bearer.startsWith('jbx_')) return json(401, { error: 'Missing ingest key' });
 
   let payload: IngestPayload;
   try {
@@ -34,23 +26,35 @@ Deno.serve(async (req) => {
   } catch {
     return json(400, { error: 'Body must be JSON' });
   }
-  if (!payload || !Array.isArray(payload.roles)) return json(400, { error: 'roles[] is required' });
-  if (payload.roles.length > 500) return json(413, { error: 'At most 500 roles per run' });
+  if (!payload || !Array.isArray(payload.roles))
+    return json(400, { error: 'roles[] is required' });
+  if (payload.roles.length > 500)
+    return json(413, { error: 'At most 500 roles per run' });
 
-  const admin = createClient(supabaseUrl, serviceRoleKey, { auth: { persistSession: false } });
+  const admin = serviceClient();
+  const userId = await resolveIngestKey(req, admin);
+  if (userId instanceof Response) return userId;
 
-  const { data: userId, error: keyError } = await admin.rpc('resolve_ingest_key', { p_key: bearer });
-  if (keyError) return json(500, { error: keyError.message });
-  if (!userId) return json(401, { error: 'Unknown or revoked ingest key' });
-
-  const runAt = payload.runAt && !Number.isNaN(Date.parse(payload.runAt)) ? payload.runAt : new Date().toISOString();
-  const result: IngestResult = { inserted: 0, updated: 0, skipped: 0, excludedStored: 0, errors: [] };
+  const runAt =
+    payload.runAt && !Number.isNaN(Date.parse(payload.runAt))
+      ? payload.runAt
+      : new Date().toISOString();
+  const result: IngestResult = {
+    inserted: 0,
+    updated: 0,
+    skipped: 0,
+    excludedStored: 0,
+    errors: [],
+  };
 
   for (const raw of payload.roles) {
     const role = normaliseRole(raw);
     if (!role) {
       result.skipped++;
-      result.errors.push({ url: raw?.url ?? '', message: 'company, title, url and score are required' });
+      result.errors.push({
+        url: raw?.url ?? '',
+        message: 'company, title, url and score are required',
+      });
       continue;
     }
 
@@ -94,15 +98,26 @@ Deno.serve(async (req) => {
       .select('id')
       .single();
     if (error || !inserted) {
-      result.errors.push({ url: role.url, message: error?.message ?? 'insert failed' });
+      result.errors.push({
+        url: role.url,
+        message: error?.message ?? 'insert failed',
+      });
       continue;
     }
     result.inserted++;
 
     if (role.qa.length) {
-      await admin.from('screening_answers').insert(
-        role.qa.map((x, i) => ({ user_id: userId, role_id: inserted.id, question: x.q, answer: x.a, position: i })),
-      );
+      await admin
+        .from('screening_answers')
+        .insert(
+          role.qa.map((x, i) => ({
+            user_id: userId,
+            role_id: inserted.id,
+            question: x.q,
+            answer: x.a,
+            position: i,
+          })),
+        );
     }
     await admin.from('role_events').insert({
       user_id: userId,
@@ -112,7 +127,9 @@ Deno.serve(async (req) => {
     });
   }
 
-  const excluded = Array.isArray(payload.excluded) ? payload.excluded.slice(0, 500) : [];
+  const excluded = Array.isArray(payload.excluded)
+    ? payload.excluded.slice(0, 500)
+    : [];
   if (excluded.length) {
     const { error } = await admin.from('excluded_roles').insert(
       excluded

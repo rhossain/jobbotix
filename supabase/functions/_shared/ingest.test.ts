@@ -29,15 +29,46 @@ Deno.test('normaliseRole maps the tracker document shape', () => {
 });
 
 Deno.test('normaliseRole rejects rows missing required fields', () => {
-  assertEquals(normaliseRole({ company: 'X', title: '', url: 'https://x', score: 1 }), null);
-  assertEquals(normaliseRole({ company: 'X', title: 'Y', url: 'not-a-url', score: 1 }), null);
-  assertEquals(normaliseRole({ company: 'X', title: 'Y', url: 'https://x', score: Number.NaN }), null);
+  assertEquals(
+    normaliseRole({ company: 'X', title: '', url: 'https://x', score: 1 }),
+    null,
+  );
+  assertEquals(
+    normaliseRole({ company: 'X', title: 'Y', url: 'not-a-url', score: 1 }),
+    null,
+  );
+  assertEquals(
+    normaliseRole({
+      company: 'X',
+      title: 'Y',
+      url: 'https://x',
+      score: Number.NaN,
+    }),
+    null,
+  );
 });
 
 Deno.test('contract and freelance map to contract; scores clamp', () => {
-  assertEquals(normaliseRole({ company: 'X', title: 'Y', url: 'https://x', score: 140, type: 'Contract' })?.type, 'contract');
-  assertEquals(normaliseRole({ company: 'X', title: 'Y', url: 'https://x', score: 140 })?.score, 100);
-  assertEquals(normaliseRole({ company: 'X', title: 'Y', url: 'https://x', score: -3 })?.score, 0);
+  assertEquals(
+    normaliseRole({
+      company: 'X',
+      title: 'Y',
+      url: 'https://x',
+      score: 140,
+      type: 'Contract',
+    })?.type,
+    'contract',
+  );
+  assertEquals(
+    normaliseRole({ company: 'X', title: 'Y', url: 'https://x', score: 140 })
+      ?.score,
+    100,
+  );
+  assertEquals(
+    normaliseRole({ company: 'X', title: 'Y', url: 'https://x', score: -3 })
+      ?.score,
+    0,
+  );
 });
 
 Deno.test('fnv1a is stable', () => {
