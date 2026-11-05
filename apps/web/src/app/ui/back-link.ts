@@ -7,7 +7,6 @@ import { Icon } from './icon';
   selector: 'jb-back-link',
   imports: [RouterLink, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'inline-block' },
   template: `
     <a
       [routerLink]="link()"

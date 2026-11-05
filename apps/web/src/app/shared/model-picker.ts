@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  input,
   model,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
@@ -20,7 +21,7 @@ import { SettingsRepo } from '../core/data/repos';
   template: `
     @if (hasKey()) {
       <select
-        class="jb-input jb-input-inline"
+        class="jb-input jb-input-inline min-h-9 py-1 text-sm"
         aria-label="Model for this generation"
         [value]="value()"
         (change)="value.set($any($event.target).value)"
@@ -32,11 +33,11 @@ import { SettingsRepo } from '../core/data/repos';
           </option>
         }
       </select>
-    } @else {
-      <span class="text-xs text-neutral-500"
-        >No AI key: local draft only.
-        <a routerLink="/settings" class="underline">Add a key</a> for
-        model-written text.</span
+    } @else if (!quiet()) {
+      <span class="text-xs text-ink-muted"
+        >No AI key, so drafts are written locally.
+        <a routerLink="/settings" class="text-brand-ink underline">Add a key</a>
+        for model-written text.</span
       >
     }
   `,
@@ -44,6 +45,8 @@ import { SettingsRepo } from '../core/data/repos';
 export class ModelPicker {
   protected readonly settings = inject(SettingsRepo);
   readonly value = model('');
+  /** Say nothing when there is no key (a second picker on the same page). */
+  readonly quiet = input(false);
   readonly hasKey = computed(
     () => !!this.settings.profile()?.anthropic_key_ref,
   );

@@ -772,3 +772,18 @@
     }
   }
 }
+
+// The prep sheet prints on its own (PrepPanel.print sets the class).
+@media print {
+  body.jb-print-prep {
+    visibility: hidden;
+  }
+
+  body.jb-print-prep .jb-prep {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    visibility: visible;
+  }
+}

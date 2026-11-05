@@ -10,9 +10,17 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router } from '@angular/router';
 import { RolesRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
+import {
+  BackLink,
+  Button,
+  Field,
+  FieldControl,
+  Icon,
+  PageHeader,
+} from '../../ui';
 import { environment } from '../../../environments/environment';
 
 const URL_PATTERN = /^https?:\/\/\S+$/i;
@@ -20,74 +28,109 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
 /** Add a posting the daily run did not find. */
 @Component({
   selector: 'jb-add-role',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [
+    BackLink,
+    Button,
+    Field,
+    FieldControl,
+    Icon,
+    PageHeader,
+    ReactiveFormsModule,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="max-w-2xl">
-      <nav class="text-sm">
-        <a routerLink="/roles" class="text-neutral-500 hover:underline"
-          >← Roles</a
-        >
-      </nav>
-      <h1 class="mt-4 text-2xl font-semibold tracking-tight">Add a role</h1>
-      <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-        Paste the posting's link. Jobbotix reads the page and fills in company,
-        title, stack and pay; you can fix anything on the role's page
-        afterwards.
-      </p>
+    <div class="mx-auto max-w-2xl">
+      <jb-back-link
+        class="mb-4 hidden md:inline-block"
+        link="/roles"
+        label="Roles"
+      />
+      <jb-page-header
+        title="Add a role"
+        lead="Paste the posting's link. Jobbotix reads the page and fills in company, title, stack and pay; you can fix anything on the role's page afterwards."
+      />
 
       <form
         [formGroup]="form"
         (ngSubmit)="submit()"
-        class="mt-6 flex flex-col gap-4"
+        class="jb-card mt-6 flex flex-col gap-5 p-5 md:mt-8 md:p-7"
         novalidate
       >
-        <label class="flex flex-col gap-1 text-sm">
-          <span>Posting URL</span>
+        <jb-field label="Posting URL" [error]="urlError()">
           <input
+            jbInput
             id="add-url"
             type="url"
+            inputmode="url"
             formControlName="url"
-            class="jb-input"
-            placeholder="https://…"
+            placeholder="https://company.com/careers/senior-angular-engineer"
             autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            (blur)="urlTouched.set(true)"
           />
-        </label>
-        <label class="flex flex-col gap-1 text-sm">
-          <span>
-            Posting text
-            <span class="text-neutral-500">{{
-              demo
-                ? '(demo mode cannot fetch pages, so paste the posting here)'
-                : '(optional: paste it if the page blocks automated reading)'
-            }}</span>
-          </span>
+        </jb-field>
+        <jb-field
+          label="Posting text"
+          [optional]="!demo"
+          [hint]="
+            demo
+              ? 'Demo mode cannot fetch pages, so paste the posting here (80 characters or more).'
+              : 'Paste it if the page blocks automated reading: select all on the posting, copy, paste.'
+          "
+        >
           <textarea
+            jbInput
+            [autogrow]="true"
             id="add-text"
+            rows="6"
             formControlName="text"
-            class="jb-input min-h-40"
-            placeholder="Select all on the posting page, copy, paste here"
+            class="max-h-[60vh]"
+            placeholder="The full posting text"
           ></textarea>
-        </label>
+        </jb-field>
+
         @if (error()) {
-          <p class="text-sm text-red-700 dark:text-red-300" role="alert">
+          <p
+            class="flex items-start gap-2.5 rounded-control bg-bad-tint px-3.5 py-3 text-sm text-bad"
+            role="alert"
+          >
+            <jb-icon name="circle-x" [size]="18" class="mt-px" />
             {{ error() }}
           </p>
         }
-        <div class="flex items-center gap-3">
+        @if (busy()) {
+          <p
+            class="flex items-center gap-2.5 text-sm text-ink-muted"
+            role="status"
+          >
+            <jb-icon
+              name="loader-circle"
+              [size]="18"
+              class="animate-spin text-brand"
+            />
+            Reading the posting. This can take up to 20 seconds.
+          </p>
+        }
+
+        <div
+          class="flex flex-col-reverse gap-3 border-t border-line pt-5 md:flex-row md:items-center md:justify-between"
+        >
+          <p class="text-xs text-ink-muted">
+            Added roles start at score 0 until a run or you score them.
+          </p>
           <button
             type="submit"
-            class="jb-btn-primary"
+            jbButton="primary"
+            size="lg"
+            [busy]="busy()"
             [disabled]="form.invalid || busy()"
           >
-            {{ busy() ? 'Reading the posting…' : 'Add role' }}
+            <jb-icon name="plus" /> Add role
           </button>
-          <span class="text-xs text-neutral-500"
-            >Added roles start with score 0 until a run or you score them.</span
-          >
         </div>
       </form>
-    </section>
+    </div>
   `,
 })
 export class AddRole {
@@ -97,6 +140,15 @@ export class AddRole {
   readonly demo = environment.demo;
   readonly busy = signal(false);
   readonly error = signal('');
+  readonly urlTouched = signal(false);
+
+  urlError(): string | null {
+    const c = this.form.controls.url;
+    if (!this.urlTouched() || c.valid) return null;
+    return c.value
+      ? 'Use the full link, starting with https://'
+      : 'Paste the link to the posting';
+  }
 
   readonly form = new FormGroup({
     url: new FormControl('', {
@@ -118,7 +170,8 @@ export class AddRole {
     try {
       const { url, text } = this.form.getRawValue();
       const result = await this.repo.addFromUrl(url.trim(), text.trim());
-      this.toast.show(result.existed ? 'Already in your roles' : 'Role added');
+      if (result.existed) this.toast.show('Already in your roles');
+      else this.toast.success('Role added');
       await this.router.navigate(['/roles', result.id]);
     } catch (e) {
       this.error.set((e as Error).message || 'Could not add the role');

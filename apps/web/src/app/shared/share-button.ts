@@ -6,35 +6,40 @@ import {
   signal,
 } from '@angular/core';
 import { SharesRepo } from '../core/data/repos';
+import { Button, Icon } from '../ui';
 import { Toast } from './toast';
 
 /** Creates (or reuses) a read-only link and copies it; a second click revokes. */
 @Component({
   selector: 'jb-share-button',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [Button, Icon],
   template: `
-    <span class="inline-flex items-center gap-2">
+    <span class="inline-flex items-center gap-1">
       <button
         type="button"
-        class="jb-btn"
-        (click)="share()"
+        jbButton
+        [busy]="busy()"
         [disabled]="busy()"
         [title]="
           kind() === 'board'
             ? 'Copy a read-only link to your board for a mentor'
             : 'Copy a read-only link to this role for a mentor'
         "
+        (click)="share()"
       >
-        {{ busy() ? 'Sharing…' : 'Share' }}
+        <jb-icon name="share-2" /> {{ liveId() ? 'Copy link' : 'Share' }}
       </button>
       @if (liveId(); as id) {
         <button
           type="button"
-          class="text-xs text-neutral-500 underline"
-          (click)="revoke(id)"
+          jbButton="ghost"
+          size="sm"
           [disabled]="busy()"
+          title="Stop sharing: the link stops working"
+          (click)="revoke(id)"
         >
-          revoke link
+          Stop sharing
         </button>
       }
     </span>
@@ -90,7 +95,7 @@ export class ShareButton {
     try {
       await this.repo.revoke(id);
       this.refresh();
-      this.toast.show('Link revoked');
+      this.toast.show('Sharing stopped; the link no longer works');
     } finally {
       this.busy.set(false);
     }
