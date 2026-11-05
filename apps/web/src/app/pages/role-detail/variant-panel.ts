@@ -22,6 +22,7 @@ import {
 import { ResumesRepo, VariantsRepo } from '../../core/data/repos';
 import { ModelPicker } from '../../shared/model-picker';
 import { ResumePreview } from '../../shared/resume-preview';
+import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
 
 /** The Resume tab on a role: tailored changes to accept or reject, keyword coverage, PDF. */
@@ -92,8 +93,22 @@ import { Toast } from '../../shared/toast';
             >
               Accept all
             </button>
-            <button type="button" class="jb-btn" (click)="printPdf()">
-              Save as PDF
+            <button
+              type="button"
+              class="jb-btn"
+              (click)="downloadPdf()"
+              [disabled]="exporting()"
+              title="Text PDF of the result, readable by ATS parsers"
+            >
+              {{ exporting() ? 'Building…' : 'Download PDF' }}
+            </button>
+            <button
+              type="button"
+              class="jb-btn"
+              (click)="printPdf()"
+              title="Browser print dialog"
+            >
+              Print
             </button>
             <button
               type="button"
@@ -229,6 +244,7 @@ export class VariantPanel {
   readonly role = input.required<RoleRow>();
   readonly variant = signal<ResumeVariantRow | null>(null);
   readonly busy = signal(false);
+  readonly exporting = signal(false);
 
   readonly master = computed<ResumeSections>(() =>
     normaliseResume(this.resumes.master()?.sections),
@@ -361,6 +377,20 @@ export class VariantPanel {
       this.toast.show((e as Error).message || 'Could not approve');
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  async downloadPdf() {
+    this.exporting.set(true);
+    try {
+      await downloadResumePdf(
+        this.applied(),
+        resumeFilename(this.applied(), this.role().company),
+      );
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not build the PDF');
+    } finally {
+      this.exporting.set(false);
     }
   }
 

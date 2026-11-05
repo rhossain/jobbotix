@@ -22,6 +22,7 @@ import { ResumesRepo } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { ResumePreview } from '../../shared/resume-preview';
 import { ResumeImportPanel } from './resume-import';
+import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
 
 type Pane = 'edit' | 'preview';
@@ -100,8 +101,22 @@ const csv = (s: string) =>
           >
             Import
           </button>
-          <button type="button" class="jb-btn" (click)="printPdf()">
-            Save as PDF
+          <button
+            type="button"
+            class="jb-btn"
+            (click)="downloadPdf()"
+            [disabled]="exporting()"
+            title="Text PDF, readable by ATS parsers"
+          >
+            {{ exporting() ? 'Building…' : 'Download PDF' }}
+          </button>
+          <button
+            type="button"
+            class="jb-btn"
+            (click)="printPdf()"
+            title="Browser print dialog (choose Save as PDF)"
+          >
+            Print
           </button>
           <button
             type="button"
@@ -568,6 +583,7 @@ export class ResumeEditor {
   readonly saving = signal(false);
   readonly pane = signal<Pane>('edit');
   readonly importing = signal(false);
+  readonly exporting = signal(false);
   readonly printing = signal(false);
   readonly linksText = computed(() =>
     this.d()
@@ -737,6 +753,17 @@ export class ResumeEditor {
       this.saved.set(JSON.stringify(sections));
     }
     this.toast.show('Restored');
+  }
+
+  async downloadPdf() {
+    this.exporting.set(true);
+    try {
+      await downloadResumePdf(this.d(), resumeFilename(this.d()));
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not build the PDF');
+    } finally {
+      this.exporting.set(false);
+    }
   }
 
   printPdf() {

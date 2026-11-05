@@ -4,11 +4,15 @@
   "projectType": "application",
   "prefix": "jb",
   "sourceRoot": "apps/web/src",
-  "tags": ["scope:web"],
+  "tags": [
+    "scope:web"
+  ],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
-      "outputs": ["{options.outputPath}"],
+      "outputs": [
+        "{options.outputPath}"
+      ],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/apps/web",
@@ -26,7 +30,10 @@
             "output": "/"
           }
         ],
-        "styles": ["apps/web/src/tailwind.css", "apps/web/src/styles.scss"],
+        "styles": [
+          "apps/web/src/tailwind.css",
+          "apps/web/src/styles.scss"
+        ],
         "allowedCommonJsDependencies": [
           "mammoth",
           "lop",
@@ -36,7 +43,13 @@
           "xmlbuilder",
           "bluebird",
           "underscore",
-          "path-is-absolute"
+          "path-is-absolute",
+          "html2canvas",
+          "core-js",
+          "raf",
+          "rgbcolor",
+          "dompurify",
+          "fflate"
         ]
       },
       "configurations": {
@@ -103,7 +116,9 @@
       "readyWhen": {
         "signal": true
       },
-      "dependsOn": ["build"],
+      "dependsOn": [
+        "build"
+      ],
       "executor": "@nx/web:file-server",
       "options": {
         "buildTarget": "web:build",
