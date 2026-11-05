@@ -457,6 +457,16 @@
     @media (pointer: coarse) {
       min-height: 2.75rem;
     }
+
+    &.jb-status-compact {
+      min-height: 1.75rem;
+      padding: 0.15rem 0.45rem;
+      font-size: 0.75rem;
+
+      @media (pointer: coarse) {
+        min-height: 2.5rem;
+      }
+    }
   }
 
   // ---------- Count badge beside a heading ----------
