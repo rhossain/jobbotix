@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import type { InviteCodeRow } from '@jobbotix/shared-types';
 import { injectSupabase } from '../../core/supabase';
 
@@ -16,6 +16,7 @@ import { injectSupabase } from '../../core/supabase';
       </p>
 
       <form
+        [formGroup]="form"
         (ngSubmit)="create()"
         class="mt-6 flex flex-wrap items-end gap-3"
         novalidate
@@ -25,7 +26,7 @@ import { injectSupabase } from '../../core/supabase';
           <input
             id="invite-note"
             type="text"
-            [formControl]="note"
+            formControlName="note"
             class="jb-input w-64"
             placeholder="e.g. Rafi from the Angular meetup"
           />
@@ -100,7 +101,10 @@ import { injectSupabase } from '../../core/supabase';
 export class AdminInvites {
   private readonly supabase = injectSupabase();
   readonly origin = location.origin;
-  readonly note = new FormControl('', { nonNullable: true });
+  readonly form = new FormGroup({
+    note: new FormControl('', { nonNullable: true }),
+  });
+  readonly note = this.form.controls.note;
   readonly codes = signal<InviteCodeRow[]>([]);
   readonly lastCode = signal('');
   readonly busy = signal(false);

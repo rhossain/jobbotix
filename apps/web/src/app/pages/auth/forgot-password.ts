@@ -4,7 +4,12 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
@@ -23,13 +28,18 @@ import { AuthShell } from './auth-shell';
           If an account exists for that address, the email is on its way.
         </p>
       } @else {
-        <form (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
+        <form
+          [formGroup]="form"
+          (ngSubmit)="submit()"
+          class="flex flex-col gap-4"
+          novalidate
+        >
           <label class="flex flex-col gap-1 text-sm">
             <span>Email</span>
             <input
               id="forgot-email"
               type="email"
-              [formControl]="email"
+              formControlName="email"
               autocomplete="email"
               class="jb-input"
             />
@@ -56,10 +66,13 @@ import { AuthShell } from './auth-shell';
 })
 export class ForgotPassword {
   private readonly auth = inject(Auth);
-  readonly email = new FormControl('', {
-    nonNullable: true,
-    validators: [Validators.required, Validators.email],
+  readonly form = new FormGroup({
+    email: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.email],
+    }),
   });
+  readonly email = this.form.controls.email;
   readonly busy = signal(false);
   readonly sent = signal(false);
   readonly error = signal('');

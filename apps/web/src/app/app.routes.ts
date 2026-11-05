@@ -1,8 +1,21 @@
 import { Route } from '@angular/router';
-import { adminGuard, authGuard, guestGuard } from './core/guards';
+import { adminGuard, authGuard, guestGuard, landingGuard } from './core/guards';
 
 export const appRoutes: Route[] = [
-  { path: '', pathMatch: 'full', redirectTo: 'today' },
+  {
+    path: '',
+    pathMatch: 'full',
+    canActivate: [landingGuard],
+    loadComponent: () =>
+      import('./pages/landing/landing').then((m) => m.Landing),
+    title: 'Jobbotix',
+  },
+  {
+    path: 'privacy',
+    loadComponent: () =>
+      import('./pages/landing/privacy').then((m) => m.Privacy),
+    title: 'Privacy · Jobbotix',
+  },
   {
     path: 'today',
     canActivate: [authGuard],

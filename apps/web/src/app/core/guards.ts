@@ -25,3 +25,11 @@ export const adminGuard: CanActivateFn = async () => {
   await auth.ready;
   return auth.isAdmin() ? true : router.createUrlTree(['/']);
 };
+
+/** The public front page; signed-in people go straight to Today. */
+export const landingGuard: CanActivateFn = async () => {
+  const auth = inject(Auth);
+  const router = inject(Router);
+  await auth.ready;
+  return auth.isSignedIn() ? router.createUrlTree(['/today']) : true;
+};

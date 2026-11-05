@@ -54,6 +54,14 @@ export type InviteCodeRow = {
   created_at: string;
 };
 
+export type InviteRequestRow = {
+  id: string;
+  email: string;
+  note: string;
+  created_at: string;
+  invited_code: string | null;
+};
+
 export type SettingRow = {
   key: string;
   value: Json;
@@ -233,6 +241,13 @@ export type Database = {
           | 'created_at'
         >
       >;
+      invite_requests: Table<
+        InviteRequestRow,
+        Insertable<
+          InviteRequestRow,
+          'id' | 'note' | 'created_at' | 'invited_code'
+        >
+      >;
       settings: Table<
         SettingRow,
         Insertable<SettingRow, 'value' | 'updated_at'>
@@ -368,6 +383,10 @@ export type Database = {
           p_expires_at?: string | null;
         };
         Returns: string;
+      };
+      request_invite: {
+        Args: { p_email: string; p_note?: string };
+        Returns: undefined;
       };
       admin_revoke_invite: { Args: { p_code: string }; Returns: undefined };
       create_ingest_key: { Args: { p_label?: string }; Returns: string };

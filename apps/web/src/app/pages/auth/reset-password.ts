@@ -4,7 +4,12 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
+import {
+  FormControl,
+  FormGroup,
+  ReactiveFormsModule,
+  Validators,
+} from '@angular/forms';
 import { Router } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
@@ -16,7 +21,12 @@ import { AuthShell } from './auth-shell';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-auth-shell heading="Choose a new password">
-      <form (ngSubmit)="submit()" class="flex flex-col gap-4" novalidate>
+      <form
+        [formGroup]="form"
+        (ngSubmit)="submit()"
+        class="flex flex-col gap-4"
+        novalidate
+      >
         <label class="flex flex-col gap-1 text-sm">
           <span
             >New password
@@ -25,7 +35,7 @@ import { AuthShell } from './auth-shell';
           <input
             id="reset-password"
             type="password"
-            [formControl]="password"
+            formControlName="password"
             autocomplete="new-password"
             class="jb-input"
           />
@@ -49,10 +59,13 @@ import { AuthShell } from './auth-shell';
 export class ResetPassword {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
-  readonly password = new FormControl('', {
-    nonNullable: true,
-    validators: [Validators.required, Validators.minLength(8)],
+  readonly form = new FormGroup({
+    password: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(8)],
+    }),
   });
+  readonly password = this.form.controls.password;
   readonly busy = signal(false);
   readonly error = signal('');
 
