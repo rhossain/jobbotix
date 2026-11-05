@@ -1,0 +1,77 @@
+// App shell layout. Navigation parts style themselves; this file places them.
+
+.jb-shell {
+  display: grid;
+  min-height: 100dvh;
+
+  @media (min-width: 768px) {
+    grid-template-columns: var(--rail-w) minmax(0, 1fr);
+
+    &[data-rail='false'] {
+      grid-template-columns: var(--sidebar-w) minmax(0, 1fr);
+    }
+  }
+}
+
+.jb-page {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(var(--content-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: 1.25rem var(--gutter)
+    calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 2.5rem);
+  outline: none;
+
+  @media (min-width: 768px) {
+    padding-top: 2.5rem;
+    padding-bottom: 4rem;
+  }
+
+  @media print {
+    padding: 0;
+  }
+}
+
+.jb-page-public {
+  padding-bottom: 4rem;
+}
+
+.jb-public-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: calc(var(--content-max) + 2 * var(--gutter));
+  margin: 0 auto;
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) var(--gutter) 0.75rem;
+}
+
+.jb-offline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.5rem var(--gutter);
+  background: var(--warn-tint);
+  color: var(--warn);
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+
+.jb-boot {
+  animation: boot 1.2s var(--motion-ease) infinite alternate;
+}
+
+@keyframes boot {
+  from {
+    opacity: 0.45;
+    transform: scale(0.94);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .jb-boot {
+    animation: none;
+  }
+}

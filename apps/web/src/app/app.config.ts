@@ -5,7 +5,11 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideServiceWorker } from '@angular/service-worker';
-import { provideRouter, withComponentInputBinding } from '@angular/router';
+import {
+  provideRouter,
+  withComponentInputBinding,
+  withViewTransitions,
+} from '@angular/router';
 import { environment } from '../environments/environment';
 import { appRoutes } from './app.routes';
 import { Auth } from './core/auth';
@@ -89,7 +93,11 @@ const dataProviders: Provider[] = environment.demo
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(appRoutes, withComponentInputBinding()),
+    provideRouter(
+      appRoutes,
+      withComponentInputBinding(),
+      withViewTransitions({ skipInitialTransition: true }),
+    ),
     ...dataProviders,
     // Installable app: the worker caches the shell; data always goes to Supabase.
     provideServiceWorker('ngsw-worker.js', {

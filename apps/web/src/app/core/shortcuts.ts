@@ -1,6 +1,7 @@
 import { DOCUMENT } from '@angular/common';
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
+import { ShellState } from '../shell/shell-state';
 import { Auth } from './auth';
 
 export interface Shortcut {
@@ -17,7 +18,7 @@ export class Shortcuts {
   private readonly router = inject(Router);
   private readonly auth = inject(Auth);
   private readonly doc = inject(DOCUMENT);
-  readonly helpOpen = signal(false);
+  private readonly shell = inject(ShellState);
   private pendingG = 0;
 
   readonly list: Shortcut[] = [
@@ -29,8 +30,10 @@ export class Shortcuts {
     { keys: 'g i', label: 'Go to Insights' },
     { keys: 'n', label: 'Add a role' },
     { keys: '/', label: 'Focus the search box on Roles' },
-    { keys: '?', label: 'Show this help' },
-    { keys: 'Esc', label: 'Close dialogs' },
+    { keys: '⌘ K', label: 'Search roles, pages and actions (Ctrl K)' },
+    { keys: '[', label: 'Collapse or expand the sidebar' },
+    { keys: '?', label: 'Show these shortcuts' },
+    { keys: 'Esc', label: 'Close dialogs and panels' },
   ];
 
   install() {
@@ -38,23 +41,25 @@ export class Shortcuts {
   }
 
   private onKey(e: KeyboardEvent) {
-    if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.defaultPrevented) return;
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      if (!this.auth.isSignedIn()) return;
+      e.preventDefault();
+      if (this.shell.paletteOpen()) this.shell.paletteOpen.set(false);
+      else this.shell.openPalette();
+      return;
+    }
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
     const target = e.target as HTMLElement | null;
     const typing =
       !!target &&
       (target.isContentEditable ||
         /^(input|textarea|select)$/i.test(target.tagName));
-    if (e.key === 'Escape') {
-      if (this.helpOpen()) {
-        this.helpOpen.set(false);
-        e.preventDefault();
-      }
-      return;
-    }
-    if (typing) return;
+    if (typing || this.doc.querySelector('dialog[open]')) return;
     if (e.key === '?') {
-      this.helpOpen.update((v) => !v);
+      if (!this.auth.isSignedIn()) return;
       e.preventDefault();
+      this.shell.openPalette('help');
       return;
     }
     if (!this.auth.isSignedIn()) return;
@@ -78,6 +83,10 @@ export class Shortcuts {
       return;
     }
     switch (e.key) {
+      case '[':
+        e.preventDefault();
+        this.shell.toggleSidebar();
+        return;
       case 'g':
         this.pendingG = now;
         return;
