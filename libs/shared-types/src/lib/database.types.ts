@@ -407,6 +407,8 @@ export type Database = {
       };
       admin_revoke_invite: { Args: { p_code: string }; Returns: undefined };
       admin_overview: { Args: Record<string, never>; Returns: Json };
+      signup_is_open: { Args: Record<string, never>; Returns: boolean };
+      admin_set_open_signup: { Args: { p_open: boolean }; Returns: undefined };
       create_ingest_key: { Args: { p_label?: string }; Returns: string };
       resolve_ingest_key: { Args: { p_key: string }; Returns: string | null };
       keep_alive: { Args: Record<string, never>; Returns: undefined };

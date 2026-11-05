@@ -115,6 +115,29 @@ const LIMITS = {
         </section>
       }
 
+      <section
+        class="jb-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm"
+      >
+        <div>
+          <div class="font-medium">
+            Sign-up is {{ signupOpen() ? 'open to anyone' : 'invite-only' }}
+          </div>
+          <div class="text-neutral-500">
+            Keep it invite-only until the free tiers are known to hold; the
+            database check enforces it either way.
+          </div>
+        </div>
+        <button
+          type="button"
+          class="jb-btn"
+          (click)="toggleSignup()"
+          [disabled]="busy()"
+          [attr.aria-pressed]="signupOpen()"
+        >
+          {{ signupOpen() ? 'Close sign-up' : 'Open sign-up' }}
+        </button>
+      </section>
+
       <section>
         <h2 class="jb-section-title">Users</h2>
         @if (users().length === 0 && !error()) {
@@ -251,6 +274,7 @@ export class AdminOverview {
   readonly error = signal('');
   readonly busy = signal(false);
   readonly lastCode = signal('');
+  readonly signupOpen = signal(false);
   readonly pending = computed(
     () => this.requests().filter((r) => !r.invited_code).length,
   );
@@ -261,13 +285,15 @@ export class AdminOverview {
 
   async load() {
     try {
-      const [o, reqs] = await Promise.all([
+      const [o, reqs, open] = await Promise.all([
         this.repo.overview(),
         this.repo.requests(),
+        this.repo.signupOpen(),
       ]);
       this.users.set(o.users);
       this.totals.set(o.totals);
       this.requests.set(reqs);
+      this.signupOpen.set(open);
     } catch (e) {
       this.error.set((e as Error).message || 'Could not load');
     }
@@ -281,6 +307,21 @@ export class AdminOverview {
       await this.load();
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not create the invite');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  async toggleSignup() {
+    this.busy.set(true);
+    try {
+      await this.repo.setSignupOpen(!this.signupOpen());
+      this.signupOpen.update((v) => !v);
+      this.toast.show(
+        this.signupOpen() ? 'Sign-up is open' : 'Sign-up is invite-only',
+      );
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not change it');
     } finally {
       this.busy.set(false);
     }

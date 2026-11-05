@@ -50,6 +50,9 @@ export class DemoAuth {
   async inviteCodeIsValid() {
     return true;
   }
+  async signupIsOpen() {
+    return false;
+  }
   async refreshProfile() {
     /* static */
   }

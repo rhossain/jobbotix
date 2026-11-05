@@ -220,4 +220,33 @@ end $$;
 reset role; reset request.jwt.claim.sub;
 update public.profiles set is_admin = false where id = '11111111-1111-1111-1111-111111111111';
 
+-- ---------------------------------------------------------------------------
+-- Open sign-up switch: anon can read it, only an admin can flip it
+-- ---------------------------------------------------------------------------
+set role anon;
+do $$ begin
+  if public.signup_is_open() then raise exception 'FAIL: signup open by default'; end if;
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  perform public.admin_set_open_signup(true);
+  raise exception 'FAIL: non-admin flipped open signup';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+update public.profiles set is_admin = true where id = '11111111-1111-1111-1111-111111111111';
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.admin_set_open_signup(true);
+reset role; reset request.jwt.claim.sub;
+set role anon;
+do $$ begin
+  if not public.signup_is_open() then raise exception 'FAIL: signup not open after admin flip'; end if;
+end $$;
+reset role;
+update public.settings set value = '{"open_signup": false}' where key = 'signup';
+update public.profiles set is_admin = false where id = '11111111-1111-1111-1111-111111111111';
+
 \echo RLS tests passed

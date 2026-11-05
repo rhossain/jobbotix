@@ -685,4 +685,16 @@ export class SupabaseAdminRepo extends AdminRepo {
     if (uErr) throw new Error(uErr.message);
     return code;
   }
+
+  async signupOpen() {
+    const { data } = await this.supabase.rpc('signup_is_open');
+    return data === true;
+  }
+
+  async setSignupOpen(open: boolean) {
+    const { error } = await this.supabase.rpc('admin_set_open_signup', {
+      p_open: open,
+    });
+    if (error) throw new Error(error.message);
+  }
 }

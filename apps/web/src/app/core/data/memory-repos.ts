@@ -901,4 +901,12 @@ export class MemoryAdminRepo extends AdminRepo {
     throw new Error('Invite requests need the hosted project');
     return '';
   }
+
+  async signupOpen() {
+    return false;
+  }
+
+  async setSignupOpen() {
+    throw new Error('The sign-up switch needs the hosted project');
+  }
 }

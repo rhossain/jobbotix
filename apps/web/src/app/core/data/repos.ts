@@ -183,6 +183,8 @@ export abstract class AdminRepo {
   abstract requests(): Promise<InviteRequestRow[]>;
   /** Creates an invite code for a request and links it; returns the code. */
   abstract inviteRequest(id: string): Promise<string>;
+  abstract signupOpen(): Promise<boolean>;
+  abstract setSignupOpen(open: boolean): Promise<void>;
 }
 
 export interface ModelChoice {

@@ -21,7 +21,11 @@ import { AuthShell } from './auth-shell';
   template: `
     <jb-auth-shell
       heading="Create your account"
-      lead="Jobbotix is invite-only while the free tiers settle."
+      [lead]="
+        open()
+          ? 'Free while it is small. No card, no invite needed.'
+          : 'Jobbotix is invite-only while the free tiers settle.'
+      "
     >
       <form
         [formGroup]="form"
@@ -29,16 +33,18 @@ import { AuthShell } from './auth-shell';
         class="flex flex-col gap-4"
         novalidate
       >
-        <label class="flex flex-col gap-1 text-sm">
-          <span>Invite code</span>
-          <input
-            id="signup-invite"
-            type="text"
-            formControlName="inviteCode"
-            autocomplete="off"
-            class="jb-input font-mono uppercase"
-          />
-        </label>
+        @if (!open()) {
+          <label class="flex flex-col gap-1 text-sm">
+            <span>Invite code</span>
+            <input
+              id="signup-invite"
+              type="text"
+              formControlName="inviteCode"
+              autocomplete="off"
+              class="jb-input font-mono uppercase"
+            />
+          </label>
+        }
         <label class="flex flex-col gap-1 text-sm">
           <span>Your name</span>
           <input
@@ -107,13 +113,12 @@ export class Signup {
   readonly busy = signal(false);
   readonly done = signal(false);
   readonly error = signal('');
+  /** Set from the admin switch; while false an invite code is required. */
+  readonly open = signal(false);
   readonly form = new FormGroup({
     inviteCode: new FormControl(
       this.route.snapshot.paramMap.get('code') ?? '',
-      {
-        nonNullable: true,
-        validators: [Validators.required],
-      },
+      { nonNullable: true },
     ),
     name: new FormControl('', {
       nonNullable: true,
@@ -129,13 +134,24 @@ export class Signup {
     }),
   });
 
+  constructor() {
+    void this.auth.signupIsOpen().then((o) => this.open.set(o));
+  }
+
   async submit() {
     if (this.form.invalid || this.busy()) return;
     this.busy.set(true);
     this.error.set('');
     try {
       const value = this.form.getRawValue();
-      if (!(await this.auth.inviteCodeIsValid(value.inviteCode))) {
+      if (!this.open() && !value.inviteCode.trim()) {
+        this.error.set('An invite code is required while sign-up is closed.');
+        return;
+      }
+      if (
+        value.inviteCode.trim() &&
+        !(await this.auth.inviteCodeIsValid(value.inviteCode))
+      ) {
         this.error.set(
           'That invite code is not valid. Check it with the person who gave it to you.',
         );

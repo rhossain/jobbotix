@@ -47,7 +47,9 @@ export class Auth {
       options: {
         data: {
           name: input.name,
-          invite_code: input.inviteCode.trim().toUpperCase(),
+          invite_code: input.inviteCode.trim()
+            ? input.inviteCode.trim().toUpperCase()
+            : undefined,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         },
       },
@@ -77,6 +79,12 @@ export class Auth {
   async updatePassword(password: string) {
     const { error } = await this.supabase.auth.updateUser({ password });
     if (error) throw new Error(friendly(error.message));
+  }
+
+  /** Whether anyone can sign up right now (admin switch in settings). */
+  async signupIsOpen(): Promise<boolean> {
+    const { data } = await this.supabase.rpc('signup_is_open');
+    return data === true;
   }
 
   async inviteCodeIsValid(code: string): Promise<boolean> {

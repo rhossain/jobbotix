@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import {
   FormControl,
   FormGroup,
@@ -6,6 +11,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Auth } from '../../core/auth';
 import { injectSupabase } from '../../core/supabase';
 import { environment } from '../../../environments/environment';
 
@@ -103,74 +109,87 @@ import { environment } from '../../../environments/environment';
         </ul>
       </div>
 
-      <section class="mt-10 max-w-xl" id="invite">
-        <h2 class="text-xl font-semibold tracking-tight">
-          Invite-only for now
-        </h2>
-        <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Jobbotix runs on free tiers while it is small. Leave your email and
-          the kind of role you are after; invites go out in order.
-        </p>
-        @if (sent()) {
-          <p
-            class="mt-4 text-sm text-brand-600 dark:text-brand-50"
-            role="status"
-          >
-            Noted. You will hear from us when a spot opens.
+      @if (open()) {
+        <section class="mt-10 max-w-xl" id="invite">
+          <h2 class="text-xl font-semibold tracking-tight">Free to join</h2>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+            Sign-up is open. Create an account, paste your resume, and your
+            first run can go tomorrow morning.
           </p>
-        } @else {
-          <form
-            [formGroup]="form"
-            (ngSubmit)="request()"
-            class="mt-4 flex flex-col gap-3"
-            novalidate
+          <a routerLink="/signup" class="jb-btn-primary mt-4 inline-block"
+            >Create your account</a
           >
-            <label class="flex flex-col gap-1 text-sm">
-              <span>Email</span>
-              <input
-                id="invite-email"
-                type="email"
-                formControlName="email"
-                class="jb-input"
-                autocomplete="email"
-              />
-            </label>
-            <label class="flex flex-col gap-1 text-sm">
-              <span
-                >What are you looking for?
-                <span class="text-neutral-500">(one line)</span></span
-              >
-              <input
-                id="invite-note"
-                type="text"
-                formControlName="note"
-                class="jb-input"
-                placeholder="Senior Angular, remote worldwide"
-              />
-            </label>
-            @if (error()) {
-              <p class="text-sm text-red-700 dark:text-red-300" role="alert">
-                {{ error() }}
-              </p>
-            }
-            <div class="flex items-center gap-3">
-              <button
-                type="submit"
-                class="jb-btn-primary"
-                [disabled]="email.invalid || busy()"
-              >
-                Request an invite
-              </button>
-              <span class="text-sm text-neutral-500"
-                >Have a code?
-                <a routerLink="/signup" class="underline"
-                  >Create your account</a
-                ></span
-              >
-            </div>
-          </form>
-        }
-      </section>
+        </section>
+      } @else {
+        <section class="mt-10 max-w-xl" id="invite">
+          <h2 class="text-xl font-semibold tracking-tight">
+            Invite-only for now
+          </h2>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+            Jobbotix runs on free tiers while it is small. Leave your email and
+            the kind of role you are after; invites go out in order.
+          </p>
+          @if (sent()) {
+            <p
+              class="mt-4 text-sm text-brand-600 dark:text-brand-50"
+              role="status"
+            >
+              Noted. You will hear from us when a spot opens.
+            </p>
+          } @else {
+            <form
+              [formGroup]="form"
+              (ngSubmit)="request()"
+              class="mt-4 flex flex-col gap-3"
+              novalidate
+            >
+              <label class="flex flex-col gap-1 text-sm">
+                <span>Email</span>
+                <input
+                  id="invite-email"
+                  type="email"
+                  formControlName="email"
+                  class="jb-input"
+                  autocomplete="email"
+                />
+              </label>
+              <label class="flex flex-col gap-1 text-sm">
+                <span
+                  >What are you looking for?
+                  <span class="text-neutral-500">(one line)</span></span
+                >
+                <input
+                  id="invite-note"
+                  type="text"
+                  formControlName="note"
+                  class="jb-input"
+                  placeholder="Senior Angular, remote worldwide"
+                />
+              </label>
+              @if (error()) {
+                <p class="text-sm text-red-700 dark:text-red-300" role="alert">
+                  {{ error() }}
+                </p>
+              }
+              <div class="flex items-center gap-3">
+                <button
+                  type="submit"
+                  class="jb-btn-primary"
+                  [disabled]="email.invalid || busy()"
+                >
+                  Request an invite
+                </button>
+                <span class="text-sm text-neutral-500"
+                  >Have a code?
+                  <a routerLink="/signup" class="underline"
+                    >Create your account</a
+                  ></span
+                >
+              </div>
+            </form>
+          }
+        </section>
+      }
 
       <footer
         class="mt-14 flex flex-wrap gap-x-6 gap-y-2 text-xs text-neutral-500"
@@ -191,6 +210,7 @@ import { environment } from '../../../environments/environment';
 })
 export class Landing {
   private readonly supabase = injectSupabase();
+  private readonly auth = inject(Auth);
   readonly year = new Date().getFullYear();
   readonly form = new FormGroup({
     email: new FormControl('', {
@@ -203,6 +223,11 @@ export class Landing {
   readonly note = this.form.controls.note;
   readonly busy = signal(false);
   readonly sent = signal(false);
+  readonly open = signal(false);
+
+  constructor() {
+    void this.auth.signupIsOpen().then((o) => this.open.set(o));
+  }
   readonly error = signal('');
 
   async request() {
