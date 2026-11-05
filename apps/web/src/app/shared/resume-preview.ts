@@ -192,6 +192,7 @@ import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
     .resume ul {
       margin: 2pt 0 0;
       padding-left: 14pt;
+      list-style: disc;
     }
     .resume li {
       margin: 1pt 0;
