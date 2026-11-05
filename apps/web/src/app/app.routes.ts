@@ -1,6 +1,12 @@
 import { Route } from '@angular/router';
 import { environment } from '../environments/environment';
-import { adminGuard, authGuard, guestGuard, landingGuard } from './core/guards';
+import {
+  adminGuard,
+  authGuard,
+  guestGuard,
+  landingGuard,
+  unsavedChangesGuard,
+} from './core/guards';
 
 export const appRoutes: Route[] = [
   {
@@ -66,6 +72,7 @@ export const appRoutes: Route[] = [
   {
     path: 'resume',
     canActivate: [authGuard],
+    canDeactivate: [unsavedChangesGuard],
     loadComponent: () =>
       import('./pages/resume/resume-editor').then((m) => m.ResumeEditor),
     title: 'Master resume · Jobbotix',

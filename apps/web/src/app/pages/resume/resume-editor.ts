@@ -7,7 +7,6 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import {
   emptyResume,
   normaliseResume,
@@ -24,6 +23,16 @@ import { ResumePreview } from '../../shared/resume-preview';
 import { ResumeImportPanel } from './resume-import';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
+import {
+  Button,
+  Confirm,
+  FieldControl,
+  Icon,
+  PageHeader,
+  ScaledPage,
+  Tabs,
+  type TabItem,
+} from '../../ui';
 
 type Pane = 'edit' | 'preview';
 
@@ -44,90 +53,97 @@ const csv = (s: string) =>
  */
 @Component({
   selector: 'jb-resume-editor',
-  imports: [RouterLink, ResumePreview, RelativeDayPipe, ResumeImportPanel],
+  imports: [
+    Button,
+    FieldControl,
+    Icon,
+    PageHeader,
+    RelativeDayPipe,
+    ResumeImportPanel,
+    ResumePreview,
+    ScaledPage,
+    Tabs,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(window:beforeprint)': 'printing.set(true)',
     '(window:afterprint)': 'printing.set(false)',
+    '(window:beforeunload)': 'onBeforeUnload($event)',
   },
   template: `
     <section class="flex flex-col gap-4 print:hidden">
-      <header class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 class="text-2xl font-semibold tracking-tight">Master resume</h1>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-            The source every tailored variant starts from. {{ words() }} words
-            @if (words() > 650) {
-              <span class="text-amber-700 dark:text-amber-300"
-                >(over one page for most layouts; aim under 650)</span
-              >
-            }
-            @if (dirty()) {
-              <span class="text-neutral-500">· unsaved changes</span>
-            }
-          </p>
-        </div>
-        <div class="flex flex-wrap items-center gap-2">
-          <div
-            class="inline-flex rounded-md border border-neutral-300 dark:border-neutral-700 md:hidden"
-            role="tablist"
+      <jb-page-header title="Master resume">
+        <p lead class="mt-2 max-w-[var(--reading-max)] text-ink-muted">
+          The source every tailored variant starts from.
+          <span class="whitespace-nowrap" [class.text-warn]="words() > 650"
+            >{{ words() }} words</span
           >
-            <button
-              type="button"
-              role="tab"
-              class="px-3 py-1.5 text-sm"
-              [class.font-semibold]="pane() === 'edit'"
-              [attr.aria-selected]="pane() === 'edit'"
-              (click)="pane.set('edit')"
+          @if (words() > 650) {
+            <span class="text-warn"
+              >, over one page for most layouts; aim under 650.</span
             >
-              Edit
-            </button>
-            <button
-              type="button"
-              role="tab"
-              class="px-3 py-1.5 text-sm"
-              [class.font-semibold]="pane() === 'preview'"
-              [attr.aria-selected]="pane() === 'preview'"
-              (click)="pane.set('preview')"
-            >
-              Preview
-            </button>
-          </div>
+          }
+        </p>
+        <div actions class="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            class="jb-btn"
-            (click)="importing.set(!importing())"
+            jbButton
             [attr.aria-expanded]="importing()"
+            (click)="importing.set(!importing())"
           >
-            Import
+            <jb-icon name="upload" /> Import
           </button>
           <button
             type="button"
-            class="jb-btn"
-            (click)="downloadPdf()"
+            jbButton
+            [busy]="exporting()"
             [disabled]="exporting()"
             title="Text PDF, readable by ATS parsers"
+            (click)="downloadPdf()"
           >
-            {{ exporting() ? 'Building…' : 'Download PDF' }}
+            <jb-icon name="download" /> PDF
           </button>
           <button
             type="button"
-            class="jb-btn"
-            (click)="printPdf()"
+            jbButton="ghost"
+            iconOnly
+            aria-label="Print"
             title="Browser print dialog (choose Save as PDF)"
+            (click)="printPdf()"
           >
-            Print
+            <jb-icon name="printer" />
           </button>
           <button
             type="button"
-            class="jb-btn-primary"
-            (click)="save()"
+            jbButton="primary"
+            class="hidden md:inline-flex"
+            [busy]="saving()"
             [disabled]="!dirty() || saving()"
+            (click)="save()"
           >
-            {{ saving() ? 'Saving…' : 'Save version' }}
+            Save version
           </button>
         </div>
-      </header>
+      </jb-page-header>
+
+      <div class="flex items-center justify-between gap-3 md:hidden">
+        <jb-tabs
+          variant="segmented"
+          prefix="resume-pane"
+          label="Show"
+          [tabs]="panes"
+          [value]="pane()"
+          (valueChange)="pane.set($any($event))"
+        />
+        @if (dirty()) {
+          <span class="text-xs text-warn">Unsaved changes</span>
+        }
+      </div>
+      @if (dirty()) {
+        <p class="hidden text-sm text-warn md:block" role="status">
+          You have unsaved changes.
+        </p>
+      }
 
       @if (importing()) {
         <jb-resume-import
@@ -144,12 +160,13 @@ const csv = (s: string) =>
         >
           <!-- Contact -->
           <fieldset class="jb-fieldset">
-            <legend class="jb-section-title">Contact</legend>
+            <legend class="jb-legend">Contact</legend>
             <div class="grid gap-3 sm:grid-cols-2">
               <label class="jb-field"
                 ><span>Name</span
                 ><input
                   id="rc-name"
+                  jbInput
                   class="jb-input"
                   [value]="d().contact.name"
                   (input)="setContact('name', $any($event.target).value)"
@@ -158,6 +175,7 @@ const csv = (s: string) =>
                 ><span>Headline</span
                 ><input
                   id="rc-headline"
+                  jbInput
                   class="jb-input"
                   [value]="d().contact.headline"
                   (input)="setContact('headline', $any($event.target).value)"
@@ -166,6 +184,7 @@ const csv = (s: string) =>
                 ><span>Email</span
                 ><input
                   id="rc-email"
+                  jbInput
                   class="jb-input"
                   type="email"
                   [value]="d().contact.email"
@@ -175,6 +194,7 @@ const csv = (s: string) =>
                 ><span>Phone</span
                 ><input
                   id="rc-phone"
+                  jbInput
                   class="jb-input"
                   [value]="d().contact.phone"
                   (input)="setContact('phone', $any($event.target).value)"
@@ -183,6 +203,7 @@ const csv = (s: string) =>
                 ><span>Location</span
                 ><input
                   id="rc-location"
+                  jbInput
                   class="jb-input"
                   [value]="d().contact.location"
                   (input)="setContact('location', $any($event.target).value)"
@@ -191,6 +212,7 @@ const csv = (s: string) =>
                 ><span>Website</span
                 ><input
                   id="rc-website"
+                  jbInput
                   class="jb-input"
                   type="url"
                   [value]="d().contact.website"
@@ -200,12 +222,13 @@ const csv = (s: string) =>
             <label class="jb-field mt-3">
               <span
                 >Links
-                <span class="text-neutral-500"
+                <span class="font-normal text-ink-muted"
                   >(one per line: Label | https://…)</span
                 ></span
               >
               <textarea
                 id="rc-links"
+                jbInput
                 class="jb-input min-h-16"
                 [value]="linksText()"
                 (change)="setLinks($any($event.target).value)"
@@ -215,84 +238,104 @@ const csv = (s: string) =>
 
           <!-- Summary -->
           <fieldset class="jb-fieldset">
-            <legend class="jb-section-title">Summary</legend>
+            <legend class="jb-legend">Summary</legend>
             <textarea
               id="r-summary"
+              jbInput
               class="jb-input min-h-28"
               [value]="d().summary"
               (input)="patch({ summary: $any($event.target).value })"
             ></textarea>
-            <p class="mt-1 text-xs text-neutral-500">
+            <p class="mt-1.5 text-xs text-ink-muted">
               Three sentences: what you are, what you are best at, how you work.
             </p>
           </fieldset>
 
           <!-- Skills -->
           <fieldset class="jb-fieldset">
-            <legend class="jb-section-title">Skills</legend>
+            <legend class="jb-legend">Skills</legend>
             @for (g of d().skills; track $index; let i = $index) {
               <div
                 class="grid gap-2 sm:grid-cols-[10rem_1fr_auto] items-start"
                 [class.mt-2]="i > 0"
               >
                 <input
+                  jbInput
                   class="jb-input"
                   [id]="'r-skill-name-' + i"
                   placeholder="Group"
+                  aria-label="Group"
                   [value]="g.name"
                   (input)="setSkill(i, 'name', $any($event.target).value)"
                 />
                 <input
+                  jbInput
                   class="jb-input"
                   [id]="'r-skill-items-' + i"
                   placeholder="Comma-separated"
+                  aria-label="Comma-separated"
                   [value]="g.items.join(', ')"
                   (change)="setSkill(i, 'items', $any($event.target).value)"
                 />
                 <button
                   type="button"
-                  class="jb-btn"
-                  (click)="removeAt('skills', i)"
+                  jbButton="ghost"
+                  iconOnly
                   aria-label="Remove skill group"
+                  title="Remove skill group"
+                  (click)="removeAt('skills', i)"
                 >
-                  ×
+                  <jb-icon name="trash" />
                 </button>
               </div>
             }
-            <button type="button" class="jb-btn mt-3" (click)="addSkill()">
-              Add group
+            <button
+              type="button"
+              jbButton="ghost"
+              size="sm"
+              class="mt-3"
+              (click)="addSkill()"
+            >
+              <jb-icon name="plus" /> Add group
             </button>
           </fieldset>
 
           <!-- Experience -->
           <fieldset class="jb-fieldset">
-            <legend class="jb-section-title">Experience</legend>
+            <legend class="jb-legend">Experience</legend>
             @for (e of d().experience; track $index; let i = $index) {
               <div class="jb-card p-3" [class.mt-3]="i > 0">
                 <div class="grid gap-2 sm:grid-cols-2">
                   <input
+                    jbInput
                     class="jb-input"
                     placeholder="Title"
+                    aria-label="Title"
                     [id]="'r-exp-title-' + i"
                     [value]="e.title"
                     (input)="setExp(i, 'title', $any($event.target).value)"
                   />
                   <input
+                    jbInput
                     class="jb-input"
                     placeholder="Company"
+                    aria-label="Company"
                     [id]="'r-exp-company-' + i"
                     [value]="e.company"
                     (input)="setExp(i, 'company', $any($event.target).value)"
                   />
                   <input
+                    jbInput
                     class="jb-input"
                     placeholder="Location"
+                    aria-label="Location"
                     [id]="'r-exp-location-' + i"
                     [value]="e.location"
                     (input)="setExp(i, 'location', $any($event.target).value)"
                   />
                   <div class="flex gap-2">
                     <input
+                      jbInput
                       class="jb-input"
                       type="month"
                       [id]="'r-exp-start-' + i"
@@ -301,6 +344,7 @@ const csv = (s: string) =>
                       (input)="setExp(i, 'start', $any($event.target).value)"
                     />
                     <input
+                      jbInput
                       class="jb-input"
                       type="month"
                       [id]="'r-exp-end-' + i"
@@ -313,11 +357,12 @@ const csv = (s: string) =>
                 <label class="jb-field mt-2">
                   <span
                     >Bullets
-                    <span class="text-neutral-500"
+                    <span class="font-normal text-ink-muted"
                       >(one per line; lead with the result)</span
                     ></span
                   >
                   <textarea
+                    jbInput
                     class="jb-input min-h-24"
                     [id]="'r-exp-bullets-' + i"
                     [value]="e.bullets.join('\\n')"
@@ -327,51 +372,68 @@ const csv = (s: string) =>
                 <div class="mt-2 flex gap-2">
                   <button
                     type="button"
-                    class="jb-btn"
-                    (click)="move('experience', i, -1)"
+                    jbButton="ghost"
+                    iconOnly
+                    aria-label="Move up"
+                    title="Move up"
                     [disabled]="i === 0"
+                    (click)="move('experience', i, -1)"
                   >
-                    ↑
+                    <jb-icon name="chevron-up" />
                   </button>
                   <button
                     type="button"
-                    class="jb-btn"
-                    (click)="move('experience', i, 1)"
+                    jbButton="ghost"
+                    iconOnly
+                    aria-label="Move down"
+                    title="Move down"
                     [disabled]="i === d().experience.length - 1"
+                    (click)="move('experience', i, 1)"
                   >
-                    ↓
+                    <jb-icon name="chevron-down" />
                   </button>
                   <button
                     type="button"
-                    class="jb-btn"
-                    (click)="removeAt('experience', i)"
+                    jbButton="ghost"
+                    class="ml-auto text-bad"
+                    (click)="confirmRemove('experience', i)"
                   >
-                    Remove
+                    <jb-icon name="trash" /> Remove
                   </button>
                 </div>
               </div>
             }
-            <button type="button" class="jb-btn mt-3" (click)="addExp()">
-              Add position
+            <button
+              type="button"
+              jbButton="ghost"
+              size="sm"
+              class="mt-3"
+              (click)="addExp()"
+            >
+              <jb-icon name="plus" /> Add position
             </button>
           </fieldset>
 
           <!-- Projects -->
           <fieldset class="jb-fieldset">
-            <legend class="jb-section-title">Projects</legend>
+            <legend class="jb-legend">Projects</legend>
             @for (p of d().projects; track $index; let i = $index) {
               <div class="jb-card p-3" [class.mt-3]="i > 0">
                 <div class="grid gap-2 sm:grid-cols-2">
                   <input
+                    jbInput
                     class="jb-input"
                     placeholder="Name"
+                    aria-label="Name"
                     [id]="'r-proj-name-' + i"
                     [value]="p.name"
                     (input)="setProj(i, 'name', $any($event.target).value)"
                   />
                   <input
+                    jbInput
                     class="jb-input"
                     placeholder="https://…"
+                    aria-label="Project link"
                     type="url"
                     [id]="'r-proj-url-' + i"
                     [value]="p.url"
@@ -379,15 +441,19 @@ const csv = (s: string) =>
                   />
                 </div>
                 <input
+                  jbInput
                   class="jb-input mt-2"
                   placeholder="One sentence on what it is"
+                  aria-label="One sentence on what it is"
                   [id]="'r-proj-desc-' + i"
                   [value]="p.description"
                   (input)="setProj(i, 'description', $any($event.target).value)"
                 />
                 <input
+                  jbInput
                   class="jb-input mt-2"
                   placeholder="Stack, comma-separated"
+                  aria-label="Stack, comma-separated"
                   [id]="'r-proj-stack-' + i"
                   [value]="p.stack.join(', ')"
                   (change)="setProj(i, 'stack', $any($event.target).value)"
@@ -395,83 +461,109 @@ const csv = (s: string) =>
                 <div class="mt-2 flex gap-2">
                   <button
                     type="button"
-                    class="jb-btn"
-                    (click)="removeAt('projects', i)"
+                    jbButton="ghost"
+                    class="ml-auto text-bad"
+                    (click)="confirmRemove('projects', i)"
                   >
-                    Remove
+                    <jb-icon name="trash" /> Remove
                   </button>
                 </div>
               </div>
             }
-            <button type="button" class="jb-btn mt-3" (click)="addProj()">
-              Add project
+            <button
+              type="button"
+              jbButton="ghost"
+              size="sm"
+              class="mt-3"
+              (click)="addProj()"
+            >
+              <jb-icon name="plus" /> Add project
             </button>
           </fieldset>
 
           <!-- AI toolkit, education, certifications -->
           <fieldset class="jb-fieldset">
-            <legend class="jb-section-title">AI toolkit</legend>
+            <legend class="jb-legend">AI toolkit</legend>
             <input
               id="r-ai"
+              jbInput
               class="jb-input"
               placeholder="Comma-separated"
+              aria-label="Comma-separated"
               [value]="d().aiToolkit.join(', ')"
               (change)="patch({ aiToolkit: csv($any($event.target).value) })"
             />
-            <p class="mt-1 text-xs text-neutral-500">
+            <p class="mt-1.5 text-xs text-ink-muted">
               The tools and practices you actually use. Recruiters searching for
               "AI-assisted" land on this line.
             </p>
           </fieldset>
 
           <fieldset class="jb-fieldset">
-            <legend class="jb-section-title">Education</legend>
+            <legend class="jb-legend">Education</legend>
             @for (e of d().education; track $index; let i = $index) {
               <div
                 class="grid gap-2 sm:grid-cols-[1fr_1fr_6rem_auto]"
                 [class.mt-2]="i > 0"
               >
                 <input
+                  jbInput
                   class="jb-input"
                   placeholder="Degree"
+                  aria-label="Degree"
                   [id]="'r-edu-degree-' + i"
                   [value]="e.degree"
                   (input)="setEdu(i, 'degree', $any($event.target).value)"
                 />
                 <input
+                  jbInput
                   class="jb-input"
                   placeholder="Institution"
+                  aria-label="Institution"
                   [id]="'r-edu-inst-' + i"
                   [value]="e.institution"
                   (input)="setEdu(i, 'institution', $any($event.target).value)"
                 />
                 <input
+                  jbInput
                   class="jb-input"
                   placeholder="Year"
+                  aria-label="Year"
                   [id]="'r-edu-year-' + i"
                   [value]="e.year"
                   (input)="setEdu(i, 'year', $any($event.target).value)"
                 />
                 <button
                   type="button"
-                  class="jb-btn"
-                  (click)="removeAt('education', i)"
+                  jbButton="ghost"
+                  iconOnly
                   aria-label="Remove education"
+                  title="Remove education"
+                  (click)="removeAt('education', i)"
                 >
-                  ×
+                  <jb-icon name="trash" />
                 </button>
               </div>
             }
-            <button type="button" class="jb-btn mt-3" (click)="addEdu()">
-              Add education
+            <button
+              type="button"
+              jbButton="ghost"
+              size="sm"
+              class="mt-3"
+              (click)="addEdu()"
+            >
+              <jb-icon name="plus" /> Add education
             </button>
             <label class="jb-field mt-3">
               <span
                 >Certifications
-                <span class="text-neutral-500">(comma-separated)</span></span
+                <span class="font-normal text-ink-muted"
+                  >(comma-separated)</span
+                ></span
               >
               <input
                 id="r-certs"
+                jbInput
                 class="jb-input"
                 [value]="d().certifications.join(', ')"
                 (change)="
@@ -483,11 +575,9 @@ const csv = (s: string) =>
 
           <!-- Versions -->
           @if (repo.resumes().length > 1) {
-            <section>
-              <h2 class="jb-section-title">Versions</h2>
-              <ul
-                class="mt-2 divide-y divide-neutral-200 text-sm dark:divide-neutral-800"
-              >
+            <section class="jb-card p-5">
+              <h2 class="jb-legend">Versions</h2>
+              <ul class="mt-2 divide-y divide-line text-sm">
                 @for (v of repo.resumes(); track v.id) {
                   <li class="flex items-center justify-between gap-3 py-2">
                     <span
@@ -500,17 +590,21 @@ const csv = (s: string) =>
                       <span class="flex gap-2">
                         <button
                           type="button"
-                          class="jb-btn"
+                          jbButton
+                          size="sm"
                           (click)="restore(v.id)"
                         >
                           Restore
                         </button>
                         <button
                           type="button"
-                          class="jb-btn"
-                          (click)="repo.remove(v.id)"
+                          jbButton="ghost"
+                          size="sm"
+                          iconOnly
+                          [attr.aria-label]="'Delete version ' + v.name"
+                          (click)="deleteVersion(v.id, v.name)"
                         >
-                          Delete
+                          <jb-icon name="trash" />
                         </button>
                       </span>
                     }
@@ -527,17 +621,35 @@ const csv = (s: string) =>
           [class.md:block]="true"
         >
           <div
-            class="sticky top-4 max-h-[calc(100vh-2rem)] overflow-auto rounded-lg bg-neutral-200/60 p-4 dark:bg-neutral-900"
+            class="sticky top-8 max-h-[calc(100dvh-4rem)] overflow-auto rounded-card bg-sunken p-3 md:p-4"
           >
-            <jb-resume-preview [r]="d()" />
+            <jb-scaled-page>
+              <jb-resume-preview [r]="d()" />
+            </jb-scaled-page>
           </div>
         </div>
       </div>
 
-      <p class="text-xs text-neutral-500">
-        Tailored variants per role come next; they start from whatever is saved
-        here. <a routerLink="/roles" class="underline">Back to Roles</a>
+      <p class="text-xs text-ink-muted">
+        Tailored variants on each role start from whatever is saved here.
       </p>
+
+      @if (dirty()) {
+        <div class="md:hidden">
+          <div class="jb-savebar" role="status">
+            <span class="text-sm font-medium text-ink">Unsaved changes</span>
+            <button
+              type="button"
+              jbButton="primary"
+              [busy]="saving()"
+              [disabled]="saving()"
+              (click)="save()"
+            >
+              Save version
+            </button>
+          </div>
+        </div>
+      }
     </section>
 
     <!-- Print: only the page -->
@@ -547,19 +659,49 @@ const csv = (s: string) =>
   `,
   styles: `
     .jb-fieldset {
-      border: 0;
-      padding: 0;
-      margin: 0;
       min-width: 0;
+      margin: 0;
+      padding: 1.25rem;
+      border: 1px solid var(--line);
+      border-radius: var(--r-card);
+      background: var(--surface);
     }
-    .jb-fieldset > legend {
-      margin-bottom: 0.5rem;
+    .jb-legend {
+      float: left;
+      width: 100%;
+      margin: 0 0 0.85rem;
+      padding: 0;
+      color: var(--ink);
+      font-size: 1.0625rem;
+      font-weight: 600;
+    }
+    .jb-legend + * {
+      clear: both;
+    }
+    .jb-savebar {
+      position: fixed;
+      left: var(--gutter);
+      right: var(--gutter);
+      bottom: calc(
+        var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 0.75rem
+      );
+      z-index: 25;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 0.6rem 0.6rem 0.6rem 1rem;
+      border: 1px solid var(--line);
+      border-radius: var(--r-card);
+      background: var(--surface-raised);
+      box-shadow: var(--elev-overlay);
     }
     .jb-field {
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
+      gap: 0.375rem;
       font-size: 0.875rem;
+      font-weight: 500;
     }
     @media print {
       :host {
@@ -736,11 +878,49 @@ export class ResumeEditor {
     try {
       await this.repo.saveMaster(this.d());
       this.saved.set(JSON.stringify(this.d()));
-      this.toast.show('Saved as the current master');
+      this.toast.success('Saved as the current master');
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not save');
     } finally {
       this.saving.set(false);
+    }
+  }
+
+  /** The browser's own "leave site?" prompt while edits are unsaved. */
+  onBeforeUnload(e: BeforeUnloadEvent) {
+    if (this.dirty()) e.preventDefault();
+  }
+
+  readonly panes: TabItem<'edit' | 'preview'>[] = [
+    { id: 'edit', label: 'Edit', icon: 'pencil' },
+    { id: 'preview', label: 'Preview', icon: 'eye' },
+  ];
+  private readonly confirm = inject(Confirm);
+
+  async confirmRemove(list: 'experience' | 'projects', i: number) {
+    const what = list === 'experience' ? 'position' : 'project';
+    const ok = await this.confirm.ask({
+      title: `Remove this ${what}?`,
+      body: 'It leaves the draft now; your saved versions keep it until you save again.',
+      action: `Remove ${what}`,
+      danger: true,
+    });
+    if (ok) this.removeAt(list, i);
+  }
+
+  async deleteVersion(id: string, name: string) {
+    const ok = await this.confirm.ask({
+      title: `Delete the version “${name}”?`,
+      body: 'The saved version is removed for good. Your current resume is not affected.',
+      action: 'Delete version',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await this.repo.remove(id);
+      this.toast.show('Version deleted');
+    } catch {
+      this.toast.error('Could not delete the version');
     }
   }
 

@@ -1,5 +1,6 @@
 import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
+import { CanActivateFn, CanDeactivateFn, Router } from '@angular/router';
+import { Confirm } from '../ui/confirm';
 import { Auth } from './auth';
 
 /** Signed-in users only; everyone else goes to /login with a return path. */
@@ -33,3 +34,16 @@ export const landingGuard: CanActivateFn = async () => {
   await auth.ready;
   return auth.isSignedIn() ? router.createUrlTree(['/today']) : true;
 };
+
+/** Asks before leaving a page that has unsaved edits (it exposes dirty()). */
+export const unsavedChangesGuard: CanDeactivateFn<{ dirty: () => boolean }> = (
+  page,
+) =>
+  !page.dirty() ||
+  inject(Confirm).ask({
+    title: 'Leave without saving?',
+    body: 'Your changes are not saved yet. Leaving drops them.',
+    action: 'Leave without saving',
+    cancel: 'Keep editing',
+    danger: true,
+  });
