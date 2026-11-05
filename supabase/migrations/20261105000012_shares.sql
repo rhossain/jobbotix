@@ -5,7 +5,7 @@
 create table public.shares (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles (id) on delete cascade,
-  token text not null unique default translate(encode(gen_random_bytes(18), 'base64'), '+/=', '-_'),
+  token text not null unique default translate(encode(extensions.gen_random_bytes(18), 'base64'), '+/=', '-_'),
   kind text not null check (kind in ('role', 'board')),
   role_id uuid references public.roles (id) on delete cascade,
   created_at timestamptz not null default now(),
