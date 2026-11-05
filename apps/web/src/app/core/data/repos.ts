@@ -1,9 +1,11 @@
 import type { Signal } from '@angular/core';
 import type {
+  Json,
   RoleEventRow,
   RoleRow,
   RoleStatus,
   RunSummary,
+  SavedViewRow,
   ScreeningAnswerRow,
   SearchProfileRow,
 } from '@jobbotix/shared-types';
@@ -42,4 +44,12 @@ export abstract class SearchProfileRepo {
   abstract save(input: SearchProfileInput): Promise<void>;
   /** Returns the plain ingest key once; the app stores only its hash. */
   abstract createIngestKey(label: string): Promise<string>;
+}
+
+export abstract class SavedViewsRepo {
+  abstract readonly views: Signal<SavedViewRow[]>;
+  abstract load(): Promise<void>;
+  /** Creates or replaces the view with this name. */
+  abstract save(name: string, filters: Json, sort: string): Promise<void>;
+  abstract remove(id: string): Promise<void>;
 }

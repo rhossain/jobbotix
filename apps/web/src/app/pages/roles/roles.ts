@@ -14,8 +14,9 @@ import {
   type EmploymentType,
   type RoleRow,
   type RoleStatus,
+  type SavedViewRow,
 } from '@jobbotix/shared-types';
-import { RolesRepo } from '../../core/data/repos';
+import { RolesRepo, SavedViewsRepo } from '../../core/data/repos';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { StatusSelect } from '../../shared/status-select';
 
@@ -41,13 +42,6 @@ const DEFAULT_FILTERS: Filters = {
   source: '',
   sort: 'score',
 };
-const VIEWS_KEY = 'jobbotix.views.v1';
-
-interface SavedView {
-  name: string;
-  filters: Filters;
-}
-
 /** Every role, as a sortable, filterable table with keyboard navigation. */
 @Component({
   selector: 'jb-roles',
@@ -64,10 +58,24 @@ interface SavedView {
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-          @for (v of views(); track v.name) {
-            <button type="button" class="jb-btn" (click)="applyView(v)">
-              {{ v.name }}
-            </button>
+          @for (v of views(); track v.id) {
+            <span class="inline-flex">
+              <button
+                type="button"
+                class="jb-btn rounded-r-none"
+                (click)="applyView(v)"
+              >
+                {{ v.name }}
+              </button>
+              <button
+                type="button"
+                class="jb-btn rounded-l-none border-l-0 px-2"
+                [attr.aria-label]="'Delete view ' + v.name"
+                (click)="removeView(v)"
+              >
+                ×
+              </button>
+            </span>
           }
           @if (naming()) {
             <form
@@ -321,7 +329,8 @@ export class Roles {
 
   readonly filters = signal<Filters>({ ...DEFAULT_FILTERS });
   readonly active = signal(0);
-  readonly views = signal<SavedView[]>(loadViews());
+  private readonly viewsRepo = inject(SavedViewsRepo);
+  readonly views = this.viewsRepo.views;
 
   readonly isDefault = computed(
     () => JSON.stringify(this.filters()) === JSON.stringify(DEFAULT_FILTERS),
@@ -387,6 +396,7 @@ export class Roles {
 
   constructor() {
     void this.repo.load();
+    void this.viewsRepo.load();
     const status = this.route.snapshot.queryParamMap.get(
       'status',
     ) as RoleStatus | null;
@@ -442,34 +452,26 @@ export class Roles {
     });
   }
 
-  applyView(v: SavedView) {
-    this.filters.set({ ...DEFAULT_FILTERS, ...v.filters });
+  applyView(v: SavedViewRow) {
+    const f = (v.filters ?? {}) as Partial<Filters>;
+    this.filters.set({
+      ...DEFAULT_FILTERS,
+      ...f,
+      sort: (v.sort as Sort) || 'score',
+    });
+  }
+
+  async removeView(v: SavedViewRow) {
+    await this.viewsRepo.remove(v.id);
   }
 
   readonly naming = signal(false);
 
-  saveView(name: string) {
+  async saveView(name: string) {
     name = name.trim();
     if (!name) return;
     this.naming.set(false);
-    const next = [
-      ...this.views().filter((v) => v.name !== name),
-      { name, filters: this.filters() },
-    ];
-    this.views.set(next);
-    try {
-      localStorage.setItem(VIEWS_KEY, JSON.stringify(next));
-    } catch {
-      /* ignore */
-    }
-  }
-}
-
-function loadViews(): SavedView[] {
-  try {
-    const raw = localStorage.getItem(VIEWS_KEY);
-    return raw ? (JSON.parse(raw) as SavedView[]) : [];
-  } catch {
-    return [];
+    const { sort, ...rest } = this.filters();
+    await this.viewsRepo.save(name, rest, sort);
   }
 }

@@ -1,13 +1,20 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import type {
+  Json,
   RoleEventRow,
   RoleRow,
   RoleStatus,
   RunSummary,
+  SavedViewRow,
   ScreeningAnswerRow,
   SearchProfileRow,
 } from '@jobbotix/shared-types';
-import { RolesRepo, SearchProfileInput, SearchProfileRepo } from './repos';
+import {
+  RolesRepo,
+  SavedViewsRepo,
+  SearchProfileInput,
+  SearchProfileRepo,
+} from './repos';
 import {
   DEMO_USER_ID,
   sampleEvents,
@@ -23,6 +30,7 @@ interface DemoState {
   events: RoleEventRow[];
   answers: ScreeningAnswerRow[];
   profile: SearchProfileRow;
+  views: SavedViewRow[];
 }
 
 /** Reads the demo state from localStorage; falls back to the sample data. */
@@ -36,7 +44,10 @@ function loadState(): DemoState {
         Array.isArray(parsed.events) &&
         parsed.profile
       )
-        return parsed;
+        return {
+          ...parsed,
+          views: Array.isArray(parsed.views) ? parsed.views : [],
+        };
     }
   } catch {
     /* private window or blocked storage: run from the samples */
@@ -46,6 +57,7 @@ function loadState(): DemoState {
     events: sampleEvents(),
     answers: sampleScreeningAnswers(),
     profile: sampleSearchProfile(),
+    views: [],
   };
 }
 
@@ -204,5 +216,37 @@ export class MemorySearchProfileRepo extends SearchProfileRepo {
       'jbx_demo_' +
       Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
     );
+  }
+}
+
+@Injectable()
+export class MemorySavedViewsRepo extends SavedViewsRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+  readonly views = computed(() => this.roles.snapshot().views);
+
+  async load() {
+    /* nothing to fetch */
+  }
+
+  async save(name: string, filters: Json, sort: string) {
+    this.roles.patch((s) => {
+      s.views = [
+        ...s.views.filter((v) => v.name !== name),
+        {
+          id: newId(),
+          user_id: DEMO_USER_ID,
+          name,
+          filters,
+          sort,
+          created_at: new Date().toISOString(),
+        },
+      ];
+    });
+  }
+
+  async remove(id: string) {
+    this.roles.patch((s) => {
+      s.views = s.views.filter((v) => v.id !== id);
+    });
   }
 }

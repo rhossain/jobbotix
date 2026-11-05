@@ -1,6 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import type {
+  Json,
   RoleEventRow,
+  SavedViewRow,
   RoleRow,
   RoleStatus,
   RunSummary,
@@ -8,7 +10,12 @@ import type {
 } from '@jobbotix/shared-types';
 import { Auth } from '../auth';
 import { injectSupabase } from '../supabase';
-import { RolesRepo, SearchProfileInput, SearchProfileRepo } from './repos';
+import {
+  RolesRepo,
+  SavedViewsRepo,
+  SearchProfileInput,
+  SearchProfileRepo,
+} from './repos';
 
 /**
  * Real data layer: supabase-js with RLS doing the per-user filtering. Reads go
@@ -174,5 +181,49 @@ export class SupabaseSearchProfileRepo extends SearchProfileRepo {
     });
     if (error) throw error;
     return data ?? '';
+  }
+}
+
+@Injectable()
+export class SupabaseSavedViewsRepo extends SavedViewsRepo {
+  private readonly supabase = injectSupabase();
+  private readonly auth = inject(Auth);
+  private readonly _views = signal<SavedViewRow[]>([]);
+  readonly views = this._views.asReadonly();
+
+  async load() {
+    const { data } = await this.supabase
+      .from('saved_views')
+      .select('*')
+      .order('created_at');
+    this._views.set(data ?? []);
+  }
+
+  async save(name: string, filters: Json, sort: string) {
+    const userId = this.auth.user()?.id;
+    if (!userId) throw new Error('Not signed in');
+    const existing = this._views().find((v) => v.name === name);
+    if (existing) {
+      const { error } = await this.supabase
+        .from('saved_views')
+        .update({ filters, sort })
+        .eq('id', existing.id);
+      if (error) throw error;
+    } else {
+      const { error } = await this.supabase
+        .from('saved_views')
+        .insert({ user_id: userId, name, filters, sort });
+      if (error) throw error;
+    }
+    await this.load();
+  }
+
+  async remove(id: string) {
+    const { error } = await this.supabase
+      .from('saved_views')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    this._views.update((vs) => vs.filter((v) => v.id !== id));
   }
 }
