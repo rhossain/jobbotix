@@ -3,6 +3,8 @@ import type {
   Json,
   RoleEventRow,
   RoleRow,
+  ResumeRow,
+  ResumeSections,
   RoleStatus,
   RunSummary,
   SavedViewRow,
@@ -59,5 +61,18 @@ export abstract class SavedViewsRepo {
   abstract load(): Promise<void>;
   /** Creates or replaces the view with this name. */
   abstract save(name: string, filters: Json, sort: string): Promise<void>;
+  abstract remove(id: string): Promise<void>;
+}
+
+export abstract class ResumesRepo {
+  /** All versions, newest first. The master is the one with is_master. */
+  abstract readonly resumes: Signal<ResumeRow[]>;
+  abstract readonly master: Signal<ResumeRow | null>;
+  abstract readonly loaded: Signal<boolean>;
+  abstract load(): Promise<void>;
+  /** Saves a new version and makes it the master. Returns the new row id. */
+  abstract saveMaster(sections: ResumeSections, name?: string): Promise<string>;
+  /** Makes an older version the master again (no copy). */
+  abstract restore(id: string): Promise<void>;
   abstract remove(id: string): Promise<void>;
 }

@@ -1,4 +1,6 @@
-<header class="border-b border-neutral-200 dark:border-neutral-800">
+<header
+  class="border-b border-neutral-200 print:hidden dark:border-neutral-800"
+>
   <div
     class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3"
   >
@@ -15,6 +17,7 @@
       <a routerLink="/today" routerLinkActive="font-semibold">Today</a>
       <a routerLink="/roles" routerLinkActive="font-semibold">Roles</a>
       <a routerLink="/board" routerLinkActive="font-semibold">Board</a>
+      <a routerLink="/resume" routerLinkActive="font-semibold">Resume</a>
       <a routerLink="/search" routerLinkActive="font-semibold">Search</a>
       @if (auth.isAdmin()) {
       <a routerLink="/admin/invites" routerLinkActive="font-semibold"

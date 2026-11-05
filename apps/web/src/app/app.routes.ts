@@ -43,6 +43,13 @@ export const appRoutes: Route[] = [
     title: 'Role · Jobbotix',
   },
   {
+    path: 'resume',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/resume/resume-editor').then((m) => m.ResumeEditor),
+    title: 'Master resume · Jobbotix',
+  },
+  {
     path: 'search',
     canActivate: [authGuard],
     loadComponent: () =>

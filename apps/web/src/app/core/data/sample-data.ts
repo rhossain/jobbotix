@@ -1,3 +1,4 @@
+import type { ResumeSections } from '@jobbotix/shared-types';
 import type {
   Json,
   RoleEventRow,
@@ -411,5 +412,119 @@ export function sampleSearchProfile(): SearchProfileRow {
     active: true,
     created_at: daysAgo(30),
     updated_at: daysAgo(3),
+  };
+}
+
+export function sampleResume(): ResumeSections {
+  return {
+    contact: {
+      name: 'Demo User',
+      headline: 'Senior Frontend Engineer | AI-Augmented Development',
+      email: 'demo@jobbotix.local',
+      phone: '',
+      location: 'Dhaka, Bangladesh (remote)',
+      website: 'https://example.com',
+      links: [
+        { label: 'GitHub', url: 'https://github.com/example' },
+        { label: 'LinkedIn', url: 'https://linkedin.com/in/example' },
+      ],
+    },
+    summary:
+      'Senior Frontend Engineer with 15+ years delivering production Angular applications, e-commerce storefronts and CMS themes. Specialises in Angular architecture, scalable SCSS design systems and pixel-accurate UI. Works AI-first: pairs with Claude, Copilot and Cursor daily to move from spec to shipped feature faster, while owning architecture, review and the quality bar.',
+    skills: [
+      {
+        name: 'Frontend',
+        items: [
+          'Angular',
+          'TypeScript',
+          'RxJS',
+          'Signals',
+          'HTML5',
+          'CSS3',
+          'SCSS',
+        ],
+      },
+      {
+        name: 'UI systems',
+        items: [
+          'Angular Material',
+          'Tailwind',
+          'Bootstrap',
+          'Design tokens',
+          'Storybook',
+        ],
+      },
+      {
+        name: 'Platforms',
+        items: [
+          'NopCommerce theming',
+          'WordPress theming',
+          'REST APIs',
+          'Supabase',
+        ],
+      },
+      {
+        name: 'Testing & tooling',
+        items: ['Vitest', 'Jasmine', 'Cypress', 'Nx', 'Git', 'GitHub Actions'],
+      },
+    ],
+    experience: [
+      {
+        company: 'Example Software Ltd.',
+        title: 'Senior Frontend Engineer',
+        location: 'Dhaka (remote)',
+        start: '2018-01',
+        end: '',
+        bullets: [
+          'Lead frontend delivery on client Angular products: component architecture, RxJS state, caching and performance for high-traffic portals.',
+          'Built a production news portal with Service Worker and IndexedDB caching; time-to-interactive from 6s to under 2s on 3G.',
+          'Delivered NopCommerce and WordPress themes from design handoff to production for e-commerce and content clients.',
+          'Introduced AI-assisted workflows (Claude, Copilot, Cursor) into daily delivery and mentor the team on them.',
+        ],
+      },
+      {
+        company: 'Earlier Agency',
+        title: 'Frontend Developer',
+        location: 'Dhaka',
+        start: '2011-06',
+        end: '2017-12',
+        bullets: [
+          'Shipped responsive marketing sites and admin dashboards for 40+ clients in HTML5, SCSS and AngularJS.',
+          'Owned the agency component library and coding standards.',
+        ],
+      },
+    ],
+    projects: [
+      {
+        name: 'Styloviz',
+        url: 'https://styloviz.dev',
+        description:
+          'Angular + Tailwind UI component library with a full token-based brand system.',
+        stack: ['Angular', 'Tailwind', 'Design tokens'],
+      },
+      {
+        name: 'Jobbotix',
+        url: 'https://jobbotix.com',
+        description:
+          'Finds, scores and drafts job applications every morning; you press send.',
+        stack: ['Angular', 'Supabase', 'Anthropic API'],
+      },
+    ],
+    aiToolkit: [
+      'Claude Code',
+      'Cursor',
+      'GitHub Copilot',
+      'Anthropic API',
+      'spec-driven agent workflows (AI-DLC)',
+      'MCP',
+    ],
+    education: [
+      {
+        institution: 'Example University',
+        degree: 'B.Sc. in Computer Science',
+        year: '2010',
+      },
+    ],
+    certifications: [],
   };
 }

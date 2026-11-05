@@ -1,6 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import type {
   Json,
+  ResumeRow,
+  ResumeSections,
   RoleEventRow,
   SavedViewRow,
   RoleRow,
@@ -11,6 +13,7 @@ import type {
 import { Auth } from '../auth';
 import { injectSupabase } from '../supabase';
 import {
+  ResumesRepo,
   RolesRepo,
   SavedViewsRepo,
   SearchProfileInput,
@@ -254,4 +257,75 @@ async function describeFunctionError(error: unknown): Promise<string> {
     }
   }
   return (error as Error).message || 'Request failed';
+}
+
+@Injectable()
+export class SupabaseResumesRepo extends ResumesRepo {
+  private readonly supabase = injectSupabase();
+  private readonly auth = inject(Auth);
+  private readonly _resumes = signal<ResumeRow[]>([]);
+  readonly resumes = this._resumes.asReadonly();
+  readonly master = computed(
+    () => this._resumes().find((r) => r.is_master) ?? null,
+  );
+  readonly loaded = signal(false);
+
+  async load() {
+    const { data } = await this.supabase
+      .from('resumes')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+    this._resumes.set(data ?? []);
+    this.loaded.set(true);
+  }
+
+  async saveMaster(sections: ResumeSections, name = 'Master') {
+    const userId = this.auth.user()?.id;
+    if (!userId) throw new Error('Not signed in');
+    await this.supabase
+      .from('resumes')
+      .update({ is_master: false })
+      .eq('user_id', userId)
+      .eq('is_master', true);
+    const { data, error } = await this.supabase
+      .from('resumes')
+      .insert({
+        user_id: userId,
+        name,
+        is_master: true,
+        sections: sections as unknown as Json,
+      })
+      .select('id')
+      .single();
+    if (error || !data) throw error ?? new Error('insert failed');
+    await this.load();
+    return data.id;
+  }
+
+  async restore(id: string) {
+    const userId = this.auth.user()?.id;
+    if (!userId) throw new Error('Not signed in');
+    await this.supabase
+      .from('resumes')
+      .update({ is_master: false })
+      .eq('user_id', userId)
+      .eq('is_master', true);
+    const { error } = await this.supabase
+      .from('resumes')
+      .update({ is_master: true })
+      .eq('id', id);
+    if (error) throw error;
+    await this.load();
+  }
+
+  async remove(id: string) {
+    const { error } = await this.supabase
+      .from('resumes')
+      .delete()
+      .eq('id', id)
+      .eq('is_master', false);
+    if (error) throw error;
+    this._resumes.update((rs) => rs.filter((r) => r.id !== id));
+  }
 }

@@ -1,9 +1,11 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { heuristicExtract } from '@jobbotix/shared-types';
+import { heuristicExtract, normaliseResume } from '@jobbotix/shared-types';
 import type {
   Json,
   RoleEventRow,
   RoleRow,
+  ResumeRow,
+  ResumeSections,
   RoleStatus,
   RunSummary,
   SavedViewRow,
@@ -11,6 +13,7 @@ import type {
   SearchProfileRow,
 } from '@jobbotix/shared-types';
 import {
+  ResumesRepo,
   RolesRepo,
   SavedViewsRepo,
   SearchProfileInput,
@@ -19,6 +22,7 @@ import {
 import {
   DEMO_USER_ID,
   sampleEvents,
+  sampleResume,
   sampleRoles,
   sampleScreeningAnswers,
   sampleSearchProfile,
@@ -32,6 +36,7 @@ interface DemoState {
   answers: ScreeningAnswerRow[];
   profile: SearchProfileRow;
   views: SavedViewRow[];
+  resumes: ResumeRow[];
 }
 
 /** Reads the demo state from localStorage; falls back to the sample data. */
@@ -48,6 +53,9 @@ function loadState(): DemoState {
         return {
           ...parsed,
           views: Array.isArray(parsed.views) ? parsed.views : [],
+          resumes: Array.isArray(parsed.resumes)
+            ? parsed.resumes
+            : seedResumes(),
         };
     }
   } catch {
@@ -59,7 +67,23 @@ function loadState(): DemoState {
     answers: sampleScreeningAnswers(),
     profile: sampleSearchProfile(),
     views: [],
+    resumes: seedResumes(),
   };
+}
+
+function seedResumes(): ResumeRow[] {
+  const at = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  return [
+    {
+      id: 'resume-master-1',
+      user_id: DEMO_USER_ID,
+      name: 'Master',
+      is_master: true,
+      sections: sampleResume() as unknown as Json,
+      created_at: at,
+      updated_at: at,
+    },
+  ];
 }
 
 function saveState(state: DemoState) {
@@ -296,6 +320,60 @@ export class MemorySavedViewsRepo extends SavedViewsRepo {
   async remove(id: string) {
     this.roles.patch((s) => {
       s.views = s.views.filter((v) => v.id !== id);
+    });
+  }
+}
+
+@Injectable()
+export class MemoryResumesRepo extends ResumesRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+  readonly resumes = computed(() =>
+    [...this.roles.snapshot().resumes].sort((a, b) =>
+      b.created_at.localeCompare(a.created_at),
+    ),
+  );
+  readonly master = computed(
+    () => this.resumes().find((r) => r.is_master) ?? null,
+  );
+  readonly loaded = signal(true);
+
+  async load() {
+    /* nothing to fetch */
+  }
+
+  async saveMaster(sections: ResumeSections, name = 'Master') {
+    const id = newId();
+    const now = new Date().toISOString();
+    this.roles.patch((s) => {
+      for (const r of s.resumes) r.is_master = false;
+      s.resumes.push({
+        id,
+        user_id: DEMO_USER_ID,
+        name,
+        is_master: true,
+        sections: normaliseResume(sections) as unknown as Json,
+        created_at: now,
+        updated_at: now,
+      });
+      // keep the last 20 versions
+      s.resumes = s.resumes
+        .sort((a, b) => b.created_at.localeCompare(a.created_at))
+        .slice(0, 20);
+    });
+    return id;
+  }
+
+  async restore(id: string) {
+    this.roles.patch((s) => {
+      for (const r of s.resumes) r.is_master = r.id === id;
+    });
+  }
+
+  async remove(id: string) {
+    this.roles.patch((s) => {
+      const target = s.resumes.find((r) => r.id === id);
+      if (!target || target.is_master) return;
+      s.resumes = s.resumes.filter((r) => r.id !== id);
     });
   }
 }
