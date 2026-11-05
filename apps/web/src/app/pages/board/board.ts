@@ -157,7 +157,7 @@ const COLUMNS: RoleStatus[] = [
       background: color-mix(in srgb, currentColor 4%, transparent);
     }
     .jb-col-list.cdk-drop-list-dragging {
-      background: color-mix(in srgb, var(--color-brand-500) 10%, transparent);
+      background: color-mix(in srgb, var(--brand) 10%, transparent);
     }
     .jb-board-card {
       padding: 0.75rem;
@@ -167,15 +167,15 @@ const COLUMNS: RoleStatus[] = [
       cursor: grabbing;
     }
     .cdk-drag-preview {
-      box-shadow: 0 8px 24px rgb(0 0 0 / 0.18);
-      border-radius: 0.5rem;
+      box-shadow: var(--elev-overlay);
+      border-radius: var(--r-card);
     }
     .cdk-drag-animating {
       transition: transform 180ms cubic-bezier(0, 0, 0.2, 1);
     }
     .jb-card-placeholder {
       min-height: 4.5rem;
-      border: 2px dashed var(--color-brand-500);
+      border: 2px dashed var(--brand);
       border-radius: 0.5rem;
       opacity: 0.6;
     }

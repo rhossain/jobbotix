@@ -313,13 +313,16 @@ const splitLines = (s: string) =>
             }
           </p>
           @if (ingestKey()) {
-            <p class="jb-letter font-mono text-xs" aria-label="Ingest key">
+            <p
+              class="jb-letter max-w-none font-mono text-xs"
+              aria-label="Ingest key"
+            >
               {{ ingestKey() }}
             </p>
           }
-          <pre class="jb-letter max-h-96 overflow-auto text-xs">{{
-            prompt()
-          }}</pre>
+          <pre
+            class="jb-letter max-h-96 max-w-none overflow-auto font-mono text-xs"
+            >{{ prompt() }}</pre>
           <p class="text-xs text-neutral-500">
             Results arrive on
             <a routerLink="/today" class="underline">Today</a>. The run never
@@ -328,23 +331,6 @@ const splitLines = (s: string) =>
         </section>
       }
     </section>
-  `,
-  styles: `
-    .jb-letter {
-      white-space: pre-wrap;
-      font: inherit;
-      max-width: 100%;
-      padding: 0.75rem;
-      border: 1px solid rgb(229 229 229);
-      border-radius: 0.5rem;
-      background: rgb(250 250 250);
-    }
-    @media (prefers-color-scheme: dark) {
-      .jb-letter {
-        border-color: rgb(46 55 60);
-        background: rgb(23 28 31);
-      }
-    }
   `,
 })
 export class SearchProfile {

@@ -20,7 +20,12 @@
       "installMode": "lazy",
       "updateMode": "prefetch",
       "resources": {
-        "files": ["/icons/**", "/icon.svg", "/pdf.worker.min.mjs"]
+        "files": [
+          "/icons/**",
+          "/icon.svg",
+          "/pdf.worker.min.mjs",
+          "/media/*.woff2"
+        ]
       }
     }
   ],

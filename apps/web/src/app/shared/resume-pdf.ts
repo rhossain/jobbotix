@@ -1,4 +1,5 @@
 import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
+import { resumeRgb } from './resume-palette';
 
 /**
  * One-click PDF of a resume, drawn as real text with jsPDF (lazy-loaded) so
@@ -16,9 +17,10 @@ export async function downloadResumePdf(
   const H = doc.internal.pageSize.getHeight();
   const M = 46; // margin
   const width = W - M * 2;
-  const brand: [number, number, number] = [15, 118, 110];
-  const ink: [number, number, number] = [23, 23, 23];
-  const muted: [number, number, number] = [110, 110, 110];
+  const brand = resumeRgb('accent');
+  const ink = resumeRgb('ink');
+  const muted = resumeRgb('muted');
+  const rule = resumeRgb('rule');
   let y = M;
 
   const ensure = (needed: number) => {
@@ -58,7 +60,7 @@ export async function downloadResumePdf(
     doc.setTextColor(...muted);
     doc.text(s.toUpperCase(), M, y + 7, { charSpace: 0.8 });
     y += 11;
-    doc.setDrawColor(210, 210, 210);
+    doc.setDrawColor(...rule);
     doc.setLineWidth(0.6);
     doc.line(M, y, W - M, y);
     y += 6;

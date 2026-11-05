@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
+import { resumeCssVars } from './resume-palette';
 
 /**
  * The single-page resume template. The same markup is what the browser
@@ -8,6 +9,7 @@ import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
  */
 @Component({
   selector: 'jb-resume-preview',
+  host: { '[style]': 'palette' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article class="resume" [class.resume-print]="print()">
@@ -133,25 +135,21 @@ import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
       display: block;
     }
     .resume {
-      --ink: #1b2026;
-      --muted: #5d6771;
-      --rule: #d9dedb;
-      --accent: #0b5a5a;
       width: 100%;
       max-width: 210mm;
       margin: 0 auto;
       padding: 14mm 16mm;
       box-sizing: border-box;
-      background: #fff;
+      background: var(--paper);
       color: var(--ink);
       font:
-        10.5pt/1.4 'IBM Plex Sans',
-        'Segoe UI',
-        system-ui,
+        10.5pt/1.4 'Helvetica Neue',
+        Helvetica,
+        Arial,
         sans-serif;
       box-shadow:
-        0 1px 3px rgb(0 0 0 / 0.12),
-        0 8px 24px rgb(0 0 0 / 0.06);
+        0 1px 2px color-mix(in srgb, var(--ink) 10%, transparent),
+        0 12px 32px -12px color-mix(in srgb, var(--ink) 22%, transparent);
     }
     .resume a {
       color: var(--accent);
@@ -246,6 +244,7 @@ import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
   `,
 })
 export class ResumePreview {
+  protected readonly palette = resumeCssVars;
   readonly r = input.required<ResumeSections>();
   readonly print = input(false);
 

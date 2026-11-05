@@ -308,14 +308,14 @@ const DEFAULT_FILTERS: Filters = {
       cursor: pointer;
     }
     .jb-row:hover {
-      background: color-mix(in srgb, var(--color-brand-500) 6%, transparent);
+      background: color-mix(in srgb, var(--brand) 6%, transparent);
     }
     .jb-row-active {
-      background: color-mix(in srgb, var(--color-brand-500) 12%, transparent);
+      background: color-mix(in srgb, var(--brand) 12%, transparent);
       outline: none;
     }
     .jb-row:focus-visible {
-      outline: 2px solid var(--color-brand-500);
+      outline: 2px solid var(--line-focus);
       outline-offset: -2px;
     }
   `,

@@ -1,245 +1,341 @@
-// Global SCSS for Jobbotix. Tailwind is loaded from tailwind.css (a separate
-// style entry) because Sass would try to resolve Tailwind's @import itself.
+// Global styles for Jobbotix. Every value here reads a token from
+// tailwind.css (loaded as a separate style entry because Sass would try to
+// resolve Tailwind's @import itself). No colour literals belong in this file.
 
-:root {
-  color-scheme: light dark;
-}
-
+// ---------- Base ----------
 html,
 body {
   height: 100%;
   margin: 0;
 }
 
-body {
-  font-family: 'IBM Plex Sans', 'Segoe UI', system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
+html {
+  background: var(--surface-canvas);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--topbar-h) + 16px);
 }
 
-// Form controls and buttons shared by every page. Kept as plain classes so
-// templates stay readable; colours come from Tailwind's theme tokens.
+body {
+  background: var(--surface-canvas);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 1rem;
+  line-height: 1.55;
+  font-optical-sizing: auto;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+p {
+  text-wrap: pretty;
+}
+
+::selection {
+  background: var(--brand-tint);
+  color: var(--ink);
+}
+
+:focus-visible {
+  outline: 2px solid var(--line-focus);
+  outline-offset: 2px;
+}
+
+a {
+  color: inherit;
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+kbd {
+  font-family: var(--font-code);
+}
+
+// Thin, quiet scrollbars where the platform allows styling them.
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+// ---------- Form controls ----------
 .jb-input {
   width: 100%;
+  min-height: 2.5rem;
   padding: 0.5rem 0.75rem;
-  border: 1px solid rgb(212 212 212);
-  border-radius: 0.375rem;
-  background: rgb(255 255 255);
-  color: inherit;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  color: var(--ink);
   font: inherit;
+  font-size: 0.9375rem;
+  transition:
+    border-color var(--dur-fast) var(--motion-ease),
+    box-shadow var(--dur-fast) var(--motion-ease);
+
+  &::placeholder {
+    color: var(--ink-faint);
+  }
+
+  &:hover:not(:disabled) {
+    border-color: var(--ink-faint);
+  }
 
   &:focus-visible {
-    outline: 2px solid var(--color-brand-500);
-    outline-offset: 1px;
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 22%, transparent);
   }
 
-  @media (prefers-color-scheme: dark) {
-    border-color: rgb(64 64 64);
-    background: rgb(23 23 23);
+  &:disabled {
+    opacity: 0.6;
   }
+
+  // iOS zooms into inputs smaller than 16px; touch devices get 16px.
+  @media (pointer: coarse) {
+    min-height: 2.75rem;
+    font-size: 1rem;
+  }
+}
+
+textarea.jb-input {
+  line-height: 1.5;
 }
 
 .jb-input-inline {
   width: auto;
 }
 
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--brand);
+  width: 1.05rem;
+  height: 1.05rem;
+}
+
+// ---------- Buttons ----------
 .jb-btn,
 .jb-btn-primary {
-  padding: 0.5rem 0.9rem;
-  border: 1px solid rgb(212 212 212);
-  border-radius: 0.375rem;
-  background: transparent;
-  color: inherit;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-control);
+  background: var(--surface);
+  color: var(--ink);
   font: inherit;
   font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
   cursor: pointer;
+  user-select: none;
+  transition:
+    background-color var(--dur-fast) var(--motion-ease),
+    border-color var(--dur-fast) var(--motion-ease),
+    color var(--dur-fast) var(--motion-ease),
+    transform var(--dur-fast) var(--motion-ease);
+
+  &:hover:not(:disabled) {
+    border-color: var(--ink-faint);
+    background: var(--surface-sunken);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
 
   &:disabled {
-    opacity: 0.55;
+    opacity: 0.5;
     cursor: default;
   }
 
-  &:focus-visible {
-    outline: 2px solid var(--color-brand-500);
-    outline-offset: 2px;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    border-color: rgb(64 64 64);
+  @media (pointer: coarse) {
+    min-height: 2.75rem;
   }
 }
 
 .jb-btn-primary,
 .jb-btn-on {
-  border-color: var(--color-brand-600);
-  background: var(--color-brand-600);
-  color: #fff;
-}
+  border-color: var(--brand);
+  background: var(--brand);
+  color: var(--ink-on-brand);
 
-// Cards, scores, tags and status pills shared by Today, Roles, Board and detail.
-.jb-card {
-  border: 1px solid rgb(229 229 229);
-  border-radius: 0.5rem;
-  background: rgb(255 255 255);
+  &:hover:not(:disabled) {
+    border-color: var(--brand-hover);
+    background: var(--brand-hover);
+  }
 
-  @media (prefers-color-scheme: dark) {
-    border-color: rgb(46 55 60);
-    background: rgb(29 35 39);
+  &:active:not(:disabled) {
+    background: var(--brand-active);
   }
 }
 
-.jb-card-ai {
-  border-left: 3px solid var(--color-brand-500);
+// ---------- Cards ----------
+.jb-card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface);
 }
 
+.jb-card-ai {
+  box-shadow: inset 3px 0 0 var(--brand);
+}
+
+// ---------- Scores ----------
 .jb-score {
   flex: 0 0 3.25rem;
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
-  font-size: 1.375rem;
-  font-weight: 500;
+  font-size: 1.5rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
   line-height: 1;
   padding-top: 0.125rem;
 
   small {
     display: block;
-    margin-top: 0.2rem;
-    font-size: 0.6rem;
-    letter-spacing: 0.06em;
-    color: rgb(115 115 115);
+    margin-top: 0.25rem;
+    color: var(--ink-faint);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0;
   }
 }
 
 .jb-score-high {
-  color: rgb(47 125 79);
+  color: var(--brand);
 }
 .jb-score-mid {
-  color: rgb(183 121 31);
+  color: var(--signal-ink);
 }
 .jb-score-low {
-  color: rgb(115 115 115);
+  color: var(--ink-faint);
 }
 
-@media (prefers-color-scheme: dark) {
-  .jb-score-high {
-    color: rgb(111 196 143);
-  }
-  .jb-score-mid {
-    color: rgb(224 168 74);
-  }
-  .jb-score-low {
-    color: rgb(154 165 173);
-  }
-}
-
+// ---------- Tags ----------
 .jb-tag {
-  display: inline-block;
-  padding: 0.1rem 0.45rem;
-  border-radius: 0.25rem;
-  background: rgb(238 241 238);
-  color: rgb(93 103 113);
-  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.5rem;
+  padding: 0.1rem 0.55rem;
+  border-radius: 999px;
+  background: var(--surface-sunken);
+  color: var(--ink-muted);
   font-size: 0.75rem;
-
-  @media (prefers-color-scheme: dark) {
-    background: rgb(38 45 50);
-    color: rgb(154 165 173);
-  }
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .jb-tag-ai {
-  background: var(--color-brand-50);
-  color: var(--color-brand-600);
-
-  @media (prefers-color-scheme: dark) {
-    background: var(--color-brand-700);
-    color: var(--color-brand-50);
-  }
+  background: var(--brand-tint);
+  color: var(--brand-ink);
 }
 
+// ---------- Status ----------
 .jb-status {
-  padding: 0.35rem 0.5rem;
-  border: 1px solid rgb(212 212 212);
-  border-radius: 0.375rem;
-  background: transparent;
-  color: inherit;
+  --tone: var(--status-new);
+  min-height: 2rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid color-mix(in srgb, var(--tone) 45%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--tone) 10%, var(--surface));
+  color: var(--tone);
   font: inherit;
   font-size: 0.8125rem;
+  font-weight: 500;
 
-  @media (prefers-color-scheme: dark) {
-    border-color: rgb(64 64 64);
+  &.s-new {
+    --tone: var(--status-new);
   }
-
-  &.s-shortlist,
+  &.s-shortlist {
+    --tone: var(--status-shortlist);
+  }
   &.s-applied {
-    border-color: var(--color-brand-500);
-    color: var(--color-brand-600);
+    --tone: var(--status-applied);
   }
-  &.s-interview,
+  &.s-interview {
+    --tone: var(--status-interview);
+  }
   &.s-offer {
-    border-color: rgb(47 125 79);
-    color: rgb(47 125 79);
+    --tone: var(--status-offer);
   }
-  &.s-rejected,
+  &.s-rejected {
+    --tone: var(--status-rejected);
+  }
   &.s-skipped {
-    color: rgb(115 115 115);
+    --tone: var(--status-skipped);
   }
 
-  @media (prefers-color-scheme: dark) {
-    &.s-shortlist,
-    &.s-applied {
-      color: var(--color-brand-50);
-    }
-    &.s-interview,
-    &.s-offer {
-      border-color: rgb(111 196 143);
-      color: rgb(111 196 143);
-    }
+  @media (pointer: coarse) {
+    min-height: 2.75rem;
   }
 }
 
+// ---------- Section headings ----------
 .jb-section-title {
-  font-size: 0.75rem;
+  color: var(--ink);
+  font-size: 1.0625rem;
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgb(115 115 115);
+  letter-spacing: -0.01em;
 }
 
+// ---------- Empty states ----------
 .jb-empty {
   max-width: 60ch;
   padding: 1.5rem 1.25rem;
-  border: 1px dashed rgb(212 212 212);
-  border-radius: 0.5rem;
-  color: rgb(93 103 113);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--r-card);
+  color: var(--ink-muted);
   font-size: 0.875rem;
 
   b {
     display: block;
     margin-bottom: 0.25rem;
-    color: inherit;
+    color: var(--ink);
+    font-size: 1rem;
     font-weight: 600;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    border-color: rgb(64 64 64);
-    color: rgb(154 165 173);
   }
 }
 
+// ---------- Long text (letters, prompts, posting snapshots) ----------
+.jb-letter {
+  max-width: 72ch;
+  margin: 0;
+  padding: 1rem 1.125rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--surface-sunken);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+// ---------- Toast ----------
 .jb-toast {
   position: fixed;
   left: 50%;
   bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px));
   transform: translateX(-50%);
-  padding: 0.5rem 0.9rem;
-  border-radius: 0.375rem;
-  background: rgb(27 32 38);
-  color: rgb(246 247 245);
-  font-size: 0.8125rem;
+  padding: 0.6rem 1rem;
+  border-radius: var(--r-control);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 0.875rem;
+  box-shadow: var(--elev-overlay);
   z-index: 50;
-
-  @media (prefers-color-scheme: dark) {
-    background: rgb(232 235 233);
-    color: rgb(20 24 27);
-  }
 }

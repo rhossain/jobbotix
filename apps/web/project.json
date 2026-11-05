@@ -26,7 +26,13 @@
             "output": "/"
           }
         ],
-        "styles": ["apps/web/src/tailwind.css", "apps/web/src/styles.scss"],
+        "styles": [
+          "node_modules/@fontsource-variable/bricolage-grotesque/opsz.css",
+          "node_modules/@fontsource/ibm-plex-mono/400.css",
+          "node_modules/@fontsource/ibm-plex-mono/500.css",
+          "apps/web/src/tailwind.css",
+          "apps/web/src/styles.scss"
+        ],
         "allowedCommonJsDependencies": [
           "mammoth",
           "lop",
@@ -103,7 +109,8 @@
       "executor": "@angular/build:unit-test",
       "options": {
         "watch": false
-      }
+      },
+      "dependsOn": ["test-tokens"]
     },
     "serve-static": {
       "continuous": true,
@@ -117,6 +124,19 @@
         "staticFilePath": "dist/apps/web/browser",
         "spa": true
       }
+    },
+    "test-tokens": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "vitest run --config apps/web/vitest.tokens.config.mts",
+        "cwd": "{workspaceRoot}"
+      },
+      "cache": true,
+      "inputs": [
+        "{projectRoot}/src/tailwind.css",
+        "{projectRoot}/src/**/*.node-spec.ts",
+        "{projectRoot}/vitest.tokens.config.mts"
+      ]
     }
   }
 }

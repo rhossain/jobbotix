@@ -461,28 +461,12 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
       cursor: pointer;
     }
     .jb-tab-active {
-      border-bottom-color: var(--color-brand-500);
+      border-bottom-color: var(--brand);
       font-weight: 600;
     }
     .jb-tab:focus-visible {
-      outline: 2px solid var(--color-brand-500);
+      outline: 2px solid var(--line-focus);
       outline-offset: -2px;
-    }
-    .jb-letter {
-      white-space: pre-wrap;
-      font: inherit;
-      font-size: 0.9rem;
-      max-width: 72ch;
-      padding: 0.75rem;
-      border: 1px solid rgb(229 229 229);
-      border-radius: 0.5rem;
-      background: rgb(250 250 250);
-    }
-    @media (prefers-color-scheme: dark) {
-      .jb-letter {
-        border-color: rgb(46 55 60);
-        background: rgb(23 28 31);
-      }
     }
   `,
 })
