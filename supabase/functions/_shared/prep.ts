@@ -267,7 +267,7 @@ function splitResult(bullet: string): [string, string] {
   const m = bullet.match(
     /^(.*?)(;|:|, (?:cutting|reducing|raising|improving|which|resulting|from|taking))(.*)$/i,
   );
-  if (m && m[3].trim().length > 8)
+  if (m && m[3].trim().length > 8 && /\d/.test(m[3]))
     return [
       m[1].trim().replace(/\.$/, '') + '.',
       (m[2].startsWith(',') ? m[2].slice(2) : '') + m[3].trim(),

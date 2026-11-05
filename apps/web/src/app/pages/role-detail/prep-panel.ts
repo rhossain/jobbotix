@@ -118,15 +118,15 @@ import { Toast } from '../../shared/toast';
                 <p class="mt-1 text-xs text-neutral-500">{{ s.source }}</p>
                 <dl class="mt-2 space-y-1">
                   <div>
-                    <dt class="inline font-medium">Situation:</dt>
+                    <dt class="mr-1 inline font-medium">Situation:</dt>
                     <dd class="inline">{{ s.situation }}</dd>
                   </div>
                   <div>
-                    <dt class="inline font-medium">Action:</dt>
+                    <dt class="mr-1 inline font-medium">Action:</dt>
                     <dd class="inline">{{ s.action }}</dd>
                   </div>
                   <div>
-                    <dt class="inline font-medium">Result:</dt>
+                    <dt class="mr-1 inline font-medium">Result:</dt>
                     <dd class="inline">{{ s.result }}</dd>
                   </div>
                 </dl>
