@@ -4,6 +4,7 @@
  */
 export const environment = {
   production: true,
+  demo: false,
   supabaseUrl: 'https://YOUR-PROJECT-REF.supabase.co',
   supabaseAnonKey: 'YOUR-ANON-KEY',
   appName: 'Jobbotix',

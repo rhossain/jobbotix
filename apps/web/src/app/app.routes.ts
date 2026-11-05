@@ -2,11 +2,12 @@ import { Route } from '@angular/router';
 import { adminGuard, authGuard, guestGuard } from './core/guards';
 
 export const appRoutes: Route[] = [
+  { path: '', pathMatch: 'full', redirectTo: 'today' },
   {
-    path: '',
+    path: 'today',
     canActivate: [authGuard],
-    loadComponent: () => import('./pages/home/home').then((m) => m.Home),
-    title: 'Jobbotix',
+    loadComponent: () => import('./pages/today/today').then((m) => m.Today),
+    title: 'Today · Jobbotix',
   },
   {
     path: 'login',

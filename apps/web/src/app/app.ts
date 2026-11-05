@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { Auth } from './core/auth';
+import { Toast } from './shared/toast';
 
 @Component({
   imports: [RouterModule],
@@ -11,6 +12,7 @@ import { Auth } from './core/auth';
 })
 export class App {
   protected readonly auth = inject(Auth);
+  protected readonly toast = inject(Toast);
   private readonly router = inject(Router);
   protected readonly title = 'Jobbotix';
 
