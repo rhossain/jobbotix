@@ -1,11 +1,19 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { heuristicExtract, normaliseResume } from '@jobbotix/shared-types';
+import {
+  applyVariant,
+  heuristicExtract,
+  keywordReport,
+  localTailor,
+  normaliseResume,
+  type VariantDiff,
+} from '@jobbotix/shared-types';
 import type {
   Json,
   RoleEventRow,
   RoleRow,
   ResumeRow,
   ResumeSections,
+  ResumeVariantRow,
   RoleStatus,
   RunSummary,
   SavedViewRow,
@@ -16,6 +24,7 @@ import {
   ResumesRepo,
   RolesRepo,
   SavedViewsRepo,
+  VariantsRepo,
   SearchProfileInput,
   SearchProfileRepo,
 } from './repos';
@@ -37,6 +46,7 @@ interface DemoState {
   profile: SearchProfileRow;
   views: SavedViewRow[];
   resumes: ResumeRow[];
+  variants: ResumeVariantRow[];
 }
 
 /** Reads the demo state from localStorage; falls back to the sample data. */
@@ -68,6 +78,7 @@ function loadState(): DemoState {
     profile: sampleSearchProfile(),
     views: [],
     resumes: seedResumes(),
+    variants: [],
   };
 }
 
@@ -375,5 +386,114 @@ export class MemoryResumesRepo extends ResumesRepo {
       if (!target || target.is_master) return;
       s.resumes = s.resumes.filter((r) => r.id !== id);
     });
+  }
+}
+
+@Injectable()
+export class MemoryVariantsRepo extends VariantsRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+
+  async variantFor(roleId: string) {
+    return (
+      this.roles.snapshot().variants.find((v) => v.role_id === roleId) ?? null
+    );
+  }
+
+  async generate(roleId: string) {
+    const st = this.roles.snapshot();
+    const role = st.roles.find((r) => r.id === roleId);
+    const master = st.resumes.find((r) => r.is_master);
+    if (!role) throw new Error('Role not found');
+    if (!master) throw new Error('Save a master resume first');
+    const sections = normaliseResume(master.sections);
+    const postingText =
+      role.posting_text ||
+      [role.title, role.company, ...role.stack, ...role.reasons].join('\n');
+    const proposals = localTailor(sections, {
+      company: role.company,
+      title: role.title,
+      text: postingText,
+      stack: role.stack,
+    });
+    const existing = await this.variantFor(roleId);
+    const prior =
+      (existing?.diff as unknown as VariantDiff | null)?.changes ?? [];
+    const changes = proposals.map((c) => {
+      const same = prior.find(
+        (p) => p.path === c.path && p.kind === c.kind && p.after === c.after,
+      );
+      return {
+        ...c,
+        id: newId(),
+        decision: same?.decision ?? ('pending' as const),
+      };
+    });
+    const diff: VariantDiff = { baseResumeId: master.id, changes };
+    const applied = applyVariant(sections, diff);
+    const now = new Date().toISOString();
+    const row: ResumeVariantRow = {
+      id: existing?.id ?? newId(),
+      user_id: DEMO_USER_ID,
+      role_id: roleId,
+      base_resume_id: master.id,
+      sections: applied as unknown as Json,
+      diff: diff as unknown as Json,
+      keyword_report: keywordReport(postingText, applied) as unknown as Json,
+      pdf_path: null,
+      status: 'draft',
+      created_at: existing?.created_at ?? now,
+      updated_at: now,
+    };
+    this.roles.patch((s) => {
+      s.variants = [...s.variants.filter((v) => v.role_id !== roleId), row];
+      s.events.push({
+        id: newId(),
+        user_id: DEMO_USER_ID,
+        role_id: roleId,
+        kind: 'generated',
+        payload: { what: 'resume variant', method: 'local' },
+        created_at: now,
+      });
+    });
+    return row;
+  }
+
+  async saveDiff(
+    variantId: string,
+    diff: VariantDiff,
+    sections: ResumeSections,
+  ) {
+    let out: ResumeVariantRow | undefined;
+    this.roles.patch((s) => {
+      const v = s.variants.find((x) => x.id === variantId);
+      if (!v) return;
+      const role = s.roles.find((r) => r.id === v.role_id);
+      const postingText =
+        role?.posting_text ||
+        [role?.title, role?.company, ...(role?.stack ?? [])].join('\n');
+      v.diff = diff as unknown as Json;
+      v.sections = sections as unknown as Json;
+      v.keyword_report = keywordReport(
+        postingText,
+        sections,
+      ) as unknown as Json;
+      v.updated_at = new Date().toISOString();
+      out = { ...v };
+    });
+    if (!out) throw new Error('Variant not found');
+    return out;
+  }
+
+  async approve(variantId: string) {
+    let out: ResumeVariantRow | undefined;
+    this.roles.patch((s) => {
+      const v = s.variants.find((x) => x.id === variantId);
+      if (!v) return;
+      v.status = 'approved';
+      v.updated_at = new Date().toISOString();
+      out = { ...v };
+    });
+    if (!out) throw new Error('Variant not found');
+    return out;
   }
 }

@@ -4,3 +4,4 @@ export * from './lib/search-prompt';
 export * from './lib/scoring';
 export * from './lib/extract';
 export * from './lib/resume';
+export * from './lib/variant';

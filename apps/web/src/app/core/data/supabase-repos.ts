@@ -1,8 +1,10 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import type { VariantDiff } from '@jobbotix/shared-types';
 import type {
   Json,
   ResumeRow,
   ResumeSections,
+  ResumeVariantRow,
   RoleEventRow,
   SavedViewRow,
   RoleRow,
@@ -16,6 +18,7 @@ import {
   ResumesRepo,
   RolesRepo,
   SavedViewsRepo,
+  VariantsRepo,
   SearchProfileInput,
   SearchProfileRepo,
 } from './repos';
@@ -327,5 +330,61 @@ export class SupabaseResumesRepo extends ResumesRepo {
       .eq('is_master', false);
     if (error) throw error;
     this._resumes.update((rs) => rs.filter((r) => r.id !== id));
+  }
+}
+
+@Injectable()
+export class SupabaseVariantsRepo extends VariantsRepo {
+  private readonly supabase = injectSupabase();
+
+  async variantFor(roleId: string) {
+    const { data } = await this.supabase
+      .from('resume_variants')
+      .select('*')
+      .eq('role_id', roleId)
+      .maybeSingle();
+    return data ?? null;
+  }
+
+  async generate(roleId: string) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      variant?: ResumeVariantRow;
+      error?: string;
+    }>('tailor-resume', {
+      body: { roleId },
+    });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.variant)
+      throw new Error(data?.error ?? 'Could not generate the variant');
+    return data.variant;
+  }
+
+  async saveDiff(
+    variantId: string,
+    diff: VariantDiff,
+    sections: ResumeSections,
+  ) {
+    const { data, error } = await this.supabase
+      .from('resume_variants')
+      .update({
+        diff: diff as unknown as Json,
+        sections: sections as unknown as Json,
+      })
+      .eq('id', variantId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data;
+  }
+
+  async approve(variantId: string) {
+    const { data, error } = await this.supabase
+      .from('resume_variants')
+      .update({ status: 'approved' })
+      .eq('id', variantId)
+      .select('*')
+      .single();
+    if (error) throw error;
+    return data;
   }
 }

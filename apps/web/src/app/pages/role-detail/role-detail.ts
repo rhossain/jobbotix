@@ -19,16 +19,26 @@ import { RolesRepo } from '../../core/data/repos';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { StatusSelect } from '../../shared/status-select';
 import { Toast } from '../../shared/toast';
+import { VariantPanel } from './variant-panel';
 
-type Tab = 'fit' | 'posting' | 'activity';
+type Tab = 'fit' | 'resume' | 'posting' | 'activity';
 
 @Component({
   selector: 'jb-role-detail',
-  imports: [RouterLink, RelativeDayPipe, TypeLabelPipe, StatusSelect],
+  imports: [
+    RouterLink,
+    RelativeDayPipe,
+    TypeLabelPipe,
+    StatusSelect,
+    VariantPanel,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (role(); as r) {
-      <article class="flex flex-col gap-6">
+      <article
+        class="flex flex-col gap-6"
+        [class.print:hidden]="tab() === 'resume'"
+      >
         <nav class="text-sm">
           <a routerLink="/roles" class="text-neutral-500 hover:underline"
             >← Roles</a
@@ -201,6 +211,9 @@ type Tab = 'fit' | 'posting' | 'activity';
               </section>
             }
           }
+          @case ('resume') {
+            <jb-variant-panel [role]="r" />
+          }
           @case ('posting') {
             <section class="grid gap-4 text-sm md:grid-cols-2">
               <dl class="space-y-2">
@@ -347,6 +360,7 @@ export class RoleDetail {
 
   readonly tabs: { id: Tab; label: string }[] = [
     { id: 'fit', label: 'Fit' },
+    { id: 'resume', label: 'Resume' },
     { id: 'posting', label: 'Posting' },
     { id: 'activity', label: 'Activity' },
   ];

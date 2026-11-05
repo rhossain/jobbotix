@@ -1,10 +1,12 @@
 import type { Signal } from '@angular/core';
+import type { VariantDiff } from '@jobbotix/shared-types';
 import type {
   Json,
   RoleEventRow,
   RoleRow,
   ResumeRow,
   ResumeSections,
+  ResumeVariantRow,
   RoleStatus,
   RunSummary,
   SavedViewRow,
@@ -75,4 +77,22 @@ export abstract class ResumesRepo {
   /** Makes an older version the master again (no copy). */
   abstract restore(id: string): Promise<void>;
   abstract remove(id: string): Promise<void>;
+}
+
+export abstract class VariantsRepo {
+  /** The tailored variant for one role, or null. */
+  abstract variantFor(roleId: string): Promise<ResumeVariantRow | null>;
+  /**
+   * Proposes changes for the role from the current master (model when the
+   * user has a key, local heuristics in demo) and stores them as a draft.
+   * Existing decisions on unchanged proposals are kept.
+   */
+  abstract generate(roleId: string): Promise<ResumeVariantRow>;
+  /** Persists decisions and the resulting sections. */
+  abstract saveDiff(
+    variantId: string,
+    diff: VariantDiff,
+    sections: ResumeSections,
+  ): Promise<ResumeVariantRow>;
+  abstract approve(variantId: string): Promise<ResumeVariantRow>;
 }
