@@ -10,6 +10,12 @@ export const appRoutes: Route[] = [
     title: 'Today · Jobbotix',
   },
   {
+    path: 'roles',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/roles/roles').then((m) => m.Roles),
+    title: 'Roles · Jobbotix',
+  },
+  {
     path: 'login',
     canActivate: [guestGuard],
     loadComponent: () => import('./pages/auth/login').then((m) => m.Login),
