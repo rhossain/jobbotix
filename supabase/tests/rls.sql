@@ -225,7 +225,7 @@ update public.profiles set is_admin = false where id = '11111111-1111-1111-1111-
 -- ---------------------------------------------------------------------------
 set role anon;
 do $$ begin
-  if public.signup_is_open() then raise exception 'FAIL: signup open by default'; end if;
+  if public.signup_is_open() then raise exception 'FAIL: signup open by default once accounts exist'; end if;
 end $$;
 reset role;
 set role authenticated;
