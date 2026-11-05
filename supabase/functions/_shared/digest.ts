@@ -173,3 +173,38 @@ export function isDigestHour(
   }
   return hour === wanted;
 }
+
+/** ISO weekday (1 = Monday … 7 = Sunday) in the user's timezone. */
+export function isoWeekday(timezone: string, now: Date): number {
+  let name: string;
+  try {
+    name = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'short',
+      timeZone: timezone,
+    }).format(now);
+  } catch {
+    name = new Intl.DateTimeFormat('en-GB', { weekday: 'short' }).format(now);
+  }
+  const idx = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].indexOf(
+    name.slice(0, 3),
+  );
+  return idx < 0 ? 1 : idx + 1;
+}
+
+/** True when the digest should go out now for these settings. */
+export function digestDue(
+  settings: {
+    digest_time: string;
+    digest_days?: number[] | null;
+    digest_enabled?: boolean | null;
+  },
+  timezone: string,
+  now: Date,
+): boolean {
+  if (settings.digest_enabled === false) return false;
+  const days = settings.digest_days?.length
+    ? settings.digest_days
+    : [1, 2, 3, 4, 5, 6, 7];
+  if (!days.includes(isoWeekday(timezone, now))) return false;
+  return isDigestHour(settings.digest_time, timezone, now);
+}

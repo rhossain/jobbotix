@@ -91,6 +91,9 @@ export type SearchProfileRow = Timestamps & {
   scoring_weights: Json;
   employment_types: EmploymentType[];
   digest_time: string;
+  digest_days: number[];
+  digest_min_score: number;
+  digest_enabled: boolean;
   active: boolean;
 };
 
@@ -275,6 +278,9 @@ export type Database = {
           | 'scoring_weights'
           | 'employment_types'
           | 'digest_time'
+          | 'digest_days'
+          | 'digest_min_score'
+          | 'digest_enabled'
           | 'active'
           | 'created_at'
           | 'updated_at'

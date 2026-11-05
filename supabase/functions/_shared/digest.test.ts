@@ -1,5 +1,11 @@
 import { deepStrictEqual as assertEquals } from 'node:assert';
-import { buildDigest, isDigestHour, type DigestRole } from './digest.ts';
+import {
+  buildDigest,
+  digestDue,
+  isDigestHour,
+  isoWeekday,
+  type DigestRole,
+} from './digest.ts';
 
 const role = (over: Partial<DigestRole>): DigestRole => ({
   id: 'r1',
@@ -79,4 +85,26 @@ Deno.test('isDigestHour compares in the user timezone', () => {
   assertEquals(isDigestHour('07:00', 'Asia/Dhaka', now), false);
   assertEquals(isDigestHour('00:30', 'UTC', now), true);
   assertEquals(isDigestHour('00:30', 'Not/AZone', now), true); // falls back to UTC
+});
+
+Deno.test('digestDue honours weekdays and the off switch', () => {
+  const now = new Date('2026-11-07T00:50:00Z'); // Saturday 06:50 in Dhaka
+  assertEquals(isoWeekday('Asia/Dhaka', now), 6);
+  assertEquals(digestDue({ digest_time: '06:45' }, 'Asia/Dhaka', now), true);
+  assertEquals(
+    digestDue(
+      { digest_time: '06:45', digest_days: [1, 2, 3, 4, 5] },
+      'Asia/Dhaka',
+      now,
+    ),
+    false,
+  );
+  assertEquals(
+    digestDue(
+      { digest_time: '06:45', digest_enabled: false },
+      'Asia/Dhaka',
+      now,
+    ),
+    false,
+  );
 });

@@ -179,16 +179,58 @@ const splitLines = (s: string) =>
           <fieldset class="flex flex-col gap-2 text-sm">
             <legend class="jb-section-title mb-1">Digest</legend>
             <label class="flex items-center gap-2">
-              Send the morning digest at
+              <input
+                id="sp-digest-on"
+                type="checkbox"
+                formControlName="digestEnabled"
+              />
+              Email me a morning digest
+            </label>
+            <label class="flex items-center gap-2">
+              at
               <input
                 id="sp-digest"
                 type="time"
                 formControlName="digestTime"
                 class="jb-input jb-input-inline"
               />
+              <span class="text-neutral-500"
+                >({{ auth.profile()?.timezone || 'your timezone' }})</span
+              >
+            </label>
+            <div
+              class="flex flex-wrap items-center gap-1.5"
+              role="group"
+              aria-label="Digest days"
+            >
+              <span class="mr-1">on</span>
+              @for (d of weekdays; track d.n) {
+                <button
+                  type="button"
+                  class="jb-btn px-2 py-1"
+                  [class.jb-btn-on]="digestDays().includes(d.n)"
+                  [attr.aria-pressed]="digestDays().includes(d.n)"
+                  (click)="toggleDay(d.n)"
+                >
+                  {{ d.label }}
+                </button>
+              }
+            </div>
+            <label class="flex items-center gap-2">
+              Only roles scoring at least
+              <input
+                id="sp-digest-min"
+                type="number"
+                min="0"
+                max="100"
+                step="5"
+                formControlName="digestMinScore"
+                class="jb-input jb-input-inline w-20"
+              />
             </label>
             <p class="text-neutral-500">
-              In your timezone ({{ auth.profile()?.timezone || 'unknown' }}).
+              The run itself still records every role; this only shapes the
+              email.
             </p>
           </fieldset>
 
@@ -330,6 +372,8 @@ export class SearchProfile {
     contract: new FormControl(true, { nonNullable: true }),
     minSeniority: new FormControl('senior', { nonNullable: true }),
     digestTime: new FormControl('06:45', { nonNullable: true }),
+    digestEnabled: new FormControl(true, { nonNullable: true }),
+    digestMinScore: new FormControl(0, { nonNullable: true }),
     weights: new FormGroup(
       Object.fromEntries(
         (Object.keys(DEFAULT_SCORING_WEIGHTS) as (keyof ScoringWeights)[]).map(
@@ -341,6 +385,24 @@ export class SearchProfile {
       ) as Record<keyof ScoringWeights, FormControl<number>>,
     ),
   });
+
+  readonly weekdays = [
+    { n: 1, label: 'Mon' },
+    { n: 2, label: 'Tue' },
+    { n: 3, label: 'Wed' },
+    { n: 4, label: 'Thu' },
+    { n: 5, label: 'Fri' },
+    { n: 6, label: 'Sat' },
+    { n: 7, label: 'Sun' },
+  ];
+  readonly digestDays = signal<number[]>([1, 2, 3, 4, 5, 6, 7]);
+
+  toggleDay(n: number) {
+    this.digestDays.update((ds) =>
+      ds.includes(n) ? ds.filter((x) => x !== n) : [...ds, n],
+    );
+    this.form.markAsDirty();
+  }
 
   readonly weightKeys = Object.keys(
     DEFAULT_SCORING_WEIGHTS,
@@ -375,6 +437,9 @@ export class SearchProfile {
   private fill(p: SearchProfileRow) {
     const remote = (p.remote_rules ?? {}) as Record<string, unknown>;
     const excl = (p.exclusions ?? {}) as Record<string, unknown>;
+    this.digestDays.set(
+      p.digest_days?.length ? [...p.digest_days] : [1, 2, 3, 4, 5, 6, 7],
+    );
     this.form.reset({
       targetRoles: p.target_roles.join('\n'),
       stacks: p.stacks.join('\n'),
@@ -392,6 +457,8 @@ export class SearchProfile {
       contract: p.employment_types.includes('contract'),
       minSeniority: p.min_seniority,
       digestTime: p.digest_time.slice(0, 5),
+      digestEnabled: p.digest_enabled !== false,
+      digestMinScore: p.digest_min_score ?? 0,
       weights: resolveScoringWeights(p.scoring_weights),
     });
   }
@@ -430,6 +497,12 @@ export class SearchProfile {
         scoring_weights: resolveScoringWeights(v.weights),
         employment_types,
         digest_time: v.digestTime,
+        digest_days: [...this.digestDays()].sort(),
+        digest_min_score: Math.min(
+          100,
+          Math.max(0, Number(v.digestMinScore) || 0),
+        ),
+        digest_enabled: v.digestEnabled,
       });
       this.form.markAsPristine();
       this.savedAt.set(Date.now());

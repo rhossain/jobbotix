@@ -10,7 +10,7 @@
 import { json, serviceClient } from '../_shared/auth.ts';
 import {
   buildDigest,
-  isDigestHour,
+  digestDue,
   type DigestRole,
   type DigestRun,
 } from '../_shared/digest.ts';
@@ -36,7 +36,9 @@ Deno.serve(async (req) => {
 
   let profiles = admin
     .from('search_profiles')
-    .select('user_id, digest_time, profiles!inner(email, name, timezone)')
+    .select(
+      'user_id, digest_time, digest_days, digest_min_score, digest_enabled, profiles!inner(email, name, timezone)',
+    )
     .eq('active', true);
   if (body.userId) profiles = profiles.eq('user_id', body.userId);
   const { data: rows, error } = await profiles;
@@ -53,7 +55,15 @@ Deno.serve(async (req) => {
     const userId = row.user_id as string;
     if (
       !body.userId &&
-      !isDigestHour(String(row.digest_time), p.timezone, now)
+      !digestDue(
+        {
+          digest_time: String(row.digest_time),
+          digest_days: row.digest_days as number[] | null,
+          digest_enabled: row.digest_enabled as boolean | null,
+        },
+        p.timezone,
+        now,
+      )
     ) {
       skipped.push(userId);
       continue;
@@ -80,6 +90,7 @@ Deno.serve(async (req) => {
         .select('*')
         .eq('user_id', userId)
         .eq('status', 'new')
+        .gte('score', Number(row.digest_min_score ?? 0))
         .gte('found_at', new Date(now.getTime() - 26 * 3_600_000).toISOString())
         .order('score', { ascending: false })
         .limit(20),

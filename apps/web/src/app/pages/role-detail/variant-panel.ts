@@ -223,13 +223,6 @@ import { Toast } from '../../shared/toast';
       </div>
     }
   `,
-  styles: `
-    .jb-btn-on {
-      background: var(--color-brand-600);
-      color: #fff;
-      border-color: var(--color-brand-600);
-    }
-  `,
 })
 export class VariantPanel {
   protected readonly resumes = inject(ResumesRepo);
