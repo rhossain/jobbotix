@@ -22,6 +22,6 @@ PSQL=("$PGBIN/psql" -h "$SOCK" -p "$PORT" -U postgres -v ON_ERROR_STOP=1 -q)
 for f in "$ROOT"/supabase/migrations/*.sql; do
   echo "applying $(basename "$f")"
   # pg_cron is stubbed; skip its extension lines on plain Postgres
-  sed -e 's/^create extension if not exists pg_cron.*$//' -e 's/^grant usage on schema cron to postgres;$//' "$f" | "${PSQL[@]}"
+  sed -e 's/^create extension if not exists pg_cron.*$//' -e 's/^create extension if not exists pg_net.*$//' -e 's/^grant usage on schema cron to postgres;$//' "$f" | "${PSQL[@]}"
 done
 "${PSQL[@]}" -f "$ROOT/supabase/tests/rls.sql"

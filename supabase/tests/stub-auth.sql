@@ -25,3 +25,10 @@ alter default privileges in schema public grant all on tables to anon, authentic
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 alter default privileges in schema public grant execute on functions to anon, authenticated, service_role;
 grant usage on schema auth to anon, authenticated;
+
+-- pg_net and Vault exist on Supabase; stub them for a plain Postgres.
+create schema if not exists net;
+create or replace function net.http_post(url text, headers jsonb default '{}', body jsonb default '{}', timeout_milliseconds int default 5000)
+returns bigint language sql as $$ select 1::bigint $$;
+create schema if not exists vault;
+create table if not exists vault.decrypted_secrets (name text primary key, decrypted_secret text);

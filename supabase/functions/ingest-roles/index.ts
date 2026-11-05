@@ -107,17 +107,15 @@ Deno.serve(async (req) => {
     result.inserted++;
 
     if (role.qa.length) {
-      await admin
-        .from('screening_answers')
-        .insert(
-          role.qa.map((x, i) => ({
-            user_id: userId,
-            role_id: inserted.id,
-            question: x.q,
-            answer: x.a,
-            position: i,
-          })),
-        );
+      await admin.from('screening_answers').insert(
+        role.qa.map((x, i) => ({
+          user_id: userId,
+          role_id: inserted.id,
+          question: x.q,
+          answer: x.a,
+          position: i,
+        })),
+      );
     }
     await admin.from('role_events').insert({
       user_id: userId,
