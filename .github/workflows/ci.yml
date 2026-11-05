@@ -38,7 +38,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq postgresql-16 >/dev/null
       - name: Migrations and RLS tests
-        run: sudo -u postgres PGBIN=/usr/lib/postgresql/16/bin bash tools/db-test.sh
+        # The postgres user cannot read the runner's home on 24.04, so the
+        # test runs from a world-readable copy.
+        run: |
+          cp -r "$GITHUB_WORKSPACE" /tmp/repo
+          chmod -R a+rX /tmp/repo
+          sudo -u postgres PGBIN=/usr/lib/postgresql/16/bin bash /tmp/repo/tools/db-test.sh
 
   functions:
     runs-on: ubuntu-latest
