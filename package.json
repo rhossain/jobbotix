@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {
     "start": "nx serve web",
+    "start:live": "nx serve web --configuration=production",
     "build": "nx build web",
     "test": "nx run-many -t test",
     "lint": "nx run-many -t lint",

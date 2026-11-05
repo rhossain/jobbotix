@@ -23,7 +23,8 @@ Search runs: each user's Claude scheduled task, posting results to the ingest AP
 
 ```sh
 npm install
-npm start            # nx serve web  → http://localhost:4200
+npm start            # nx serve web  → http://localhost:4200, demo mode (no backend)
+npm run start:live   # same, against the hosted Supabase project (real sign-in)
 npm test             # unit tests (vitest)
 npm run lint
 npm run build        # production build to dist/apps/web
