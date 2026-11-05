@@ -4,15 +4,11 @@
   "projectType": "application",
   "prefix": "jb",
   "sourceRoot": "apps/web/src",
-  "tags": [
-    "scope:web"
-  ],
+  "tags": ["scope:web"],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
-      "outputs": [
-        "{options.outputPath}"
-      ],
+      "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/apps/web",
@@ -23,11 +19,24 @@
           {
             "glob": "**/*",
             "input": "apps/web/public"
+          },
+          {
+            "glob": "pdf.worker.min.mjs",
+            "input": "node_modules/pdfjs-dist/build",
+            "output": "/"
           }
         ],
-        "styles": [
-          "apps/web/src/tailwind.css",
-          "apps/web/src/styles.scss"
+        "styles": ["apps/web/src/tailwind.css", "apps/web/src/styles.scss"],
+        "allowedCommonJsDependencies": [
+          "mammoth",
+          "lop",
+          "base64-js",
+          "jszip",
+          "dingbat-to-unicode",
+          "xmlbuilder",
+          "bluebird",
+          "underscore",
+          "path-is-absolute"
         ]
       },
       "configurations": {
@@ -94,9 +103,7 @@
       "readyWhen": {
         "signal": true
       },
-      "dependsOn": [
-        "build"
-      ],
+      "dependsOn": ["build"],
       "executor": "@nx/web:file-server",
       "options": {
         "buildTarget": "web:build",

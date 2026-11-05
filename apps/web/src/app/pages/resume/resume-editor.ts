@@ -21,6 +21,7 @@ import {
 import { ResumesRepo } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { ResumePreview } from '../../shared/resume-preview';
+import { ResumeImportPanel } from './resume-import';
 import { Toast } from '../../shared/toast';
 
 type Pane = 'edit' | 'preview';
@@ -42,7 +43,7 @@ const csv = (s: string) =>
  */
 @Component({
   selector: 'jb-resume-editor',
-  imports: [RouterLink, ResumePreview, RelativeDayPipe],
+  imports: [RouterLink, ResumePreview, RelativeDayPipe, ResumeImportPanel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '(window:beforeprint)': 'printing.set(true)',
@@ -91,6 +92,14 @@ const csv = (s: string) =>
               Preview
             </button>
           </div>
+          <button
+            type="button"
+            class="jb-btn"
+            (click)="importing.set(!importing())"
+            [attr.aria-expanded]="importing()"
+          >
+            Import
+          </button>
           <button type="button" class="jb-btn" (click)="printPdf()">
             Save as PDF
           </button>
@@ -104,6 +113,13 @@ const csv = (s: string) =>
           </button>
         </div>
       </header>
+
+      @if (importing()) {
+        <jb-resume-import
+          (imported)="applyImport($event)"
+          (closed)="importing.set(false)"
+        />
+      }
 
       <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div
@@ -551,6 +567,7 @@ export class ResumeEditor {
   readonly words = computed(() => resumeWordCount(this.d()));
   readonly saving = signal(false);
   readonly pane = signal<Pane>('edit');
+  readonly importing = signal(false);
   readonly printing = signal(false);
   readonly linksText = computed(() =>
     this.d()
@@ -571,6 +588,18 @@ export class ResumeEditor {
         }
       });
     });
+  }
+
+  applyImport(e: { sections: ResumeSections; mode: 'replace' | 'fill' }) {
+    const incoming = normaliseResume(e.sections);
+    if (e.mode === 'replace') {
+      this.d.set(incoming);
+    } else {
+      this.d.update((cur) => fillEmpty(cur, incoming));
+    }
+    this.importing.set(false);
+    this.pane.set('edit');
+    this.toast.show('Imported. Review the fields, then Save version.');
   }
 
   patch(p: Partial<ResumeSections>) {
@@ -713,4 +742,29 @@ export class ResumeEditor {
   printPdf() {
     window.print();
   }
+}
+
+/** Takes each top-level section from `incoming` only where `cur` has nothing. */
+function fillEmpty(
+  cur: ResumeSections,
+  incoming: ResumeSections,
+): ResumeSections {
+  const contact = { ...cur.contact };
+  for (const k of Object.keys(contact) as (keyof ResumeSections['contact'])[]) {
+    const v = contact[k];
+    const empty = Array.isArray(v) ? v.length === 0 : !v;
+    if (empty) (contact as Record<string, unknown>)[k] = incoming.contact[k];
+  }
+  return {
+    contact,
+    summary: cur.summary || incoming.summary,
+    skills: cur.skills.length ? cur.skills : incoming.skills,
+    experience: cur.experience.length ? cur.experience : incoming.experience,
+    projects: cur.projects.length ? cur.projects : incoming.projects,
+    aiToolkit: cur.aiToolkit.length ? cur.aiToolkit : incoming.aiToolkit,
+    education: cur.education.length ? cur.education : incoming.education,
+    certifications: cur.certifications.length
+      ? cur.certifications
+      : incoming.certifications,
+  };
 }
