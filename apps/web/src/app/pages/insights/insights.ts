@@ -159,7 +159,7 @@ const WEEKS = 8;
           </div>
         </section>
 
-        <div class="grid gap-6 md:grid-cols-2 md:gap-8">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
           <section class="jb-card p-5 md:p-6">
             <h2 class="text-lg font-semibold text-ink">Where roles are</h2>
             <div class="mt-4 flex flex-col gap-3">

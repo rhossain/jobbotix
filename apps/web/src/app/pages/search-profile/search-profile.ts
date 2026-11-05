@@ -54,7 +54,7 @@ const splitLines = (s: string) =>
         <form
           [formGroup]="form"
           (ngSubmit)="save()"
-          class="jb-card grid gap-6 p-5 md:grid-cols-2 md:gap-x-8 md:p-7"
+          class="jb-card grid grid-cols-1 gap-6 p-5 md:grid-cols-2 md:gap-x-8 md:p-7"
           novalidate
         >
           <label class="flex flex-col gap-1 text-sm">
@@ -257,7 +257,7 @@ const splitLines = (s: string) =>
               negative. The run follows these numbers.
             </p>
             <div
-              class="grid gap-x-6 gap-y-2 sm:grid-cols-2"
+              class="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2"
               formGroupName="weights"
             >
               @for (k of weightKeys; track k) {

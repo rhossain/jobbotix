@@ -188,7 +188,7 @@ interface Reminder {
             In flight
             <span class="jb-count">{{ inFlight().length }}</span>
           </h2>
-          <div class="mt-3 grid gap-3 lg:grid-cols-2">
+          <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
             @for (role of inFlight(); track role.id) {
               <jb-role-card
                 [role]="role"

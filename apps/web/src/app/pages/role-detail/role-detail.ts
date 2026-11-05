@@ -125,7 +125,7 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
         </header>
 
         <div
-          class="mt-8 grid gap-8"
+          class="mt-8 grid grid-cols-1 gap-8"
           [class.lg:grid-cols-[minmax(0,1fr)_18rem]]="tab() !== 'resume'"
           [class.xl:grid-cols-[minmax(0,1fr)_20rem]]="tab() !== 'resume'"
         >

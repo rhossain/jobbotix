@@ -153,16 +153,18 @@ const csv = (s: string) =>
         />
       }
 
-      <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div
+        class="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+      >
         <div
-          class="flex flex-col gap-6"
+          class="flex min-w-0 flex-col gap-6"
           [class.hidden]="pane() !== 'edit'"
           [class.md:flex]="true"
         >
           <!-- Contact -->
           <fieldset class="jb-fieldset">
             <legend class="jb-legend">Contact</legend>
-            <div class="grid gap-3 sm:grid-cols-2">
+            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label class="jb-field"
                 ><span>Name</span
                 ><input
@@ -307,7 +309,7 @@ const csv = (s: string) =>
             <legend class="jb-legend">Experience</legend>
             @for (e of d().experience; track $index; let i = $index) {
               <div class="jb-card p-3" [class.mt-3]="i > 0">
-                <div class="grid gap-2 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <input
                     jbInput
                     class="jb-input"
@@ -335,7 +337,7 @@ const csv = (s: string) =>
                     [value]="e.location"
                     (input)="setExp(i, 'location', $any($event.target).value)"
                   />
-                  <div class="flex gap-2">
+                  <div class="flex min-w-0 flex-col gap-2 sm:flex-row">
                     <input
                       jbInput
                       class="jb-input"
@@ -421,7 +423,7 @@ const csv = (s: string) =>
             <legend class="jb-legend">Projects</legend>
             @for (p of d().projects; track $index; let i = $index) {
               <div class="jb-card p-3" [class.mt-3]="i > 0">
-                <div class="grid gap-2 sm:grid-cols-2">
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <input
                     jbInput
                     class="jb-input"

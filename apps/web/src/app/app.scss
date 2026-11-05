@@ -2,6 +2,7 @@
 
 .jb-shell {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   min-height: 100dvh;
 
   @media (min-width: 768px) {

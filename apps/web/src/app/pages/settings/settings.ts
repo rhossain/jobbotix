@@ -39,7 +39,7 @@ import { Confirm, PageHeader, Tabs, type TabItem } from '../../ui';
         novalidate
       >
         <h2 class="jb-section-title">Account</h2>
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label class="flex flex-col gap-1 text-sm"
             ><span>Name</span
             ><input

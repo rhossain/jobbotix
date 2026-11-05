@@ -122,7 +122,9 @@ import { Button, Field, FieldControl, Icon, MatchRing } from '../../ui';
 
     <!-- Join -->
     <section id="invite" class="border-t border-line py-12 lg:py-16">
-      <div class="jb-card grid gap-8 p-6 md:p-8 lg:grid-cols-2 lg:items-center">
+      <div
+        class="jb-card grid grid-cols-1 gap-8 p-6 md:p-8 lg:grid-cols-2 lg:items-center"
+      >
         @if (open()) {
           <div>
             <h2 class="text-2xl font-semibold tracking-tight text-ink">

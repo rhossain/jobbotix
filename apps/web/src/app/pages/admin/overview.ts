@@ -58,7 +58,7 @@ const LIMITS = {
       @if (totals(); as t) {
         <section>
           <h2 class="jb-section-title">Free-tier headroom</h2>
-          <ul class="mt-2 grid gap-3 sm:grid-cols-3">
+          <ul class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <li class="jb-card p-5 text-sm">
               <div class="flex justify-between gap-2">
                 <span class="font-medium text-ink">Database</span>
