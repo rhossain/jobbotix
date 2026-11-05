@@ -6,16 +6,18 @@ import { RouterLink } from '@angular/router';
   imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <article class="mx-auto max-w-2xl py-6 text-[15px] leading-relaxed">
+    <article class="mx-auto max-w-2xl py-6 text-base leading-relaxed text-ink">
       <nav class="text-sm">
-        <a routerLink="/" class="text-ink-muted hover:underline">← Jobbotix</a>
+        <a routerLink="/" class="text-ink-muted no-underline hover:text-ink"
+          >‹ Jobbotix</a
+        >
       </nav>
-      <h1 class="mt-4 text-2xl font-semibold tracking-tight">Privacy</h1>
+      <h1 class="mt-4 text-3xl font-semibold tracking-tight">Privacy</h1>
       <p class="mt-1 text-sm text-ink-muted">
         Plain words, because that is the only kind worth reading.
       </p>
 
-      <h2 class="mt-8 text-lg font-semibold">What is stored</h2>
+      <h2 class="mt-10 text-xl font-semibold">What is stored</h2>
       <ul class="mt-2 list-disc space-y-1 pl-5">
         <li>Your account: email, display name, timezone.</li>
         <li>
@@ -33,7 +35,7 @@ import { RouterLink } from '@angular/router';
         </li>
       </ul>
 
-      <h2 class="mt-8 text-lg font-semibold">Where it lives</h2>
+      <h2 class="mt-10 text-xl font-semibold">Where it lives</h2>
       <p class="mt-2">
         In a Supabase project (Postgres) with row-level security: every row
         carries your user id and the database refuses to show it to anyone else,
@@ -41,7 +43,7 @@ import { RouterLink } from '@angular/router';
         address on your account.
       </p>
 
-      <h2 class="mt-8 text-lg font-semibold">What is never stored</h2>
+      <h2 class="mt-10 text-xl font-semibold">What is never stored</h2>
       <ul class="mt-2 list-disc space-y-1 pl-5">
         <li>
           Your password (handled by Supabase Auth; we only ever see a hash).
@@ -61,7 +63,7 @@ import { RouterLink } from '@angular/router';
         </li>
       </ul>
 
-      <h2 class="mt-8 text-lg font-semibold">Who can see what</h2>
+      <h2 class="mt-10 text-xl font-semibold">Who can see what</h2>
       <p class="mt-2">
         Only you can see your data. The admin can see the list of accounts and
         invite codes, not your roles, notes or letters. Aggregate market
@@ -69,7 +71,7 @@ import { RouterLink } from '@angular/router';
         identifying.
       </p>
 
-      <h2 class="mt-8 text-lg font-semibold">Deleting your account</h2>
+      <h2 class="mt-10 text-xl font-semibold">Deleting your account</h2>
       <p class="mt-2">
         Email the address on the sign-in page from your account email and
         everything above is deleted within seven days; the database cascades

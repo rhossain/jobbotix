@@ -11,12 +11,15 @@ import {
   type ResumeSections,
 } from '@jobbotix/shared-types';
 
+import { Icon } from '../../ui';
+
 /** Reads a resume from pasted text, a .docx, a PDF or a text file and parses it. */
 @Component({
   selector: 'jb-resume-import',
+  imports: [Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="jb-card flex flex-col gap-4 p-4">
+    <div class="jb-card flex flex-col gap-4 p-5 md:p-6">
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 class="jb-section-title">Import a resume</h2>
@@ -26,8 +29,13 @@ import {
             before it touches the master.
           </p>
         </div>
-        <button type="button" class="jb-btn" (click)="closed.emit()">
-          Close
+        <button
+          type="button"
+          class="jb-btn jb-btn-ghost jb-btn-icon"
+          aria-label="Close import"
+          (click)="closed.emit()"
+        >
+          <jb-icon name="x" />
         </button>
       </div>
 
@@ -40,8 +48,21 @@ import {
           (input)="text.set($any($event.target).value)"
         ></textarea>
         <div class="flex flex-col gap-2">
-          <label class="jb-btn cursor-pointer text-center">
-            Choose file…
+          <label
+            class="flex min-h-28 cursor-pointer flex-col items-center justify-center gap-1.5 rounded-card border border-dashed border-line-strong px-4 py-4 text-center text-sm text-ink-muted transition-colors hover:border-brand hover:text-ink sm:w-52"
+            [class.border-brand]="dragging()"
+            [class.bg-brand-tint]="dragging()"
+            (dragover)="$event.preventDefault(); dragging.set(true)"
+            (dragleave)="dragging.set(false)"
+            (drop)="
+              $event.preventDefault();
+              dragging.set(false);
+              onFile($any($event).dataTransfer?.files?.[0])
+            "
+          >
+            <jb-icon name="upload" [size]="22" class="text-brand" />
+            <span class="font-medium text-ink">Choose a file</span>
+            <span class="text-xs">or drop .docx, PDF or .txt here</span>
             <input
               id="ri-file"
               type="file"
@@ -53,10 +74,11 @@ import {
           <button
             type="button"
             class="jb-btn-primary"
+            [attr.aria-busy]="busy() ? 'true' : null"
             (click)="parse()"
             [disabled]="!text().trim() || busy()"
           >
-            {{ busy() ? 'Reading…' : 'Parse' }}
+            Parse
           </button>
           @if (fileName()) {
             <span class="text-xs text-ink-muted">{{ fileName() }}</span>
@@ -113,6 +135,7 @@ import {
   `,
 })
 export class ResumeImportPanel {
+  readonly dragging = signal(false);
   readonly imported = output<{
     sections: ResumeSections;
     mode: 'replace' | 'fill';

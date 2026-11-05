@@ -14,6 +14,7 @@ import {
 } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
+import { CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
 
 /** Supabase free tier, as published; the bars below are against these. */
 const LIMITS = {
@@ -27,20 +28,27 @@ const LIMITS = {
 /** Admin: users, usage against the free tier, invite requests, codes. */
 @Component({
   selector: 'jb-admin-overview',
-  imports: [RouterLink, RelativeDayPipe],
+  imports: [
+    CopyButton,
+    Icon,
+    PageHeader,
+    RelativeDayPipe,
+    RouterLink,
+    Skeleton,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="flex flex-col gap-8">
-      <header class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 class="text-2xl font-semibold tracking-tight">Admin</h1>
-          <p class="mt-1 text-sm text-ink-muted">
-            Who is on Jobbotix and how close the free tiers are.
-          </p>
-        </div>
-        <a routerLink="/admin/invites" class="jb-btn">Invite codes</a>
-      </header>
-
+    <jb-page-header
+      title="Admin"
+      lead="Who is on Jobbotix and how close the free tiers are."
+    >
+      <div actions>
+        <a routerLink="/admin/invites" class="jb-btn"
+          ><jb-icon name="user-plus" /> Invite codes</a
+        >
+      </div>
+    </jb-page-header>
+    <section class="mt-8 flex flex-col gap-6">
       @if (error()) {
         <p class="text-sm text-bad" role="alert">
           {{ error() }}
@@ -51,61 +59,63 @@ const LIMITS = {
         <section>
           <h2 class="jb-section-title">Free-tier headroom</h2>
           <ul class="mt-2 grid gap-3 sm:grid-cols-3">
-            <li class="jb-card p-4 text-sm">
-              <div class="flex justify-between">
-                <span>Database</span>
+            <li class="jb-card p-5 text-sm">
+              <div class="flex justify-between gap-2">
+                <span class="font-medium text-ink">Database</span>
                 <span class="tabular-nums"
                   >{{ mb(t.db_bytes) }} / {{ mb(limits.dbBytes) }} MB</span
                 >
               </div>
-              <div class="mt-2 h-2 rounded bg-sunken">
+              <div class="mt-3 h-2 overflow-hidden rounded-full bg-sunken">
                 <div
-                  class="h-2 rounded"
+                  class="h-2 rounded-full"
                   [class.bg-brand]="pct(t.db_bytes, limits.dbBytes) < 70"
                   [class.bg-signal]="pct(t.db_bytes, limits.dbBytes) >= 70"
                   [style.width.%]="pct(t.db_bytes, limits.dbBytes)"
                 ></div>
               </div>
-              <p class="mt-1 text-xs text-ink-muted">
+              <p class="mt-2 text-xs text-ink-muted">
                 {{ t.roles }} roles · {{ t.events }} events
               </p>
             </li>
-            <li class="jb-card p-4 text-sm">
-              <div class="flex justify-between">
-                <span>Function calls, 30 days</span>
+            <li class="jb-card p-5 text-sm">
+              <div class="flex justify-between gap-2">
+                <span class="font-medium text-ink"
+                  >Function calls, 30 days</span
+                >
                 <span class="tabular-nums"
                   >{{ t.runs_30d + t.ai_calls_30d }} /
                   {{ limits.edgeInvocations.toLocaleString() }}</span
                 >
               </div>
-              <div class="mt-2 h-2 rounded bg-sunken">
+              <div class="mt-3 h-2 overflow-hidden rounded-full bg-sunken">
                 <div
-                  class="h-2 rounded bg-brand"
+                  class="h-2 rounded-full bg-brand"
                   [style.width.%]="
                     pct(t.runs_30d + t.ai_calls_30d, limits.edgeInvocations)
                   "
                 ></div>
               </div>
-              <p class="mt-1 text-xs text-ink-muted">
+              <p class="mt-2 text-xs text-ink-muted">
                 {{ t.runs_30d }} ingest runs · {{ t.ai_calls_30d }} AI calls
                 (counted from events; the Supabase dashboard has the exact
                 number)
               </p>
             </li>
-            <li class="jb-card p-4 text-sm">
-              <div class="flex justify-between">
-                <span>Users</span>
+            <li class="jb-card p-5 text-sm">
+              <div class="flex justify-between gap-2">
+                <span class="font-medium text-ink">Users</span>
                 <span class="tabular-nums"
                   >{{ t.users }} / {{ limits.mau.toLocaleString() }}</span
                 >
               </div>
-              <div class="mt-2 h-2 rounded bg-sunken">
+              <div class="mt-3 h-2 overflow-hidden rounded-full bg-sunken">
                 <div
-                  class="h-2 rounded bg-brand"
+                  class="h-2 rounded-full bg-brand"
                   [style.width.%]="pct(t.users, limits.mau)"
                 ></div>
               </div>
-              <p class="mt-1 text-xs text-ink-muted">
+              <p class="mt-2 text-xs text-ink-muted">
                 {{ t.open_codes }} open invite
                 {{ t.open_codes === 1 ? 'code' : 'codes' }} ·
                 {{ t.open_requests }} waiting
@@ -116,7 +126,7 @@ const LIMITS = {
       }
 
       <section
-        class="jb-card flex flex-wrap items-center justify-between gap-3 p-4 text-sm"
+        class="jb-card flex flex-wrap items-center justify-between gap-4 p-5 text-sm"
       >
         <div>
           <div class="font-medium">
@@ -127,25 +137,29 @@ const LIMITS = {
             database check enforces it either way.
           </div>
         </div>
-        <button
-          type="button"
-          class="jb-btn"
-          (click)="toggleSignup()"
-          [disabled]="busy()"
-          [attr.aria-pressed]="signupOpen()"
-        >
-          {{ signupOpen() ? 'Close sign-up' : 'Open sign-up' }}
-        </button>
+        <label class="inline-flex items-center gap-3 font-medium text-ink">
+          <input
+            type="checkbox"
+            role="switch"
+            class="jb-switch"
+            [checked]="signupOpen()"
+            [disabled]="busy()"
+            (change)="toggleSignup()"
+          />
+          Open sign-up
+        </label>
       </section>
 
-      <section>
+      <section class="jb-card p-5 md:p-6">
         <h2 class="jb-section-title">Users</h2>
-        @if (users().length === 0 && !error()) {
-          <p class="mt-2 text-sm text-ink-muted">Loading…</p>
+        @if (!loaded() && !error()) {
+          <jb-skeleton class="mt-3" shape="row" [count]="3" />
+        } @else if (users().length === 0) {
+          <p class="mt-2 text-sm text-ink-muted">No users yet.</p>
         } @else {
-          <div class="mt-2 overflow-x-auto">
+          <div class="-mx-5 mt-3 overflow-x-auto px-5 md:-mx-6 md:px-6">
             <table class="w-full text-sm">
-              <thead class="text-left text-xs text-ink-muted">
+              <thead class="text-left text-xs whitespace-nowrap text-ink-muted">
                 <tr>
                   <th class="py-2 pr-4">User</th>
                   <th class="py-2 pr-4">Joined</th>
@@ -197,7 +211,7 @@ const LIMITS = {
         }
       </section>
 
-      <section>
+      <section class="jb-card p-5 md:p-6">
         <h2 class="jb-section-title">Invite requests</h2>
         @if (requests().length === 0) {
           <p class="mt-2 text-sm text-ink-muted">
@@ -237,15 +251,22 @@ const LIMITS = {
             }
           </ul>
           @if (lastCode()) {
-            <p
-              class="mt-3 rounded-md bg-brand-tint px-3 py-2 text-sm text-brand-ink"
+            <div
+              class="mt-3 flex flex-col gap-2 rounded-control bg-brand-tint px-3.5 py-3 text-sm text-brand-ink sm:flex-row sm:items-center"
               role="status"
             >
-              Send them
-              <code class="font-mono"
-                >{{ origin }}/signup/{{ lastCode() }}</code
-              >
-            </p>
+              <span class="min-w-0 flex-1 break-all">
+                Send them
+                <code class="font-mono"
+                  >{{ origin }}/signup/{{ lastCode() }}</code
+                >
+              </span>
+              <jb-copy-button
+                [text]="origin + '/signup/' + lastCode()"
+                label="Copy link"
+                size="sm"
+              />
+            </div>
           }
         }
       </section>
@@ -258,6 +279,7 @@ export class AdminOverview {
   readonly limits = LIMITS;
   readonly origin = location.origin;
   readonly users = signal<AdminUser[]>([]);
+  readonly loaded = signal(false);
   readonly totals = signal<AdminTotals | null>(null);
   readonly requests = signal<InviteRequestRow[]>([]);
   readonly error = signal('');
@@ -285,6 +307,8 @@ export class AdminOverview {
       this.signupOpen.set(open);
     } catch (e) {
       this.error.set((e as Error).message || 'Could not load');
+    } finally {
+      this.loaded.set(true);
     }
   }
 

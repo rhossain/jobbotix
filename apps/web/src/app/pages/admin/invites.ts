@@ -1,42 +1,57 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import type { InviteCodeRow } from '@jobbotix/shared-types';
 import { injectSupabase } from '../../core/supabase';
+import { BackLink, Confirm, CopyButton, Icon, PageHeader } from '../../ui';
 
 /** Admin v0: create and revoke invite codes. */
 @Component({
   selector: 'jb-admin-invites',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [BackLink, CopyButton, Icon, PageHeader, ReactiveFormsModule],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="max-w-3xl">
-      <p class="text-sm">
-        <a routerLink="/admin" class="underline">← Admin</a>
-      </p>
-      <h1 class="mt-2 text-2xl font-semibold tracking-tight">Invite codes</h1>
-      <p class="mt-1 text-sm text-ink-muted">
-        Each code admits one person. Send them the link shown next to the code.
-      </p>
+      <jb-back-link
+        class="mb-4 hidden md:inline-block"
+        link="/admin"
+        label="Admin"
+      />
+      <jb-page-header
+        title="Invite codes"
+        lead="Each code admits one person. Send them the link shown next to the code."
+      />
 
       <form
         [formGroup]="form"
         (ngSubmit)="create()"
-        class="mt-6 flex flex-wrap items-end gap-3"
+        class="jb-card mt-6 flex flex-col gap-3 p-5 sm:flex-row sm:items-end"
         novalidate
       >
-        <label class="flex flex-col gap-1 text-sm">
-          <span>Who is this for? (optional)</span>
+        <label class="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium">
+          <span
+            >Who is this for?
+            <span class="font-normal text-ink-muted">(optional)</span></span
+          >
           <input
             id="invite-note"
             type="text"
             formControlName="note"
-            class="jb-input w-64"
+            class="jb-input"
             placeholder="e.g. Rafi from the Angular meetup"
           />
         </label>
-        <button type="submit" class="jb-btn-primary" [disabled]="busy()">
-          New code
+        <button
+          type="submit"
+          class="jb-btn-primary"
+          [attr.aria-busy]="busy() ? 'true' : null"
+          [disabled]="busy()"
+        >
+          <jb-icon name="plus" /> New code
         </button>
       </form>
       @if (error()) {
@@ -45,16 +60,24 @@ import { injectSupabase } from '../../core/supabase';
         </p>
       }
       @if (lastCode()) {
-        <p
-          class="mt-3 rounded-md bg-brand-tint px-3 py-2 text-sm text-brand-ink"
+        <div
+          class="mt-3 flex flex-col gap-2 rounded-control bg-brand-tint px-3.5 py-3 text-sm text-brand-ink sm:flex-row sm:items-center"
           role="status"
         >
-          Created <code class="font-mono">{{ lastCode() }}</code> · link:
-          <code class="font-mono">{{ origin }}/signup/{{ lastCode() }}</code>
-        </p>
+          <span class="min-w-0 flex-1 break-all">
+            Created <code class="font-mono">{{ lastCode() }}</code
+            >. Link:
+            <code class="font-mono">{{ origin }}/signup/{{ lastCode() }}</code>
+          </span>
+          <jb-copy-button
+            [text]="origin + '/signup/' + lastCode()"
+            label="Copy link"
+            size="sm"
+          />
+        </div>
       }
 
-      <div class="mt-6 overflow-x-auto">
+      <div class="jb-card mt-6 overflow-x-auto p-5">
         @if (codes().length === 0) {
           <p class="text-sm text-ink-muted">
             No invite codes yet. Create the first one above.
@@ -83,7 +106,7 @@ import { injectSupabase } from '../../core/supabase';
                     @if (statusOf(c) === 'Open') {
                       <button
                         type="button"
-                        class="jb-btn"
+                        class="jb-btn jb-btn-sm text-bad"
                         (click)="revoke(c.code)"
                         [disabled]="busy()"
                       >
@@ -101,6 +124,7 @@ import { injectSupabase } from '../../core/supabase';
   `,
 })
 export class AdminInvites {
+  private readonly confirm = inject(Confirm);
   private readonly supabase = injectSupabase();
   readonly origin = location.origin;
   readonly form = new FormGroup({
@@ -153,6 +177,13 @@ export class AdminInvites {
 
   async revoke(code: string) {
     if (this.busy()) return;
+    const ok = await this.confirm.ask({
+      title: `Revoke the code ${code}?`,
+      body: 'Nobody can sign up with it after this. Accounts already created stay.',
+      action: 'Revoke code',
+      danger: true,
+    });
+    if (!ok) return;
     this.busy.set(true);
     try {
       const { error } = await this.supabase.rpc('admin_revoke_invite', {

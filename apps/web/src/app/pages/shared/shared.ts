@@ -17,38 +17,47 @@ import {
   scoreBand,
 } from '../../shared/format';
 
+import { EmptyState, Icon, MatchRing, Skeleton } from '../../ui';
+
 /** Public, read-only view behind a share token: one role, or the board. */
 @Component({
   selector: 'jb-shared',
-  imports: [RouterLink, RelativeDayPipe, StatusLabelPipe, TypeLabelPipe],
+  imports: [
+    EmptyState,
+    Icon,
+    MatchRing,
+    RelativeDayPipe,
+    RouterLink,
+    Skeleton,
+    StatusLabelPipe,
+    TypeLabelPipe,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="mx-auto max-w-3xl">
       @if (state() === 'loading') {
-        <p class="text-sm text-ink-muted" role="status">Loading…</p>
+        <jb-skeleton shape="card" [count]="2" />
       } @else if (state() === 'missing') {
-        <div class="jb-empty">
-          <b>This link is no longer active.</b>
-          The owner may have revoked it. Ask them for a new one.
-          <p class="mt-3">
-            <a routerLink="/" class="underline">What is Jobbotix?</a>
-          </p>
-        </div>
+        <jb-empty-state title="This link is no longer active" icon="link">
+          The owner may have stopped sharing it. Ask them for a new one.
+          <div actions>
+            <a routerLink="/" class="jb-btn">What is Jobbotix?</a>
+          </div>
+        </jb-empty-state>
       } @else if (view(); as v) {
-        <p class="text-xs text-ink-muted">
-          Shared by {{ v.owner }} · read-only · via Jobbotix
+        <p
+          class="inline-flex items-center gap-2 rounded-full bg-sunken px-3 py-1 text-xs text-ink-muted"
+        >
+          <jb-icon name="eye" [size]="14" /> Shared by {{ v.owner }}, read-only
         </p>
         @if (v.kind === 'role') {
           @let r = v.role;
-          <header class="mt-2 flex flex-wrap items-start gap-4">
-            <div class="jb-score-{{ scoreBand(r.score) }} text-center">
-              <div class="text-3xl font-semibold tabular-nums">
-                {{ r.score }}
-              </div>
-              <div class="text-[10px] uppercase tracking-wide">match</div>
-            </div>
+          <header class="mt-5 flex flex-wrap items-start gap-4 md:gap-6">
+            <jb-match-ring [score]="r.score" size="lg" />
             <div class="min-w-0 flex-1">
-              <h1 class="text-2xl font-semibold tracking-tight">
+              <h1
+                class="text-2xl font-semibold tracking-tight text-ink md:text-3xl"
+              >
                 {{ r.title }}
               </h1>
               <p class="text-ink-muted">
@@ -62,31 +71,36 @@ import {
                 @if (r.salary) {
                   <span class="jb-tag">{{ r.salary }}</span>
                 }
-                <span class="jb-status s-{{ r.status }}">{{
-                  r.status | statusLabel
-                }}</span>
+                <span
+                  class="jb-status s-{{ r.status }} inline-flex items-center"
+                  >{{ r.status | statusLabel }}</span
+                >
               </div>
             </div>
             @if (r.url) {
               <a [href]="r.url" target="_blank" rel="noopener" class="jb-btn"
-                >Open posting ↗</a
-              >
+                >Open posting <jb-icon name="arrow-up-right" [size]="16"
+              /></a>
             }
           </header>
 
           <div class="mt-6 grid gap-6 md:grid-cols-2">
-            <section>
+            <section class="jb-card p-5">
               <h2 class="jb-section-title">Why it fits</h2>
-              <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+              <ul
+                class="mt-3 list-disc space-y-1.5 pl-5 text-sm marker:text-brand"
+              >
                 @for (x of r.reasons; track x) {
                   <li>{{ x }}</li>
                 }
               </ul>
             </section>
-            <section>
+            <section class="jb-card p-5">
               <h2 class="jb-section-title">Watch out</h2>
               @if (r.gaps.length) {
-                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+                <ul
+                  class="mt-3 list-disc space-y-1.5 pl-5 text-sm marker:text-brand"
+                >
                   @for (x of r.gaps; track x) {
                     <li>{{ x }}</li>
                   }
@@ -128,7 +142,7 @@ import {
             {{ v.roles.length }} roles, best match first. Skipped roles are not
             shown.
           </p>
-          <div class="mt-4 overflow-x-auto">
+          <div class="jb-card mt-4 overflow-x-auto p-5">
             <table class="w-full text-sm">
               <thead class="text-left text-xs text-ink-muted">
                 <tr>
@@ -166,9 +180,12 @@ import {
                       </div>
                     </td>
                     <td class="py-2 pr-4">
-                      <span class="jb-status s-{{ r.status }}">{{
-                        r.status | statusLabel
-                      }}</span>
+                      <span
+                        class="jb-status s-{{
+                          r.status
+                        }} inline-flex items-center"
+                        >{{ r.status | statusLabel }}</span
+                      >
                     </td>
                     <td class="py-2 pr-4">{{ r.type | typeLabel }}</td>
                     <td class="py-2">
@@ -183,7 +200,7 @@ import {
         <footer class="mt-10 text-xs text-ink-muted">
           Shared {{ v.created_at | relativeDay }}. Jobbotix finds, scores and
           drafts; the candidate presses send.
-          <a routerLink="/" class="underline">Learn more</a>
+          <a routerLink="/" class="text-brand-ink underline">Learn more</a>
         </footer>
       }
     </section>
