@@ -300,6 +300,7 @@
     }
 
     &[aria-pressed='true'],
+    &[aria-selected='true'],
     &.is-on {
       border-color: var(--brand);
       background: var(--brand-tint);

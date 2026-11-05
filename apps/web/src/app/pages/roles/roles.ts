@@ -199,6 +199,7 @@ const DEFAULT_FILTERS: Filters = {
 
     <!-- Results -->
     <div class="mt-6">
+      <h2 class="sr-only">Results</h2>
       @if (!repo.loaded()) {
         <jb-skeleton shape="row" [count]="6" />
       } @else if (repo.roles().length === 0) {
@@ -281,7 +282,7 @@ const DEFAULT_FILTERS: Filters = {
                         >
                       }
                       @if (r.salary) {
-                        <span class="text-xs text-ink-faint">{{
+                        <span class="text-xs text-ink-muted">{{
                           r.salary
                         }}</span>
                       }

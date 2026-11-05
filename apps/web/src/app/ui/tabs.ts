@@ -43,7 +43,7 @@ export function tabIds(prefix: string, id: string) {
           role="tab"
           class="tab"
           [id]="prefix() + '-tab-' + t.id"
-          [attr.aria-controls]="prefix() + '-panel-' + t.id"
+          [attr.aria-controls]="controls() ? prefix() + '-panel-' + t.id : null"
           [attr.aria-selected]="t.id === value()"
           [attr.tabindex]="t.id === value() ? 0 : -1"
           (click)="select(t.id)"
@@ -173,6 +173,8 @@ export class Tabs<T extends string = string> {
   readonly prefix = input('tabs');
   readonly label = input<string | null>(null);
   readonly variant = input<'line' | 'segmented'>('line');
+  /** False when the tabs only switch a value and there are no panels to point at. */
+  readonly controls = input(true);
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 

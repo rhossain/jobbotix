@@ -355,6 +355,8 @@ const splitLines = (s: string) =>
           }
           <pre
             class="jb-letter max-h-96 max-w-none overflow-auto font-mono text-xs"
+            tabindex="0"
+            aria-label="Scheduled-task prompt"
             >{{ prompt() }}</pre>
           <p class="text-xs text-ink-muted">
             Results arrive on

@@ -96,7 +96,6 @@ const COLUMNS: RoleStatus[] = [
               role="tab"
               class="jb-chip shrink-0"
               [attr.aria-selected]="mobileCol() === col"
-              [attr.aria-pressed]="mobileCol() === col"
               (click)="mobileCol.set(col)"
             >
               <span
@@ -171,7 +170,7 @@ const COLUMNS: RoleStatus[] = [
                 </div>
               } @empty {
                 @if (repo.loaded()) {
-                  <p class="px-2 py-6 text-center text-xs text-ink-faint">
+                  <p class="px-2 py-6 text-center text-xs text-ink-muted">
                     Drop here
                   </p>
                 }

@@ -157,7 +157,12 @@ const LIMITS = {
         } @else if (users().length === 0) {
           <p class="mt-2 text-sm text-ink-muted">No users yet.</p>
         } @else {
-          <div class="-mx-5 mt-3 overflow-x-auto px-5 md:-mx-6 md:px-6">
+          <div
+            class="-mx-5 mt-3 overflow-x-auto px-5 md:-mx-6 md:px-6"
+            tabindex="0"
+            role="region"
+            aria-label="Users table"
+          >
             <table class="w-full text-sm">
               <thead class="text-left text-xs whitespace-nowrap text-ink-muted">
                 <tr>

@@ -59,7 +59,8 @@ const pairs: [string, string, number][] = [
   ['ink-muted', 'surface', 4.5],
   ['ink-muted', 'surface-canvas', 4.5],
   ['ink-muted', 'surface-sunken', 4.5],
-  ['ink-faint', 'surface', 3],
+  ['ink-faint', 'surface', 4.5],
+  ['ink-faint', 'surface-canvas', 4.5],
   ['ink-on-brand', 'brand', 4.5],
   ['ink-on-brand', 'brand-hover', 4.5],
   ['brand', 'surface', 4.5],
@@ -78,7 +79,7 @@ const pairs: [string, string, number][] = [
   ['status-interview', 'surface', 4.5],
   ['status-offer', 'surface', 4.5],
   ['status-rejected', 'surface', 4.5],
-  ['status-skipped', 'surface', 3],
+  ['status-skipped', 'surface', 4.5],
 ];
 
 describe('design tokens', () => {

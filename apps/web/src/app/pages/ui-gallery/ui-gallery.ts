@@ -56,6 +56,7 @@ import {
         <jb-tabs
           variant="segmented"
           prefix="theme"
+          [controls]="false"
           label="Theme"
           [tabs]="themes"
           [value]="theme.preference()"
@@ -171,6 +172,7 @@ import {
         <h2 class="jb-section-title">Tabs</h2>
         <jb-tabs
           prefix="demo"
+          [controls]="false"
           label="Role sections"
           [tabs]="tabs"
           [(value)]="tab"

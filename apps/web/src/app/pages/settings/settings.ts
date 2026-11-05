@@ -93,6 +93,7 @@ import { Confirm, PageHeader, Tabs, type TabItem } from '../../ui';
         <jb-tabs
           variant="segmented"
           prefix="appearance"
+          [controls]="false"
           label="Theme"
           [tabs]="themes"
           [value]="theme.preference()"

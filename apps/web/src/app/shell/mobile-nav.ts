@@ -27,7 +27,7 @@ import { ThemeSwitch } from './theme-switch';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'jb-top-bar block md:hidden print:hidden' },
   template: `
-    <div class="flex h-[var(--topbar-h)] items-center gap-1 px-2">
+    <header class="flex h-[var(--topbar-h)] items-center gap-1 px-2">
       @if (back(); as b) {
         <a
           [routerLink]="b.link"
@@ -67,7 +67,7 @@ import { ThemeSwitch } from './theme-switch';
       >
         <jb-icon name="search" [size]="21" />
       </button>
-    </div>
+    </header>
   `,
   styles: `
     :host {

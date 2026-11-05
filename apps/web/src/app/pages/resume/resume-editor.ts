@@ -130,6 +130,7 @@ const csv = (s: string) =>
         <jb-tabs
           variant="segmented"
           prefix="resume-pane"
+          [controls]="false"
           label="Show"
           [tabs]="panes"
           [value]="pane()"
@@ -241,6 +242,7 @@ const csv = (s: string) =>
             <legend class="jb-legend">Summary</legend>
             <textarea
               id="r-summary"
+              aria-label="Summary"
               jbInput
               class="jb-input min-h-28"
               [value]="d().summary"
