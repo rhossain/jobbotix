@@ -249,4 +249,33 @@ reset role;
 update public.settings set value = '{"open_signup": false}' where key = 'signup';
 update public.profiles set is_admin = false where id = '11111111-1111-1111-1111-111111111111';
 
+-- ---------------------------------------------------------------------------
+-- Share links: anon reads through the token only; revoke stops it; no notes leak
+-- ---------------------------------------------------------------------------
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+insert into public.shares (user_id, kind) values ('11111111-1111-1111-1111-111111111111', 'board');
+reset role; reset request.jwt.claim.sub;
+do $$
+declare v_token text; v jsonb;
+begin
+  select token into v_token from public.shares limit 1;
+  set role anon;
+  v := public.shared_view(v_token);
+  if v->>'kind' <> 'board' or jsonb_array_length(v->'roles') < 1 then raise exception 'FAIL: shared board empty'; end if;
+  if v::text like '%tampered%' or v->'roles'->0 ? 'notes' then raise exception 'FAIL: notes leaked through share'; end if;
+  if public.shared_view('nope') is not null then raise exception 'FAIL: bad token returned data'; end if;
+  reset role;
+  update public.shares set revoked_at = now();
+  set role anon;
+  if public.shared_view(v_token) is not null then raise exception 'FAIL: revoked share still readable'; end if;
+  reset role;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if (select count(*) from public.shares) <> 0 then raise exception 'FAIL: user 2 sees user 1 shares'; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

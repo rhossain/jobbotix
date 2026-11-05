@@ -10,3 +10,4 @@ export * from './lib/letter';
 export * from './lib/screening';
 export * from './lib/insights';
 export * from './lib/prep';
+export * from './lib/share';

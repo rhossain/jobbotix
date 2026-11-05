@@ -19,6 +19,7 @@ import {
 } from '@jobbotix/shared-types';
 import { RolesRepo } from '../../core/data/repos';
 import { RelativeDayPipe, scoreBand } from '../../shared/format';
+import { ShareButton } from '../../shared/share-button';
 import { Toast } from '../../shared/toast';
 
 /** Columns shown on the board, in pipeline order. Skipped is hidden by default. */
@@ -40,22 +41,26 @@ const COLUMNS: RoleStatus[] = [
     CdkDragPlaceholder,
     RouterLink,
     RelativeDayPipe,
+    ShareButton,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="flex h-full flex-col gap-4">
-      <header>
-        <h1 class="text-2xl font-semibold tracking-tight">Board</h1>
-        <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          Drag a card to change its status. Skipped roles are kept out of the
-          way under
-          <a
-            routerLink="/roles"
-            [queryParams]="{ status: 'skipped' }"
-            class="underline"
-            >Roles</a
-          >.
-        </p>
+      <header class="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 class="text-2xl font-semibold tracking-tight">Board</h1>
+          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+            Drag a card to change its status. Skipped roles are kept out of the
+            way under
+            <a
+              routerLink="/roles"
+              [queryParams]="{ status: 'skipped' }"
+              class="underline"
+              >Roles</a
+            >.
+          </p>
+        </div>
+        <jb-share-button kind="board" />
       </header>
 
       @if (repo.loaded() && repo.roles().length === 0) {

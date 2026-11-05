@@ -17,6 +17,7 @@ import {
 } from '@jobbotix/shared-types';
 import { LettersRepo, RolesRepo, ScreeningRepo } from '../../core/data/repos';
 import { ModelPicker } from '../../shared/model-picker';
+import { ShareButton } from '../../shared/share-button';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { StatusSelect } from '../../shared/status-select';
 import { Toast } from '../../shared/toast';
@@ -36,6 +37,7 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
     VariantPanel,
     PrepPanel,
     ModelPicker,
+    ShareButton,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -83,6 +85,7 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
               class="jb-btn-primary"
               >Open posting ↗</a
             >
+            <jb-share-button kind="role" [roleId]="r.id" />
             <jb-status-select [role]="r" />
           </div>
         </header>

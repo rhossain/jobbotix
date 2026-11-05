@@ -1,8 +1,13 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import type { PrepSheet, VariantDiff } from '@jobbotix/shared-types';
+import type {
+  PrepSheet,
+  SharedView,
+  VariantDiff,
+} from '@jobbotix/shared-types';
 import type {
   AiUsageRow,
   CoverLetterRow,
+  ShareRow,
   InviteRequestRow,
   IngestKeyRow,
   Json,
@@ -32,6 +37,7 @@ import {
   ScreeningRepo,
   PrepRepo,
   AdminRepo,
+  SharesRepo,
   type AdminTotals,
   type AdminUser,
 } from './repos';
@@ -696,5 +702,53 @@ export class SupabaseAdminRepo extends AdminRepo {
       p_open: open,
     });
     if (error) throw new Error(error.message);
+  }
+}
+
+@Injectable()
+export class SupabaseSharesRepo extends SharesRepo {
+  private readonly supabase = injectSupabase();
+  readonly shares = signal<ShareRow[]>([]);
+
+  async load() {
+    const { data } = await this.supabase
+      .from('shares')
+      .select('*')
+      .order('created_at', { ascending: false });
+    this.shares.set(data ?? []);
+  }
+
+  async create(kind: 'role' | 'board', roleId?: string) {
+    await this.load();
+    const live = this.shares().find(
+      (s) =>
+        !s.revoked_at &&
+        s.kind === kind &&
+        (s.role_id ?? null) === (roleId ?? null),
+    );
+    if (live) return live.token;
+    const user = (await this.supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Sign in first');
+    const { data, error } = await this.supabase
+      .from('shares')
+      .insert({ user_id: user.id, kind, role_id: roleId ?? null })
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    await this.load();
+    return data.token;
+  }
+
+  async revoke(id: string) {
+    await this.supabase
+      .from('shares')
+      .update({ revoked_at: new Date().toISOString() })
+      .eq('id', id);
+    await this.load();
+  }
+
+  async view(token: string) {
+    const { data } = await this.supabase.rpc('shared_view', { p_token: token });
+    return (data as SharedView | null) ?? null;
   }
 }

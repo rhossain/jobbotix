@@ -18,6 +18,7 @@ import {
   MemoryScreeningRepo,
   MemoryPrepRepo,
   MemoryAdminRepo,
+  MemorySharesRepo,
   MemorySettingsRepo,
   MemoryVariantsRepo,
 } from './core/data/memory-repos';
@@ -30,6 +31,7 @@ import {
   ScreeningRepo,
   PrepRepo,
   AdminRepo,
+  SharesRepo,
   SettingsRepo,
   VariantsRepo,
 } from './core/data/repos';
@@ -42,6 +44,7 @@ import {
   SupabaseScreeningRepo,
   SupabasePrepRepo,
   SupabaseAdminRepo,
+  SupabaseSharesRepo,
   SupabaseSettingsRepo,
   SupabaseVariantsRepo,
 } from './core/data/supabase-repos';
@@ -62,6 +65,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: ScreeningRepo, useClass: MemoryScreeningRepo },
       { provide: PrepRepo, useClass: MemoryPrepRepo },
       { provide: AdminRepo, useClass: MemoryAdminRepo },
+      { provide: SharesRepo, useClass: MemorySharesRepo },
     ]
   : [
       { provide: RolesRepo, useClass: SupabaseRolesRepo },
@@ -74,6 +78,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: ScreeningRepo, useClass: SupabaseScreeningRepo },
       { provide: PrepRepo, useClass: SupabasePrepRepo },
       { provide: AdminRepo, useClass: SupabaseAdminRepo },
+      { provide: SharesRepo, useClass: SupabaseSharesRepo },
     ];
 
 export const appConfig: ApplicationConfig = {

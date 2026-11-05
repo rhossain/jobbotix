@@ -1,9 +1,14 @@
 import type { Signal } from '@angular/core';
-import type { PrepSheet, VariantDiff } from '@jobbotix/shared-types';
+import type {
+  PrepSheet,
+  SharedView,
+  VariantDiff,
+} from '@jobbotix/shared-types';
 import type {
   AiUsageRow,
   CoverLetterRow,
   InviteRequestRow,
+  ShareRow,
   IngestKeyRow,
   ProfileRow,
   Json,
@@ -185,6 +190,16 @@ export abstract class AdminRepo {
   abstract inviteRequest(id: string): Promise<string>;
   abstract signupOpen(): Promise<boolean>;
   abstract setSignupOpen(open: boolean): Promise<void>;
+}
+
+export abstract class SharesRepo {
+  abstract readonly shares: Signal<ShareRow[]>;
+  abstract load(): Promise<void>;
+  /** Creates (or returns the existing live) link; returns the token. */
+  abstract create(kind: 'role' | 'board', roleId?: string): Promise<string>;
+  abstract revoke(id: string): Promise<void>;
+  /** Public read by token; null when unknown or revoked. */
+  abstract view(token: string): Promise<SharedView | null>;
 }
 
 export interface ModelChoice {

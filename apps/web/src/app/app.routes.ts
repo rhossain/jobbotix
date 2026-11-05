@@ -11,6 +11,12 @@ export const appRoutes: Route[] = [
     title: 'Jobbotix',
   },
   {
+    path: 's/:token',
+    loadComponent: () =>
+      import('./pages/shared/shared').then((m) => m.SharedPage),
+    title: 'Shared · Jobbotix',
+  },
+  {
     path: 'privacy',
     loadComponent: () =>
       import('./pages/landing/privacy').then((m) => m.Privacy),

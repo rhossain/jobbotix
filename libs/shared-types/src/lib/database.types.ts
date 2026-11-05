@@ -195,6 +195,17 @@ export type SavedViewRow = {
   created_at: string;
 };
 
+export type ShareRow = {
+  id: string;
+  user_id: string;
+  token: string;
+  kind: 'role' | 'board';
+  role_id: string | null;
+  created_at: string;
+  revoked_at: string | null;
+  views: number;
+};
+
 export type AiUsageRow = {
   id: string;
   user_id: string;
@@ -376,6 +387,13 @@ export type Database = {
         SavedViewRow,
         Insertable<SavedViewRow, 'id' | 'filters' | 'sort' | 'created_at'>
       >;
+      shares: Table<
+        ShareRow,
+        Insertable<
+          ShareRow,
+          'id' | 'token' | 'role_id' | 'created_at' | 'revoked_at' | 'views'
+        >
+      >;
       ai_usage: Table<
         AiUsageRow,
         Insertable<
@@ -408,6 +426,7 @@ export type Database = {
       admin_revoke_invite: { Args: { p_code: string }; Returns: undefined };
       admin_overview: { Args: Record<string, never>; Returns: Json };
       signup_is_open: { Args: Record<string, never>; Returns: boolean };
+      shared_view: { Args: { p_token: string }; Returns: Json };
       admin_set_open_signup: { Args: { p_open: boolean }; Returns: undefined };
       create_ingest_key: { Args: { p_label?: string }; Returns: string };
       resolve_ingest_key: { Args: { p_key: string }; Returns: string | null };

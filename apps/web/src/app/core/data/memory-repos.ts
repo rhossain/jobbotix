@@ -15,6 +15,8 @@ import {
 import type {
   AiUsageRow,
   CoverLetterRow,
+  ShareRow,
+  SharedView,
   IngestKeyRow,
   ProfileRow,
   Json,
@@ -42,6 +44,7 @@ import {
   ScreeningRepo,
   PrepRepo,
   AdminRepo,
+  SharesRepo,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -66,6 +69,7 @@ interface DemoState {
   ingestKeys: IngestKeyRow[];
   usage: AiUsageRow[];
   voiceSamples: CoverLetterRow[];
+  shares: ShareRow[];
 }
 
 /** Reads the demo state from localStorage; falls back to the sample data. */
@@ -88,6 +92,7 @@ function loadState(): DemoState {
           voiceSamples: Array.isArray(parsed.voiceSamples)
             ? parsed.voiceSamples
             : [],
+          shares: Array.isArray(parsed.shares) ? parsed.shares : [],
         };
     }
   } catch {
@@ -105,6 +110,7 @@ function loadState(): DemoState {
     ingestKeys: [],
     usage: [],
     voiceSamples: [],
+    shares: [],
   };
 }
 
@@ -908,5 +914,98 @@ export class MemoryAdminRepo extends AdminRepo {
 
   async setSignupOpen() {
     throw new Error('The sign-up switch needs the hosted project');
+  }
+}
+
+@Injectable()
+export class MemorySharesRepo extends SharesRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+  readonly shares = computed(() => this.roles.snapshot().shares);
+
+  async load() {
+    /* nothing to fetch */
+  }
+
+  async create(kind: 'role' | 'board', roleId?: string) {
+    const live = this.shares().find(
+      (s) =>
+        !s.revoked_at &&
+        s.kind === kind &&
+        (s.role_id ?? null) === (roleId ?? null),
+    );
+    if (live) return live.token;
+    const token = crypto.randomUUID().replace(/-/g, '').slice(0, 24);
+    this.roles.patch((s) => {
+      s.shares.push({
+        id: crypto.randomUUID(),
+        user_id: DEMO_USER_ID,
+        token,
+        kind,
+        role_id: roleId ?? null,
+        created_at: new Date().toISOString(),
+        revoked_at: null,
+        views: 0,
+      });
+    });
+    return token;
+  }
+
+  async revoke(id: string) {
+    this.roles.patch((s) => {
+      const sh = s.shares.find((x) => x.id === id);
+      if (sh) sh.revoked_at = new Date().toISOString();
+    });
+  }
+
+  async view(token: string): Promise<SharedView | null> {
+    const st = this.roles.snapshot();
+    const sh = st.shares.find((x) => x.token === token && !x.revoked_at);
+    if (!sh) return null;
+    const owner = st.profileRow.name || 'A Jobbotix user';
+    if (sh.kind === 'role') {
+      const r = st.roles.find((x) => x.id === sh.role_id);
+      if (!r) return null;
+      return {
+        kind: 'role',
+        owner,
+        created_at: sh.created_at,
+        role: {
+          company: r.company,
+          title: r.title,
+          url: r.url,
+          location: r.location,
+          remote_scope: r.remote_scope,
+          type: r.type,
+          salary: r.salary,
+          stack: r.stack,
+          score: r.score,
+          reasons: r.reasons,
+          gaps: r.gaps,
+          ai_match: r.ai_match,
+          status: r.status,
+          cover_letter: r.cover_letter,
+          found_at: r.found_at,
+          posting_text: r.posting_text.slice(0, 4000),
+        },
+      };
+    }
+    return {
+      kind: 'board',
+      owner,
+      created_at: sh.created_at,
+      roles: st.roles
+        .filter((r) => r.status !== 'skipped')
+        .sort((a, b) => b.score - a.score)
+        .map((r) => ({
+          company: r.company,
+          title: r.title,
+          url: r.url,
+          score: r.score,
+          status: r.status,
+          type: r.type,
+          remote_scope: r.remote_scope,
+          status_changed_at: r.status_changed_at,
+        })),
+    };
   }
 }
