@@ -23,6 +23,15 @@ export const appRoutes: Route[] = [
     title: 'Role · Jobbotix',
   },
   {
+    path: 'search',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/search-profile/search-profile').then(
+        (m) => m.SearchProfile,
+      ),
+    title: 'Search profile · Jobbotix',
+  },
+  {
     path: 'board',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/board/board').then((m) => m.Board),

@@ -27,8 +27,16 @@ npm start            # nx serve web  → http://localhost:4200
 npm test             # unit tests (vitest)
 npm run lint
 npm run build        # production build to dist/apps/web
+npm run db:test      # migrations + row-level-security tests on a throwaway Postgres
 ```
+
+`apps/web/src/environments/environment.ts` has `demo: true`: the app runs with
+no backend, signed in as a demo user, on fictional roles kept in the browser.
+Set it to `false` and fill `environment.production.ts` (copy the `.example`)
+once a Supabase project exists.
 
 ## Status
 
-Phase 0 (foundation) in progress. See the plan for phases and decisions.
+Phase 0 (foundation) is code-complete except for deploying to a Supabase
+project. Phase 1 screens (Today, Roles, Board, Role detail, Search profile)
+run in demo mode. See the plan and TODO docs for phases and decisions.
