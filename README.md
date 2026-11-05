@@ -42,9 +42,9 @@ release (CI runs lint, tests, the database tests and the Deno checks).
 
 ### 1. Supabase (free tier)
 
-1. Create a project at supabase.com. Copy the project URL and the **anon** key
-   into `apps/web/src/environments/environment.production.ts` (git-ignored;
-   copy the `.example`). The service-role key never goes anywhere near the app.
+1. Create a project at supabase.com. The project URL and the **anon** key
+   live in `apps/web/src/environments/environment.production.ts` (committed:
+   the anon key is public by design). The service-role key never goes anywhere near the app.
 2. `npx supabase login`, `npx supabase link --project-ref <ref>`, then
    `npx supabase db push` (migrations 0001–0013, with RLS, cron jobs and RPCs).
 3. Enable the `pg_cron`, `pg_net` and `vault` extensions in Database →
