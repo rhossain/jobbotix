@@ -4,9 +4,10 @@ import { Auth } from './core/auth';
 import { Shortcuts } from './core/shortcuts';
 import { Theme } from './core/theme';
 import { Toast } from './shared/toast';
+import { ConfirmHost, ToastHost } from './ui';
 
 @Component({
-  imports: [RouterModule],
+  imports: [RouterModule, ToastHost, ConfirmHost],
   selector: 'jb-root',
   templateUrl: './app.html',
   styleUrl: './app.scss',

@@ -1,4 +1,5 @@
 import { Route } from '@angular/router';
+import { environment } from '../environments/environment';
 import { adminGuard, authGuard, guestGuard, landingGuard } from './core/guards';
 
 export const appRoutes: Route[] = [
@@ -128,5 +129,16 @@ export const appRoutes: Route[] = [
       import('./pages/admin/invites').then((m) => m.AdminInvites),
     title: 'Invite codes · Jobbotix',
   },
+  // The UI-kit gallery exists in development builds only.
+  ...(environment.production
+    ? []
+    : [
+        {
+          path: '_ui',
+          loadComponent: () =>
+            import('./pages/ui-gallery/ui-gallery').then((m) => m.UiGallery),
+          title: 'UI kit · Jobbotix',
+        },
+      ]),
   { path: '**', redirectTo: '' },
 ];
