@@ -1,6 +1,7 @@
 import {
   CdkDrag,
   CdkDragDrop,
+  CdkDragPlaceholder,
   CdkDropList,
   CdkDropListGroup,
 } from '@angular/cdk/drag-drop';
@@ -36,6 +37,7 @@ const COLUMNS: RoleStatus[] = [
     CdkDropListGroup,
     CdkDropList,
     CdkDrag,
+    CdkDragPlaceholder,
     RouterLink,
     RelativeDayPipe,
   ],

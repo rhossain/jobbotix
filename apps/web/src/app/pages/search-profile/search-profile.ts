@@ -10,8 +10,12 @@ import {
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
+  DEFAULT_SCORING_WEIGHTS,
+  SCORING_WEIGHT_LABELS,
   renderSearchPrompt,
+  resolveScoringWeights,
   type EmploymentType,
+  type ScoringWeights,
   type SearchProfileRow,
 } from '@jobbotix/shared-types';
 import { Auth } from '../../core/auth';
@@ -188,6 +192,38 @@ const splitLines = (s: string) =>
             </p>
           </fieldset>
 
+          <fieldset class="flex flex-col gap-2 text-sm md:col-span-2">
+            <legend class="jb-section-title mb-1 flex items-center gap-3">
+              Scoring
+              <button type="button" class="jb-btn" (click)="resetWeights()">
+                Reset to defaults
+              </button>
+            </legend>
+            <p class="text-neutral-500">
+              Points each signal adds to a posting's score. Penalties are
+              negative. The run follows these numbers.
+            </p>
+            <div
+              class="grid gap-x-6 gap-y-2 sm:grid-cols-2"
+              formGroupName="weights"
+            >
+              @for (k of weightKeys; track k) {
+                <label class="flex items-center justify-between gap-3">
+                  <span>{{ weightLabels[k] }}</span>
+                  <input
+                    [id]="'sp-w-' + k"
+                    type="number"
+                    min="-50"
+                    max="50"
+                    step="1"
+                    [formControlName]="k"
+                    class="jb-input jb-input-inline w-20 text-right"
+                  />
+                </label>
+              }
+            </div>
+          </fieldset>
+
           <div class="flex items-center gap-3 md:col-span-2">
             <button
               type="submit"
@@ -294,7 +330,27 @@ export class SearchProfile {
     contract: new FormControl(true, { nonNullable: true }),
     minSeniority: new FormControl('senior', { nonNullable: true }),
     digestTime: new FormControl('06:45', { nonNullable: true }),
+    weights: new FormGroup(
+      Object.fromEntries(
+        (Object.keys(DEFAULT_SCORING_WEIGHTS) as (keyof ScoringWeights)[]).map(
+          (k) => [
+            k,
+            new FormControl(DEFAULT_SCORING_WEIGHTS[k], { nonNullable: true }),
+          ],
+        ),
+      ) as Record<keyof ScoringWeights, FormControl<number>>,
+    ),
   });
+
+  readonly weightKeys = Object.keys(
+    DEFAULT_SCORING_WEIGHTS,
+  ) as (keyof ScoringWeights)[];
+  readonly weightLabels = SCORING_WEIGHT_LABELS;
+
+  resetWeights() {
+    this.form.controls.weights.setValue({ ...DEFAULT_SCORING_WEIGHTS });
+    this.form.controls.weights.markAsDirty();
+  }
 
   /** The prompt follows the saved profile, not unsaved edits, so what you copy is what runs. */
   readonly prompt = computed(() => {
@@ -336,6 +392,7 @@ export class SearchProfile {
       contract: p.employment_types.includes('contract'),
       minSeniority: p.min_seniority,
       digestTime: p.digest_time.slice(0, 5),
+      weights: resolveScoringWeights(p.scoring_weights),
     });
   }
 
@@ -370,7 +427,7 @@ export class SearchProfile {
         },
         languages: ['english'],
         min_seniority: v.minSeniority,
-        scoring_weights: this.repo.profile()?.scoring_weights ?? {},
+        scoring_weights: resolveScoringWeights(v.weights),
         employment_types,
         digest_time: v.digestTime,
       });
