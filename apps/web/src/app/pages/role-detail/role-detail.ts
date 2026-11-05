@@ -15,7 +15,7 @@ import {
   type RoleRow,
   type ScreeningAnswerRow,
 } from '@jobbotix/shared-types';
-import { LettersRepo, RolesRepo } from '../../core/data/repos';
+import { LettersRepo, RolesRepo, ScreeningRepo } from '../../core/data/repos';
 import { ModelPicker } from '../../shared/model-picker';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { StatusSelect } from '../../shared/status-select';
@@ -233,28 +233,110 @@ type Tab = 'fit' | 'resume' | 'posting' | 'activity';
               }
             </section>
 
-            @if (answers().length) {
-              <section>
+            <section>
+              <div class="flex flex-wrap items-center justify-between gap-2">
                 <h2 class="jb-section-title">Application answers</h2>
-                <dl class="mt-2 space-y-3 text-sm">
-                  @for (a of answers(); track a.id) {
-                    <div>
-                      <dt class="font-semibold">{{ a.question }}</dt>
-                      <dd class="mt-0.5 flex items-start justify-between gap-3">
-                        <span>{{ a.answer }}</span>
+                <div class="flex flex-wrap items-center gap-2">
+                  <jb-model-picker [(value)]="answerModel" />
+                  <button
+                    type="button"
+                    class="jb-btn"
+                    (click)="answerEmpty(r)"
+                    [disabled]="answering() || emptyAnswers() === 0"
+                  >
+                    {{
+                      answering()
+                        ? 'Answering…'
+                        : 'Answer the empty ones (' + emptyAnswers() + ')'
+                    }}
+                  </button>
+                </div>
+              </div>
+              @if (answerMethod(); as am) {
+                <p class="mt-1 text-xs text-neutral-500">
+                  {{
+                    am.method === 'ai'
+                      ? 'Answered by ' +
+                        (am.model || 'the model') +
+                        ' on your key.'
+                      : 'Local template answers; anything marked [edit] needs your words.'
+                  }}
+                </p>
+              }
+              @if (answers().length === 0) {
+                <p class="mt-2 text-sm text-neutral-500">
+                  No screening questions yet. Paste the form's questions below
+                  as you meet them; runs add the ones they find in postings.
+                </p>
+              }
+              <dl class="mt-2 space-y-3 text-sm">
+                @for (a of answers(); track a.id) {
+                  <div>
+                    <dt
+                      class="flex items-start justify-between gap-2 font-semibold"
+                    >
+                      <span>{{ a.question }}</span>
+                      <span class="flex shrink-0 gap-1">
+                        @if (a.answer) {
+                          <button
+                            type="button"
+                            class="jb-btn px-2 py-1"
+                            (click)="copy(a.answer, 'Answer copied')"
+                          >
+                            Copy
+                          </button>
+                          <button
+                            type="button"
+                            class="jb-btn px-2 py-1"
+                            (click)="answerOne(r, a.id)"
+                            [disabled]="answering()"
+                            title="Write this answer again"
+                          >
+                            Redo
+                          </button>
+                        }
                         <button
                           type="button"
-                          class="jb-btn shrink-0"
-                          (click)="copy(a.answer, 'Answer copied')"
+                          class="jb-btn px-2 py-1"
+                          (click)="removeQuestion(a.id)"
+                          aria-label="Remove question"
                         >
-                          Copy
+                          ×
                         </button>
-                      </dd>
-                    </div>
-                  }
-                </dl>
-              </section>
-            }
+                      </span>
+                    </dt>
+                    <dd class="mt-1">
+                      <textarea
+                        class="jb-input min-h-16 text-sm"
+                        [attr.aria-label]="'Answer: ' + a.question"
+                        [value]="a.answer"
+                        placeholder="Your answer…"
+                        (change)="saveAnswer(a.id, $any($event.target).value)"
+                      ></textarea>
+                    </dd>
+                  </div>
+                }
+              </dl>
+              <form
+                class="mt-3 flex flex-wrap gap-2"
+                (submit)="$event.preventDefault(); addQuestion(r)"
+              >
+                <input
+                  id="new-question"
+                  class="jb-input min-w-0 flex-1 basis-64"
+                  placeholder="Add a question from the application form…"
+                  [value]="newQuestion()"
+                  (input)="newQuestion.set($any($event.target).value)"
+                />
+                <button
+                  type="submit"
+                  class="jb-btn"
+                  [disabled]="!newQuestion().trim()"
+                >
+                  Add question
+                </button>
+              </form>
+            </section>
           }
           @case ('resume') {
             <jb-variant-panel [role]="r" />
@@ -425,6 +507,17 @@ export class RoleDetail {
     model?: string;
   } | null>(null);
   protected readonly letters = inject(LettersRepo);
+  private readonly screening = inject(ScreeningRepo);
+  readonly newQuestion = signal('');
+  readonly answerModel = signal('');
+  readonly answering = signal(false);
+  readonly answerMethod = signal<{
+    method: 'ai' | 'local';
+    model?: string;
+  } | null>(null);
+  readonly emptyAnswers = computed(
+    () => this.answers().filter((a) => !a.answer.trim()).length,
+  );
   readonly letterWords = wordCount;
   readonly noteState = signal('');
 
@@ -493,6 +586,55 @@ export class RoleDetail {
       this.toast.show((e as Error).message || 'Could not draft the letter');
     } finally {
       this.drafting.set(false);
+    }
+  }
+
+  async addQuestion(r: RoleRow) {
+    const q = this.newQuestion().trim();
+    if (!q) return;
+    await this.screening.addQuestion(r.id, q);
+    this.newQuestion.set('');
+    await this.loadSide(r.id);
+  }
+
+  async saveAnswer(id: string, answer: string) {
+    await this.screening.updateAnswer(id, answer);
+    this.answers.update((as) =>
+      as.map((a) => (a.id === id ? { ...a, answer } : a)),
+    );
+  }
+
+  async removeQuestion(id: string) {
+    await this.screening.remove(id);
+    this.answers.update((as) => as.filter((a) => a.id !== id));
+  }
+
+  answerEmpty(r: RoleRow) {
+    return this.runAnswer(r, undefined);
+  }
+
+  answerOne(r: RoleRow, id: string) {
+    return this.runAnswer(r, [id]);
+  }
+
+  private async runAnswer(r: RoleRow, ids: string[] | undefined) {
+    this.answering.set(true);
+    try {
+      const res = await this.screening.answer(r.id, {
+        ids,
+        model: this.answerModel() || undefined,
+      });
+      this.answerMethod.set({ method: res.method, model: res.model });
+      await this.loadSide(r.id);
+      this.toast.show(
+        res.answered
+          ? `${res.answered} answer${res.answered === 1 ? '' : 's'} written`
+          : 'Nothing to answer',
+      );
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not write answers');
+    } finally {
+      this.answering.set(false);
     }
   }
 

@@ -27,7 +27,7 @@ export type RoleStatus =
 export type EmploymentType = 'full_time' | 'contract';
 export type RoleEventKind =
   'status_change' | 'note' | 'generated' | 'reminder' | 'run' | 'ingested';
-export type AiJob = 'extract' | 'score' | 'tailor' | 'letter';
+export type AiJob = 'extract' | 'score' | 'tailor' | 'letter' | 'answer';
 export type VariantStatus = 'draft' | 'approved';
 
 type Timestamps = { created_at: string; updated_at: string };

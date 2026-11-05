@@ -8,3 +8,5 @@ alter table public.cover_letters
 -- One working draft per role (samples are exempt).
 create unique index cover_letters_one_draft_per_role
   on public.cover_letters (role_id) where (not voice_sample);
+-- Screening answers are metered under their own job name.
+alter type public.ai_job add value if not exists 'answer';

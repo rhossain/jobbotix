@@ -127,6 +127,20 @@ export abstract class LettersRepo {
   ): Promise<LetterResult>;
 }
 
+export abstract class ScreeningRepo {
+  abstract addQuestion(roleId: string, question: string): Promise<void>;
+  abstract updateAnswer(id: string, answer: string): Promise<void>;
+  abstract remove(id: string): Promise<void>;
+  /**
+   * Fills the listed answers (or every empty one) from the master resume:
+   * model with a key, local templates otherwise.
+   */
+  abstract answer(
+    roleId: string,
+    opts?: { ids?: string[]; model?: string },
+  ): Promise<{ answered: number; method: 'ai' | 'local'; model?: string }>;
+}
+
 export interface ModelChoice {
   id: string;
   label: string;

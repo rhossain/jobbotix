@@ -28,6 +28,7 @@ import {
   SearchProfileInput,
   SearchProfileRepo,
   LettersRepo,
+  ScreeningRepo,
 } from './repos';
 
 /**
@@ -535,6 +536,57 @@ export class SupabaseLettersRepo extends LettersRepo {
       body: data.body,
       method: data.method ?? 'local',
       model: data.model,
+    };
+  }
+}
+
+@Injectable()
+export class SupabaseScreeningRepo extends ScreeningRepo {
+  private readonly supabase = injectSupabase();
+
+  async addQuestion(roleId: string, question: string) {
+    const q = question.trim();
+    if (!q) return;
+    const user = (await this.supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Sign in first');
+    const { count } = await this.supabase
+      .from('screening_answers')
+      .select('id', { count: 'exact', head: true })
+      .eq('role_id', roleId);
+    const { error } = await this.supabase.from('screening_answers').insert({
+      user_id: user.id,
+      role_id: roleId,
+      question: q,
+      position: count ?? 0,
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  async updateAnswer(id: string, answer: string) {
+    const { error } = await this.supabase
+      .from('screening_answers')
+      .update({ answer })
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+  }
+
+  async remove(id: string) {
+    await this.supabase.from('screening_answers').delete().eq('id', id);
+  }
+
+  async answer(roleId: string, opts?: { ids?: string[]; model?: string }) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      answered?: number;
+      method?: 'ai' | 'local';
+      model?: string;
+      error?: string;
+    }>('answer-screening', { body: { roleId, ...opts } });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (data?.error) throw new Error(data.error);
+    return {
+      answered: data?.answered ?? 0,
+      method: data?.method ?? 'local',
+      model: data?.model,
     };
   }
 }

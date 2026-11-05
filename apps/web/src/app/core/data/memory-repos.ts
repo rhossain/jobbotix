@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
+  localAnswer,
   localLetter,
   applyVariant,
   heuristicExtract,
@@ -35,6 +36,7 @@ import {
   SearchProfileInput,
   SearchProfileRepo,
   LettersRepo,
+  ScreeningRepo,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -684,5 +686,79 @@ export class MemoryLettersRepo extends LettersRepo {
       });
     });
     return { body, method: 'local' as const };
+  }
+}
+
+@Injectable()
+export class MemoryScreeningRepo extends ScreeningRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+
+  async addQuestion(roleId: string, question: string) {
+    const q = question.trim();
+    if (!q) return;
+    this.roles.patch((s) => {
+      const position = s.answers.filter((a) => a.role_id === roleId).length;
+      s.answers.push({
+        id: crypto.randomUUID(),
+        user_id: DEMO_USER_ID,
+        role_id: roleId,
+        question: q,
+        answer: '',
+        position,
+        created_at: new Date().toISOString(),
+      });
+    });
+  }
+
+  async updateAnswer(id: string, answer: string) {
+    this.roles.patch((s) => {
+      const a = s.answers.find((x) => x.id === id);
+      if (a) a.answer = answer;
+    });
+  }
+
+  async remove(id: string) {
+    this.roles.patch((s) => {
+      s.answers = s.answers.filter((x) => x.id !== id);
+    });
+  }
+
+  async answer(roleId: string, opts?: { ids?: string[]; model?: string }) {
+    const st = this.roles.snapshot();
+    const role = st.roles.find((r) => r.id === roleId);
+    const master = st.resumes.find((r) => r.is_master);
+    if (!role) throw new Error('Role not found');
+    if (!master) throw new Error('Save a master resume first');
+    const resume = normaliseResume(master.sections);
+    const posting = {
+      company: role.company,
+      title: role.title,
+      text: role.posting_text,
+      stack: role.stack,
+    };
+    const wanted = opts?.ids ? new Set(opts.ids) : null;
+    let answered = 0;
+    this.roles.patch((s) => {
+      for (const a of s.answers) {
+        if (a.role_id !== roleId) continue;
+        if (wanted ? !wanted.has(a.id) : a.answer.trim()) continue;
+        a.answer = localAnswer(a.question, resume, posting);
+        answered++;
+      }
+      if (answered)
+        s.events.push({
+          id: crypto.randomUUID(),
+          user_id: DEMO_USER_ID,
+          role_id: roleId,
+          kind: 'generated',
+          payload: {
+            what: 'screening answers',
+            count: answered,
+            method: 'local',
+          },
+          created_at: new Date().toISOString(),
+        });
+    });
+    return { answered, method: 'local' as const };
   }
 }
