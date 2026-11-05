@@ -406,6 +406,7 @@ export type Database = {
         Returns: undefined;
       };
       admin_revoke_invite: { Args: { p_code: string }; Returns: undefined };
+      admin_overview: { Args: Record<string, never>; Returns: Json };
       create_ingest_key: { Args: { p_label?: string }; Returns: string };
       resolve_ingest_key: { Args: { p_key: string }; Returns: string | null };
       keep_alive: { Args: Record<string, never>; Returns: undefined };

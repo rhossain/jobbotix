@@ -3,6 +3,7 @@ import type { PrepSheet, VariantDiff } from '@jobbotix/shared-types';
 import type {
   AiUsageRow,
   CoverLetterRow,
+  InviteRequestRow,
   IngestKeyRow,
   ProfileRow,
   Json,
@@ -148,6 +149,40 @@ export abstract class PrepRepo {
   abstract generate(roleId: string, model?: string): Promise<PrepSheet>;
   /** Saves the user's edits (notes, practised ticks) without regenerating. */
   abstract save(roleId: string, prep: PrepSheet): Promise<void>;
+}
+
+export interface AdminUser {
+  id: string;
+  email: string;
+  name: string;
+  is_admin: boolean;
+  created_at: string;
+  timezone: string;
+  has_ai_key: boolean;
+  roles: number;
+  applied: number;
+  last_run: string | null;
+  runs_30d: number;
+  ai_calls_30d: number;
+  ingest_keys: number;
+}
+
+export interface AdminTotals {
+  users: number;
+  roles: number;
+  events: number;
+  runs_30d: number;
+  ai_calls_30d: number;
+  db_bytes: number;
+  open_requests: number;
+  open_codes: number;
+}
+
+export abstract class AdminRepo {
+  abstract overview(): Promise<{ users: AdminUser[]; totals: AdminTotals }>;
+  abstract requests(): Promise<InviteRequestRow[]>;
+  /** Creates an invite code for a request and links it; returns the code. */
+  abstract inviteRequest(id: string): Promise<string>;
 }
 
 export interface ModelChoice {

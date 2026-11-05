@@ -41,6 +41,7 @@ import {
   LettersRepo,
   ScreeningRepo,
   PrepRepo,
+  AdminRepo,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -845,5 +846,59 @@ export class MemoryPrepRepo extends PrepRepo {
       const r = s.roles.find((x) => x.id === roleId);
       if (r) r.prep = prep as unknown as Json;
     });
+  }
+}
+
+@Injectable()
+export class MemoryAdminRepo extends AdminRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+
+  async overview() {
+    const s = this.roles.snapshot();
+    const runs = s.events.filter((e) => e.kind === 'run');
+    const user = {
+      id: s.profileRow.id,
+      email: s.profileRow.email,
+      name: s.profileRow.name,
+      is_admin: true,
+      created_at: s.profileRow.created_at,
+      timezone: s.profileRow.timezone,
+      has_ai_key: !!s.profileRow.anthropic_key_ref,
+      roles: s.roles.length,
+      applied: s.roles.filter((r) =>
+        ['applied', 'interview', 'offer', 'rejected'].includes(r.status),
+      ).length,
+      last_run: runs.length
+        ? runs
+            .map((e) => e.created_at)
+            .sort()
+            .reverse()[0]
+        : null,
+      runs_30d: runs.length,
+      ai_calls_30d: s.usage.length,
+      ingest_keys: s.ingestKeys.filter((k) => !k.revoked_at).length,
+    };
+    return {
+      users: [user],
+      totals: {
+        users: 1,
+        roles: s.roles.length,
+        events: s.events.length,
+        runs_30d: runs.length,
+        ai_calls_30d: s.usage.length,
+        db_bytes: new TextEncoder().encode(JSON.stringify(s)).length,
+        open_requests: 0,
+        open_codes: 0,
+      },
+    };
+  }
+
+  async requests() {
+    return [];
+  }
+
+  async inviteRequest() {
+    throw new Error('Invite requests need the hosted project');
+    return '';
   }
 }

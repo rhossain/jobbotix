@@ -3,6 +3,7 @@ import type { PrepSheet, VariantDiff } from '@jobbotix/shared-types';
 import type {
   AiUsageRow,
   CoverLetterRow,
+  InviteRequestRow,
   IngestKeyRow,
   Json,
   ProfileRow,
@@ -30,6 +31,9 @@ import {
   LettersRepo,
   ScreeningRepo,
   PrepRepo,
+  AdminRepo,
+  type AdminTotals,
+  type AdminUser,
 } from './repos';
 
 /**
@@ -624,5 +628,61 @@ export class SupabasePrepRepo extends PrepRepo {
       .update({ prep: prep as unknown as Json })
       .eq('id', roleId);
     if (error) throw new Error(error.message);
+  }
+}
+
+@Injectable()
+export class SupabaseAdminRepo extends AdminRepo {
+  private readonly supabase = injectSupabase();
+
+  async overview() {
+    const { data, error } = await this.supabase.rpc('admin_overview');
+    if (error) throw new Error(error.message);
+    const v = (data ?? {}) as { users?: AdminUser[]; totals?: AdminTotals };
+    return {
+      users: v.users ?? [],
+      totals: v.totals ?? {
+        users: 0,
+        roles: 0,
+        events: 0,
+        runs_30d: 0,
+        ai_calls_30d: 0,
+        db_bytes: 0,
+        open_requests: 0,
+        open_codes: 0,
+      },
+    };
+  }
+
+  async requests(): Promise<InviteRequestRow[]> {
+    const { data } = await this.supabase
+      .from('invite_requests')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+    return data ?? [];
+  }
+
+  async inviteRequest(id: string) {
+    const { data: req } = await this.supabase
+      .from('invite_requests')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (!req) throw new Error('Request not found');
+    const { data: code, error } = await this.supabase.rpc(
+      'admin_create_invite',
+      {
+        p_note: `request from ${req.email}`,
+      },
+    );
+    if (error || !code)
+      throw new Error(error?.message ?? 'Could not create a code');
+    const { error: uErr } = await this.supabase
+      .from('invite_requests')
+      .update({ invited_code: code })
+      .eq('id', id);
+    if (uErr) throw new Error(uErr.message);
+    return code;
   }
 }

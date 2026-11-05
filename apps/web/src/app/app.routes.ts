@@ -109,6 +109,13 @@ export const appRoutes: Route[] = [
     title: 'New password · Jobbotix',
   },
   {
+    path: 'admin',
+    canActivate: [authGuard, adminGuard],
+    loadComponent: () =>
+      import('./pages/admin/overview').then((m) => m.AdminOverview),
+    title: 'Admin · Jobbotix',
+  },
+  {
     path: 'admin/invites',
     canActivate: [authGuard, adminGuard],
     loadComponent: () =>

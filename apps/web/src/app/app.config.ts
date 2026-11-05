@@ -15,6 +15,7 @@ import {
   MemoryLettersRepo,
   MemoryScreeningRepo,
   MemoryPrepRepo,
+  MemoryAdminRepo,
   MemorySettingsRepo,
   MemoryVariantsRepo,
 } from './core/data/memory-repos';
@@ -26,6 +27,7 @@ import {
   LettersRepo,
   ScreeningRepo,
   PrepRepo,
+  AdminRepo,
   SettingsRepo,
   VariantsRepo,
 } from './core/data/repos';
@@ -37,6 +39,7 @@ import {
   SupabaseLettersRepo,
   SupabaseScreeningRepo,
   SupabasePrepRepo,
+  SupabaseAdminRepo,
   SupabaseSettingsRepo,
   SupabaseVariantsRepo,
 } from './core/data/supabase-repos';
@@ -56,6 +59,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: LettersRepo, useClass: MemoryLettersRepo },
       { provide: ScreeningRepo, useClass: MemoryScreeningRepo },
       { provide: PrepRepo, useClass: MemoryPrepRepo },
+      { provide: AdminRepo, useClass: MemoryAdminRepo },
     ]
   : [
       { provide: RolesRepo, useClass: SupabaseRolesRepo },
@@ -67,6 +71,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: LettersRepo, useClass: SupabaseLettersRepo },
       { provide: ScreeningRepo, useClass: SupabaseScreeningRepo },
       { provide: PrepRepo, useClass: SupabasePrepRepo },
+      { provide: AdminRepo, useClass: SupabaseAdminRepo },
     ];
 
 export const appConfig: ApplicationConfig = {

@@ -1,16 +1,20 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import type { InviteCodeRow } from '@jobbotix/shared-types';
 import { injectSupabase } from '../../core/supabase';
 
 /** Admin v0: create and revoke invite codes. */
 @Component({
   selector: 'jb-admin-invites',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="max-w-3xl">
-      <h1 class="text-2xl font-semibold tracking-tight">Invite codes</h1>
+      <p class="text-sm">
+        <a routerLink="/admin" class="underline">← Admin</a>
+      </p>
+      <h1 class="mt-2 text-2xl font-semibold tracking-tight">Invite codes</h1>
       <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
         Each code admits one person. Send them the link shown next to the code.
       </p>

@@ -196,4 +196,28 @@ do $$ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- admin_overview: admins get totals, others are refused
+-- ---------------------------------------------------------------------------
+update public.profiles set is_admin = true where id = '11111111-1111-1111-1111-111111111111';
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare v jsonb;
+begin
+  v := public.admin_overview();
+  if (v->'totals'->>'users')::int < 2 then raise exception 'FAIL: admin_overview users'; end if;
+  if jsonb_array_length(v->'users') < 2 then raise exception 'FAIL: admin_overview user list'; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  perform public.admin_overview();
+  raise exception 'FAIL: non-admin could call admin_overview';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+update public.profiles set is_admin = false where id = '11111111-1111-1111-1111-111111111111';
+
 \echo RLS tests passed
