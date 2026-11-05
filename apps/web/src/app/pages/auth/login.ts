@@ -50,22 +50,28 @@ import { AuthShell } from './auth-shell';
           />
         </label>
         @if (error()) {
-          <p class="text-sm text-red-700 dark:text-red-300" role="alert">
+          <p class="text-sm text-bad" role="alert">
             {{ error() }}
           </p>
         }
         <button
           type="submit"
-          class="jb-btn-primary"
+          class="jb-btn-primary jb-btn-lg mt-2 w-full"
           [disabled]="form.invalid || busy()"
         >
           {{ busy() ? 'Signing in…' : 'Sign in' }}
         </button>
       </form>
-      <p class="mt-4 text-sm text-neutral-600 dark:text-neutral-300">
-        <a routerLink="/forgot-password" class="underline">Forgot password?</a>
+      <p footer>
+        <a
+          routerLink="/forgot-password"
+          class="font-medium text-brand-ink underline"
+          >Forgot password?</a
+        >
         · Have an invite?
-        <a routerLink="/signup" class="underline">Create an account</a>
+        <a routerLink="/signup" class="font-medium text-brand-ink underline"
+          >Create an account</a
+        >
       </p>
     </jb-auth-shell>
   `,

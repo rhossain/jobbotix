@@ -242,7 +242,8 @@
   }
 
   // Busy: the label stays (keeping the width) but turns invisible under a spinner.
-  .jb-btn[aria-busy='true'] {
+  .jb-btn[aria-busy='true'],
+  .jb-btn-primary[aria-busy='true'] {
     position: relative;
     color: transparent !important;
     pointer-events: none;
@@ -260,7 +261,8 @@
       animation: jb-spin 0.7s linear infinite;
     }
 
-    &.jb-btn-primary::after {
+    &.jb-btn-primary::after,
+    &.jb-btn-danger::after {
       border-color: var(--ink-on-brand);
       border-right-color: transparent;
     }

@@ -67,8 +67,7 @@ import { AuthShell } from './auth-shell';
         </label>
         <label class="flex flex-col gap-1 text-sm">
           <span
-            >Password
-            <span class="text-neutral-500">(8+ characters)</span></span
+            >Password <span class="text-ink-muted">(8+ characters)</span></span
           >
           <input
             id="signup-password"
@@ -79,28 +78,30 @@ import { AuthShell } from './auth-shell';
           />
         </label>
         @if (error()) {
-          <p class="text-sm text-red-700 dark:text-red-300" role="alert">
+          <p class="text-sm text-bad" role="alert">
             {{ error() }}
           </p>
         }
         @if (done()) {
-          <p class="text-sm text-brand-600 dark:text-brand-50" role="status">
+          <p class="text-sm text-brand-ink" role="status">
             Account created. Check your inbox if a confirmation email is
             required, then sign in.
           </p>
         } @else {
           <button
             type="submit"
-            class="jb-btn-primary"
+            class="jb-btn-primary jb-btn-lg mt-2 w-full"
             [disabled]="form.invalid || busy()"
           >
             {{ busy() ? 'Creating…' : 'Create account' }}
           </button>
         }
       </form>
-      <p class="mt-4 text-sm text-neutral-600 dark:text-neutral-300">
+      <p footer>
         Already have an account?
-        <a routerLink="/login" class="underline">Sign in</a>
+        <a routerLink="/login" class="font-medium text-brand-ink underline"
+          >Sign in</a
+        >
       </p>
     </jb-auth-shell>
   `,

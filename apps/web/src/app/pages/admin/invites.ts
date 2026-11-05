@@ -15,7 +15,7 @@ import { injectSupabase } from '../../core/supabase';
         <a routerLink="/admin" class="underline">← Admin</a>
       </p>
       <h1 class="mt-2 text-2xl font-semibold tracking-tight">Invite codes</h1>
-      <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+      <p class="mt-1 text-sm text-ink-muted">
         Each code admits one person. Send them the link shown next to the code.
       </p>
 
@@ -40,13 +40,13 @@ import { injectSupabase } from '../../core/supabase';
         </button>
       </form>
       @if (error()) {
-        <p class="mt-3 text-sm text-red-700 dark:text-red-300" role="alert">
+        <p class="mt-3 text-sm text-bad" role="alert">
           {{ error() }}
         </p>
       }
       @if (lastCode()) {
         <p
-          class="mt-3 rounded-md bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:bg-brand-700 dark:text-brand-50"
+          class="mt-3 rounded-md bg-brand-tint px-3 py-2 text-sm text-brand-ink"
           role="status"
         >
           Created <code class="font-mono">{{ lastCode() }}</code> · link:
@@ -56,14 +56,12 @@ import { injectSupabase } from '../../core/supabase';
 
       <div class="mt-6 overflow-x-auto">
         @if (codes().length === 0) {
-          <p class="text-sm text-neutral-500">
+          <p class="text-sm text-ink-muted">
             No invite codes yet. Create the first one above.
           </p>
         } @else {
           <table class="w-full text-sm">
-            <thead
-              class="text-left text-xs uppercase tracking-wide text-neutral-500"
-            >
+            <thead class="text-left text-xs text-ink-muted">
               <tr>
                 <th class="py-2 pr-4">Code</th>
                 <th class="py-2 pr-4">Note</th>
@@ -74,7 +72,7 @@ import { injectSupabase } from '../../core/supabase';
             </thead>
             <tbody>
               @for (c of codes(); track c.code) {
-                <tr class="border-t border-neutral-200 dark:border-neutral-800">
+                <tr class="border-t border-line">
                   <td class="py-2 pr-4 font-mono">{{ c.code }}</td>
                   <td class="py-2 pr-4">{{ c.note }}</td>
                   <td class="py-2 pr-4 tabular-nums">

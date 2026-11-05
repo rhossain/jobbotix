@@ -30,7 +30,7 @@ import { AuthShell } from './auth-shell';
         <label class="flex flex-col gap-1 text-sm">
           <span
             >New password
-            <span class="text-neutral-500">(8+ characters)</span></span
+            <span class="text-ink-muted">(8+ characters)</span></span
           >
           <input
             id="reset-password"
@@ -41,13 +41,14 @@ import { AuthShell } from './auth-shell';
           />
         </label>
         @if (error()) {
-          <p class="text-sm text-red-700 dark:text-red-300" role="alert">
+          <p class="text-sm text-bad" role="alert">
             {{ error() }}
           </p>
         }
         <button
           type="submit"
-          class="jb-btn-primary"
+          class="jb-btn-primary jb-btn-lg mt-2 w-full"
+          [attr.aria-busy]="busy() ? 'true' : null"
           [disabled]="password.invalid || busy()"
         >
           Save password

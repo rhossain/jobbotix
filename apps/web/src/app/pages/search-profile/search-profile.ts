@@ -38,14 +38,14 @@ const splitLines = (s: string) =>
     <section class="flex flex-col gap-8">
       <header>
         <h1 class="text-2xl font-semibold tracking-tight">Search profile</h1>
-        <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+        <p class="mt-1 text-sm text-ink-muted">
           What the daily run looks for. Save, then generate the prompt for your
           scheduled task.
         </p>
       </header>
 
       @if (!repo.loaded()) {
-        <p class="text-sm text-neutral-500" role="status">Loading…</p>
+        <p class="text-sm text-ink-muted" role="status">Loading…</p>
       } @else {
         <form
           [formGroup]="form"
@@ -56,7 +56,7 @@ const splitLines = (s: string) =>
           <label class="flex flex-col gap-1 text-sm">
             <span
               >Target roles
-              <span class="text-neutral-500"
+              <span class="text-ink-muted"
                 >(one per line, best first)</span
               ></span
             >
@@ -69,7 +69,7 @@ const splitLines = (s: string) =>
           <label class="flex flex-col gap-1 text-sm">
             <span
               >Stacks you work in
-              <span class="text-neutral-500"
+              <span class="text-ink-muted"
                 >(one per line, primary first)</span
               ></span
             >
@@ -101,7 +101,7 @@ const splitLines = (s: string) =>
             <label class="flex flex-col gap-1">
               <span
                 >Skip roles limited to these regions
-                <span class="text-neutral-500">(comma-separated)</span></span
+                <span class="text-ink-muted">(comma-separated)</span></span
               >
               <input
                 id="sp-regions"
@@ -194,7 +194,7 @@ const splitLines = (s: string) =>
                 formControlName="digestTime"
                 class="jb-input jb-input-inline"
               />
-              <span class="text-neutral-500"
+              <span class="text-ink-muted"
                 >({{ auth.profile()?.timezone || 'your timezone' }})</span
               >
             </label>
@@ -228,7 +228,7 @@ const splitLines = (s: string) =>
                 class="jb-input jb-input-inline w-20"
               />
             </label>
-            <p class="text-neutral-500">
+            <p class="text-ink-muted">
               The run itself still records every role; this only shapes the
               email.
             </p>
@@ -241,7 +241,7 @@ const splitLines = (s: string) =>
                 Reset to defaults
               </button>
             </legend>
-            <p class="text-neutral-500">
+            <p class="text-ink-muted">
               Points each signal adds to a posting's score. Penalties are
               negative. The run follows these numbers.
             </p>
@@ -275,7 +275,7 @@ const splitLines = (s: string) =>
               {{ saving() ? 'Saving…' : 'Save profile' }}
             </button>
             @if (savedAt()) {
-              <span class="text-sm text-neutral-500" role="status">Saved</span>
+              <span class="text-sm text-ink-muted" role="status">Saved</span>
             }
           </div>
         </form>
@@ -301,7 +301,7 @@ const splitLines = (s: string) =>
               </button>
             </div>
           </div>
-          <p class="text-sm text-neutral-600 dark:text-neutral-300">
+          <p class="text-sm text-ink-muted">
             Paste this into a Claude scheduled task that runs every morning. It
             searches, scores, drafts and posts the results here.
             @if (ingestKey()) {
@@ -323,7 +323,7 @@ const splitLines = (s: string) =>
           <pre
             class="jb-letter max-h-96 max-w-none overflow-auto font-mono text-xs"
             >{{ prompt() }}</pre>
-          <p class="text-xs text-neutral-500">
+          <p class="text-xs text-ink-muted">
             Results arrive on
             <a routerLink="/today" class="underline">Today</a>. The run never
             submits applications.

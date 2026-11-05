@@ -25,7 +25,7 @@ import {
   template: `
     <section class="mx-auto max-w-3xl">
       @if (state() === 'loading') {
-        <p class="text-sm text-neutral-500" role="status">Loading…</p>
+        <p class="text-sm text-ink-muted" role="status">Loading…</p>
       } @else if (state() === 'missing') {
         <div class="jb-empty">
           <b>This link is no longer active.</b>
@@ -35,7 +35,7 @@ import {
           </p>
         </div>
       } @else if (view(); as v) {
-        <p class="text-xs uppercase tracking-wide text-neutral-500">
+        <p class="text-xs text-ink-muted">
           Shared by {{ v.owner }} · read-only · via Jobbotix
         </p>
         @if (v.kind === 'role') {
@@ -51,7 +51,7 @@ import {
               <h1 class="text-2xl font-semibold tracking-tight">
                 {{ r.title }}
               </h1>
-              <p class="text-neutral-600 dark:text-neutral-300">
+              <p class="text-ink-muted">
                 {{ r.company }}
               </p>
               <div class="mt-2 flex flex-wrap gap-1.5">
@@ -92,7 +92,7 @@ import {
                   }
                 </ul>
               } @else {
-                <p class="mt-2 text-sm text-neutral-500">Nothing flagged.</p>
+                <p class="mt-2 text-sm text-ink-muted">Nothing flagged.</p>
               }
             </section>
           </div>
@@ -124,15 +124,13 @@ import {
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">
             {{ v.owner }}'s job board
           </h1>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+          <p class="mt-1 text-sm text-ink-muted">
             {{ v.roles.length }} roles, best match first. Skipped roles are not
             shown.
           </p>
           <div class="mt-4 overflow-x-auto">
             <table class="w-full text-sm">
-              <thead
-                class="text-left text-xs uppercase tracking-wide text-neutral-500"
-              >
+              <thead class="text-left text-xs text-ink-muted">
                 <tr>
                   <th class="py-2 pr-4">Score</th>
                   <th class="py-2 pr-4">Role</th>
@@ -143,9 +141,7 @@ import {
               </thead>
               <tbody>
                 @for (r of v.roles; track r.url + r.title) {
-                  <tr
-                    class="border-t border-neutral-200 dark:border-neutral-800"
-                  >
+                  <tr class="border-t border-line">
                     <td class="py-2 pr-4 tabular-nums">
                       <span
                         class="jb-score-{{ scoreBand(r.score) }} font-semibold"
@@ -164,7 +160,7 @@ import {
                       } @else {
                         <span class="font-medium">{{ r.title }}</span>
                       }
-                      <div class="text-xs text-neutral-500">
+                      <div class="text-xs text-ink-muted">
                         {{ r.company
                         }}{{ r.remote_scope ? ' · ' + r.remote_scope : '' }}
                       </div>
@@ -184,7 +180,7 @@ import {
             </table>
           </div>
         }
-        <footer class="mt-10 text-xs text-neutral-500">
+        <footer class="mt-10 text-xs text-ink-muted">
           Shared {{ v.created_at | relativeDay }}. Jobbotix finds, scores and
           drafts; the candidate presses send.
           <a routerLink="/" class="underline">Learn more</a>

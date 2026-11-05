@@ -34,7 +34,7 @@ const LIMITS = {
       <header class="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 class="text-2xl font-semibold tracking-tight">Admin</h1>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+          <p class="mt-1 text-sm text-ink-muted">
             Who is on Jobbotix and how close the free tiers are.
           </p>
         </div>
@@ -42,7 +42,7 @@ const LIMITS = {
       </header>
 
       @if (error()) {
-        <p class="text-sm text-red-700 dark:text-red-300" role="alert">
+        <p class="text-sm text-bad" role="alert">
           {{ error() }}
         </p>
       }
@@ -58,15 +58,15 @@ const LIMITS = {
                   >{{ mb(t.db_bytes) }} / {{ mb(limits.dbBytes) }} MB</span
                 >
               </div>
-              <div class="mt-2 h-2 rounded bg-neutral-200 dark:bg-neutral-800">
+              <div class="mt-2 h-2 rounded bg-sunken">
                 <div
                   class="h-2 rounded"
-                  [class.bg-brand-600]="pct(t.db_bytes, limits.dbBytes) < 70"
-                  [class.bg-amber-500]="pct(t.db_bytes, limits.dbBytes) >= 70"
+                  [class.bg-brand]="pct(t.db_bytes, limits.dbBytes) < 70"
+                  [class.bg-signal]="pct(t.db_bytes, limits.dbBytes) >= 70"
                   [style.width.%]="pct(t.db_bytes, limits.dbBytes)"
                 ></div>
               </div>
-              <p class="mt-1 text-xs text-neutral-500">
+              <p class="mt-1 text-xs text-ink-muted">
                 {{ t.roles }} roles · {{ t.events }} events
               </p>
             </li>
@@ -78,15 +78,15 @@ const LIMITS = {
                   {{ limits.edgeInvocations.toLocaleString() }}</span
                 >
               </div>
-              <div class="mt-2 h-2 rounded bg-neutral-200 dark:bg-neutral-800">
+              <div class="mt-2 h-2 rounded bg-sunken">
                 <div
-                  class="h-2 rounded bg-brand-600"
+                  class="h-2 rounded bg-brand"
                   [style.width.%]="
                     pct(t.runs_30d + t.ai_calls_30d, limits.edgeInvocations)
                   "
                 ></div>
               </div>
-              <p class="mt-1 text-xs text-neutral-500">
+              <p class="mt-1 text-xs text-ink-muted">
                 {{ t.runs_30d }} ingest runs · {{ t.ai_calls_30d }} AI calls
                 (counted from events; the Supabase dashboard has the exact
                 number)
@@ -99,13 +99,13 @@ const LIMITS = {
                   >{{ t.users }} / {{ limits.mau.toLocaleString() }}</span
                 >
               </div>
-              <div class="mt-2 h-2 rounded bg-neutral-200 dark:bg-neutral-800">
+              <div class="mt-2 h-2 rounded bg-sunken">
                 <div
-                  class="h-2 rounded bg-brand-600"
+                  class="h-2 rounded bg-brand"
                   [style.width.%]="pct(t.users, limits.mau)"
                 ></div>
               </div>
-              <p class="mt-1 text-xs text-neutral-500">
+              <p class="mt-1 text-xs text-ink-muted">
                 {{ t.open_codes }} open invite
                 {{ t.open_codes === 1 ? 'code' : 'codes' }} ·
                 {{ t.open_requests }} waiting
@@ -122,7 +122,7 @@ const LIMITS = {
           <div class="font-medium">
             Sign-up is {{ signupOpen() ? 'open to anyone' : 'invite-only' }}
           </div>
-          <div class="text-neutral-500">
+          <div class="text-ink-muted">
             Keep it invite-only until the free tiers are known to hold; the
             database check enforces it either way.
           </div>
@@ -141,13 +141,11 @@ const LIMITS = {
       <section>
         <h2 class="jb-section-title">Users</h2>
         @if (users().length === 0 && !error()) {
-          <p class="mt-2 text-sm text-neutral-500">Loading…</p>
+          <p class="mt-2 text-sm text-ink-muted">Loading…</p>
         } @else {
           <div class="mt-2 overflow-x-auto">
             <table class="w-full text-sm">
-              <thead
-                class="text-left text-xs uppercase tracking-wide text-neutral-500"
-              >
+              <thead class="text-left text-xs text-ink-muted">
                 <tr>
                   <th class="py-2 pr-4">User</th>
                   <th class="py-2 pr-4">Joined</th>
@@ -161,9 +159,7 @@ const LIMITS = {
               </thead>
               <tbody>
                 @for (u of users(); track u.id) {
-                  <tr
-                    class="border-t border-neutral-200 dark:border-neutral-800"
-                  >
+                  <tr class="border-t border-line">
                     <td class="py-2 pr-4">
                       <div class="font-medium">
                         {{ u.name || u.email }}
@@ -171,7 +167,7 @@ const LIMITS = {
                           <span class="jb-tag ml-1">admin</span>
                         }
                       </div>
-                      <div class="text-xs text-neutral-500">
+                      <div class="text-xs text-ink-muted">
                         {{ u.email }} · {{ u.timezone }}
                       </div>
                     </td>
@@ -182,16 +178,14 @@ const LIMITS = {
                       @if (u.last_run) {
                         {{ u.last_run | relativeDay }}
                       } @else {
-                        <span class="text-amber-700 dark:text-amber-300"
-                          >never</span
-                        >
+                        <span class="text-warn">never</span>
                       }
                     </td>
                     <td class="py-2 pr-4 tabular-nums">{{ u.runs_30d }}</td>
                     <td class="py-2 pr-4 tabular-nums">
                       {{ u.ai_calls_30d }}
                       @if (u.has_ai_key) {
-                        <span class="text-xs text-neutral-500">(own key)</span>
+                        <span class="text-xs text-ink-muted">(own key)</span>
                       }
                     </td>
                     <td class="py-2 tabular-nums">{{ u.ingest_keys }}</td>
@@ -206,31 +200,26 @@ const LIMITS = {
       <section>
         <h2 class="jb-section-title">Invite requests</h2>
         @if (requests().length === 0) {
-          <p class="mt-2 text-sm text-neutral-500">
+          <p class="mt-2 text-sm text-ink-muted">
             No requests from the landing page yet.
           </p>
         } @else {
-          <ul
-            class="mt-2 divide-y divide-neutral-200 text-sm dark:divide-neutral-800"
-          >
+          <ul class="mt-2 divide-y divide-line text-sm">
             @for (r of requests(); track r.id) {
               <li
                 class="flex flex-wrap items-center justify-between gap-2 py-2"
               >
                 <span>
                   <span class="font-medium">{{ r.email }}</span>
-                  <span class="text-neutral-500">
+                  <span class="text-ink-muted">
                     · {{ r.created_at | relativeDay }}</span
                   >
                   @if (r.note) {
-                    <span
-                      class="block text-neutral-600 dark:text-neutral-300"
-                      >{{ r.note }}</span
-                    >
+                    <span class="block text-ink-muted">{{ r.note }}</span>
                   }
                 </span>
                 @if (r.invited_code) {
-                  <span class="text-xs text-neutral-500"
+                  <span class="text-xs text-ink-muted"
                     >invited ·
                     <code class="font-mono">{{ r.invited_code }}</code></span
                   >
@@ -249,7 +238,7 @@ const LIMITS = {
           </ul>
           @if (lastCode()) {
             <p
-              class="mt-3 rounded-md bg-brand-50 px-3 py-2 text-sm text-brand-700 dark:bg-brand-700 dark:text-brand-50"
+              class="mt-3 rounded-md bg-brand-tint px-3 py-2 text-sm text-brand-ink"
               role="status"
             >
               Send them

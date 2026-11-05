@@ -20,7 +20,7 @@ import {
       <div class="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 class="jb-section-title">Import a resume</h2>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
+          <p class="mt-1 text-sm text-ink-muted">
             Paste the text or pick a .docx, PDF or .txt. Nothing leaves your
             browser: the file is read and parsed here, and you review the result
             before it touches the master.
@@ -59,21 +59,19 @@ import {
             {{ busy() ? 'Reading…' : 'Parse' }}
           </button>
           @if (fileName()) {
-            <span class="text-xs text-neutral-500">{{ fileName() }}</span>
+            <span class="text-xs text-ink-muted">{{ fileName() }}</span>
           }
         </div>
       </div>
 
       @if (error()) {
-        <p class="text-sm text-red-700 dark:text-red-300" role="alert">
+        <p class="text-sm text-bad" role="alert">
           {{ error() }}
         </p>
       }
 
       @if (result(); as res) {
-        <div
-          class="flex flex-col gap-3 border-t border-neutral-200 pt-3 dark:border-neutral-800"
-        >
+        <div class="flex flex-col gap-3 border-t border-line pt-3">
           <p class="text-sm">
             Found
             <b>{{ res.resume.contact.name || 'no name' }}</b>
@@ -84,9 +82,7 @@ import {
             {{ res.resume.certifications.length }} certifications
           </p>
           @if (res.warnings.length) {
-            <ul
-              class="list-disc pl-5 text-sm text-amber-800 dark:text-amber-300"
-            >
+            <ul class="list-disc pl-5 text-sm text-warn">
               @for (w of res.warnings; track w) {
                 <li>{{ w }}</li>
               }
@@ -108,7 +104,7 @@ import {
               Fill only the empty sections
             </button>
           </div>
-          <p class="text-xs text-neutral-500">
+          <p class="text-xs text-ink-muted">
             Either way nothing is saved until you press Save version.
           </p>
         </div>

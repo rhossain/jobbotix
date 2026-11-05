@@ -8,12 +8,10 @@ import { RouterLink } from '@angular/router';
   template: `
     <article class="mx-auto max-w-2xl py-6 text-[15px] leading-relaxed">
       <nav class="text-sm">
-        <a routerLink="/" class="text-neutral-500 hover:underline"
-          >← Jobbotix</a
-        >
+        <a routerLink="/" class="text-ink-muted hover:underline">← Jobbotix</a>
       </nav>
       <h1 class="mt-4 text-2xl font-semibold tracking-tight">Privacy</h1>
-      <p class="mt-1 text-sm text-neutral-500">
+      <p class="mt-1 text-sm text-ink-muted">
         Plain words, because that is the only kind worth reading.
       </p>
 
@@ -78,7 +76,7 @@ import { RouterLink } from '@angular/router';
         from your user row, so nothing is left behind.
       </p>
 
-      <p class="mt-8 text-sm text-neutral-500">Last updated November 2026.</p>
+      <p class="mt-8 text-sm text-ink-muted">Last updated November 2026.</p>
     </article>
   `,
 })

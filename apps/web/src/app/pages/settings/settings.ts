@@ -49,7 +49,7 @@ import { Toast } from '../../shared/toast';
           <label class="flex flex-col gap-1 text-sm">
             <span
               >Timezone
-              <span class="text-neutral-500">(for the digest hour)</span></span
+              <span class="text-ink-muted">(for the digest hour)</span></span
             >
             <input
               id="st-tz"
@@ -64,7 +64,7 @@ import { Toast } from '../../shared/toast';
             </datalist>
           </label>
         </div>
-        <p class="text-sm text-neutral-500">
+        <p class="text-sm text-ink-muted">
           Signed in as {{ repo.profile()?.email }}
         </p>
         <div>
@@ -81,7 +81,7 @@ import { Toast } from '../../shared/toast';
       <!-- AI -->
       <section class="flex flex-col gap-4">
         <h2 class="jb-section-title">AI</h2>
-        <p class="text-sm text-neutral-600 dark:text-neutral-300">
+        <p class="text-sm text-ink-muted">
           Your daily search already produces scores, letters and answers through
           your Claude scheduled task at no cost here. Add your own Anthropic API
           key only if you want to regenerate inside the app; calls are billed to
@@ -131,7 +131,7 @@ import { Toast } from '../../shared/toast';
             </button>
           </form>
           @if (keyError()) {
-            <p class="text-sm text-red-700 dark:text-red-300" role="alert">
+            <p class="text-sm text-bad" role="alert">
               {{ keyError() }}
             </p>
           }
@@ -153,7 +153,7 @@ import { Toast } from '../../shared/toast';
               </option>
             }
           </select>
-          <span class="text-neutral-500"
+          <span class="text-ink-muted"
             >Every Generate button can override it.</span
           >
         </label>
@@ -163,13 +163,11 @@ import { Toast } from '../../shared/toast';
       <section class="flex flex-col gap-3">
         <h2 class="jb-section-title">AI usage on your key</h2>
         @if (usageByModel().length === 0) {
-          <p class="text-sm text-neutral-500">No in-app AI calls yet.</p>
+          <p class="text-sm text-ink-muted">No in-app AI calls yet.</p>
         } @else {
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
-              <thead
-                class="text-left text-xs uppercase tracking-wide text-neutral-500"
-              >
+              <thead class="text-left text-xs text-ink-muted">
                 <tr>
                   <th class="py-2 pr-4">Model</th>
                   <th class="py-2 pr-4">Calls</th>
@@ -180,9 +178,7 @@ import { Toast } from '../../shared/toast';
               </thead>
               <tbody>
                 @for (u of usageByModel(); track u.model) {
-                  <tr
-                    class="border-t border-neutral-200 dark:border-neutral-800"
-                  >
+                  <tr class="border-t border-line">
                     <td class="py-2 pr-4 font-mono">{{ u.model }}</td>
                     <td class="py-2 pr-4 tabular-nums">{{ u.calls }}</td>
                     <td class="py-2 pr-4 tabular-nums">{{ u.in }}</td>
@@ -199,7 +195,7 @@ import { Toast } from '../../shared/toast';
       <!-- Voice samples -->
       <section class="flex flex-col gap-3">
         <h2 class="jb-section-title">Voice samples</h2>
-        <p class="text-sm text-neutral-600 dark:text-neutral-300">
+        <p class="text-sm text-ink-muted">
           Up to three cover letters or emails you wrote yourself. Drafts copy
           their tone (sentence length, directness), never their content. The
           oldest is replaced when you add a fourth.
@@ -207,7 +203,7 @@ import { Toast } from '../../shared/toast';
         @for (v of letters.voiceSamples(); track v.id) {
           <article class="jb-card p-3 text-sm">
             <div class="flex items-start justify-between gap-2">
-              <span class="text-xs text-neutral-500"
+              <span class="text-xs text-ink-muted"
                 >{{ v.word_count ?? 0 }} words · added
                 {{ v.created_at | relativeDay }}</span
               >
@@ -250,18 +246,16 @@ import { Toast } from '../../shared/toast';
       <!-- Ingest keys -->
       <section class="flex flex-col gap-3">
         <h2 class="jb-section-title">Ingest keys</h2>
-        <p class="text-sm text-neutral-600 dark:text-neutral-300">
+        <p class="text-sm text-ink-muted">
           Each key lets one scheduled task post results under your account.
           Create one from
           <a routerLink="/search" class="underline">Search profile</a>; revoke
           it here if it leaks.
         </p>
         @if (repo.ingestKeys().length === 0) {
-          <p class="text-sm text-neutral-500">No keys yet.</p>
+          <p class="text-sm text-ink-muted">No keys yet.</p>
         } @else {
-          <ul
-            class="divide-y divide-neutral-200 text-sm dark:divide-neutral-800"
-          >
+          <ul class="divide-y divide-line text-sm">
             @for (k of repo.ingestKeys(); track k.id) {
               <li
                 class="flex flex-wrap items-center justify-between gap-2 py-2"

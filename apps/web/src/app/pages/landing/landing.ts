@@ -14,204 +14,265 @@ import { RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { injectSupabase } from '../../core/supabase';
 import { environment } from '../../../environments/environment';
+import { Button, Field, FieldControl, Icon, MatchRing } from '../../ui';
 
 /** Public front page: the positioning in one screen, and a way to ask for an invite. */
 @Component({
   selector: 'jb-landing',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [
+    Button,
+    Field,
+    FieldControl,
+    Icon,
+    MatchRing,
+    ReactiveFormsModule,
+    RouterLink,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="mx-auto max-w-3xl py-10">
-      <p class="jb-section-title">Jobbotix</p>
-      <h1
-        class="mt-3 text-4xl font-semibold leading-tight tracking-tight sm:text-5xl"
-      >
-        Finds, scores and drafts your job applications.<br />
-        <span class="text-brand-600 dark:text-brand-50">You press send.</span>
-      </h1>
-      <p class="mt-5 max-w-2xl text-lg text-neutral-600 dark:text-neutral-300">
-        Every morning Jobbotix searches the remote job boards, scores each
-        posting against what you actually want, writes the cover letter and the
-        screening answers for the good ones, and puts them in a short list. It
-        never submits an application for you.
-      </p>
-
-      <div class="mt-8 grid gap-4 sm:grid-cols-3">
-        <div class="jb-card p-4">
-          <div
-            class="font-mono text-2xl font-medium text-brand-600 dark:text-brand-50"
-          >
-            06:45
-          </div>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-            A run finishes before you wake. The digest lands in your inbox at
-            the hour you choose.
-          </p>
-        </div>
-        <div class="jb-card p-4">
-          <div
-            class="font-mono text-2xl font-medium text-brand-600 dark:text-brand-50"
-          >
-            0–100
-          </div>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-            Every role gets a score, the reasons it fits, and what to watch out
-            for. You set the weights.
-          </p>
-        </div>
-        <div class="jb-card p-4">
-          <div
-            class="font-mono text-2xl font-medium text-brand-600 dark:text-brand-50"
-          >
-            200 words
-          </div>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-            A cover letter in your voice for anything scoring 70 or more, with
-            one honest gap named.
-          </p>
+    <!-- Hero -->
+    <section
+      class="grid items-center gap-10 pt-6 pb-12 md:pt-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:gap-16 lg:pb-20"
+    >
+      <div>
+        <h1
+          class="text-[clamp(2.4rem,6.2vw,4rem)] leading-[1.02] font-semibold tracking-[-0.035em] text-ink"
+        >
+          It finds, scores and drafts your applications. You press send.
+        </h1>
+        <p class="mt-6 max-w-xl text-lg text-ink-muted">
+          Every morning Jobbotix searches the remote job boards, scores each
+          posting against what you actually want, and writes the cover letter
+          and screening answers for the good ones. It never submits anything for
+          you.
+        </p>
+        <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
+          @if (open()) {
+            <a jbButton="primary" size="lg" routerLink="/signup"
+              >Create your account</a
+            >
+          } @else {
+            <a jbButton="primary" size="lg" href="#invite">Request an invite</a>
+          }
+          <a jbButton size="lg" routerLink="/login">Sign in</a>
         </div>
       </div>
 
-      <div class="mt-10 jb-card overflow-hidden">
-        <div
-          class="border-b border-neutral-200 px-4 py-2 font-mono text-xs text-neutral-500 dark:border-neutral-800"
-        >
-          Today · last run today · 47 listings reviewed · 3 added · 21 excluded
-        </div>
-        <ul class="divide-y divide-neutral-200 text-sm dark:divide-neutral-800">
-          <li class="flex items-center gap-4 px-4 py-3">
-            <span class="jb-score jb-score-high">92<small>MATCH</small></span
-            ><span
-              ><b>Senior Angular Engineer, AI Products</b><br /><span
-                class="text-neutral-600 dark:text-neutral-300"
-                >Quill &amp; Co · Remote, worldwide · $100k–140k</span
-              ></span
+      <!-- The morning brief, as the product shows it -->
+      <div
+        class="jb-card relative overflow-hidden p-5 shadow-overlay md:p-6"
+        aria-hidden="true"
+      >
+        <p class="text-sm font-medium text-brand-ink">{{ today }}</p>
+        <p class="mt-1 text-xl font-semibold tracking-tight text-ink">
+          Good morning
+        </p>
+        <p class="mt-1 text-sm text-ink-muted">
+          Today's 06:45 run reviewed 47 listings and added 3 worth a look.
+        </p>
+        <ul class="mt-5 flex flex-col gap-2.5">
+          @for (r of sample; track r.title) {
+            <li
+              class="flex items-center gap-3.5 rounded-control border border-line bg-surface p-3"
             >
-          </li>
-          <li class="flex items-center gap-4 px-4 py-3">
-            <span class="jb-score jb-score-high">88<small>MATCH</small></span
-            ><span
-              ><b>Senior Frontend Engineer (Angular)</b><br /><span
-                class="text-neutral-600 dark:text-neutral-300"
-                >Northwind Analytics · Remote, worldwide · $95k–130k</span
-              ></span
-            >
-          </li>
-          <li class="flex items-center gap-4 px-4 py-3">
-            <span class="jb-score jb-score-mid">74<small>MATCH</small></span
-            ><span
-              ><b>Senior Frontend Developer (React)</b><br /><span
-                class="text-neutral-600 dark:text-neutral-300"
-                >Lumen Commerce · Remote, worldwide · $80k–110k</span
-              ></span
-            >
-          </li>
+              <jb-match-ring [score]="r.score" size="sm" />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-semibold text-ink">{{
+                  r.title
+                }}</span>
+                <span class="block truncate text-xs text-ink-muted">{{
+                  r.company
+                }}</span>
+              </span>
+              @if (r.letter) {
+                <span class="jb-tag jb-tag-ai hidden sm:inline-flex">
+                  <jb-icon name="check" [size]="13" /> Letter
+                </span>
+              }
+            </li>
+          }
         </ul>
       </div>
+    </section>
 
-      @if (open()) {
-        <section class="mt-10 max-w-xl" id="invite">
-          <h2 class="text-xl font-semibold tracking-tight">Free to join</h2>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-            Sign-up is open. Create an account, paste your resume, and your
-            first run can go tomorrow morning.
-          </p>
-          <a routerLink="/signup" class="jb-btn-primary mt-4 inline-block"
-            >Create your account</a
-          >
-        </section>
-      } @else {
-        <section class="mt-10 max-w-xl" id="invite">
-          <h2 class="text-xl font-semibold tracking-tight">
-            Invite-only for now
-          </h2>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-            Jobbotix runs on free tiers while it is small. Leave your email and
-            the kind of role you are after; invites go out in order.
-          </p>
+    <!-- How a morning goes -->
+    <section
+      class="border-t border-line py-12 lg:py-16"
+      aria-labelledby="how-heading"
+    >
+      <h2
+        id="how-heading"
+        class="max-w-xl text-2xl font-semibold tracking-tight text-ink md:text-3xl"
+      >
+        Four steps, and only the last one is yours.
+      </h2>
+      <ol class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        @for (step of steps; track step.title; let i = $index) {
+          <li class="jb-card p-5">
+            <span
+              class="grid size-9 place-items-center rounded-full bg-brand-tint text-sm font-semibold text-brand-ink"
+              >{{ i + 1 }}</span
+            >
+            <h3 class="mt-4 font-semibold text-ink">{{ step.title }}</h3>
+            <p class="mt-1.5 text-sm text-ink-muted">{{ step.body }}</p>
+          </li>
+        }
+      </ol>
+    </section>
+
+    <!-- Join -->
+    <section id="invite" class="border-t border-line py-12 lg:py-16">
+      <div class="jb-card grid gap-8 p-6 md:p-8 lg:grid-cols-2 lg:items-center">
+        @if (open()) {
+          <div>
+            <h2 class="text-2xl font-semibold tracking-tight text-ink">
+              Free to join
+            </h2>
+            <p class="mt-2 text-ink-muted">
+              Sign-up is open. Create an account, paste your resume, and your
+              first run can go tomorrow morning.
+            </p>
+          </div>
+          <div class="lg:justify-self-end">
+            <a jbButton="primary" size="lg" routerLink="/signup"
+              >Create your account</a
+            >
+          </div>
+        } @else {
+          <div>
+            <h2 class="text-2xl font-semibold tracking-tight text-ink">
+              Invite-only for now
+            </h2>
+            <p class="mt-2 text-ink-muted">
+              Jobbotix runs on free tiers while it is small. Leave your email
+              and the kind of role you are after; invites go out in order.
+            </p>
+            <p class="mt-3 text-sm text-ink-muted">
+              Have a code?
+              <a
+                routerLink="/signup"
+                class="font-medium text-brand-ink underline"
+                >Create your account</a
+              >
+            </p>
+          </div>
           @if (sent()) {
             <p
-              class="mt-4 text-sm text-brand-600 dark:text-brand-50"
+              class="flex items-center gap-2 rounded-control bg-brand-tint px-4 py-3 text-brand-ink"
               role="status"
             >
-              Noted. You will hear from us when a spot opens.
+              <jb-icon name="circle-check" /> Noted. You will hear from us when
+              a spot opens.
             </p>
           } @else {
             <form
               [formGroup]="form"
               (ngSubmit)="request()"
-              class="mt-4 flex flex-col gap-3"
+              class="flex flex-col gap-4"
               novalidate
             >
-              <label class="flex flex-col gap-1 text-sm">
-                <span>Email</span>
+              <jb-field label="Email">
                 <input
+                  jbInput
                   id="invite-email"
                   type="email"
                   formControlName="email"
-                  class="jb-input"
                   autocomplete="email"
                 />
-              </label>
-              <label class="flex flex-col gap-1 text-sm">
-                <span
-                  >What are you looking for?
-                  <span class="text-neutral-500">(one line)</span></span
-                >
+              </jb-field>
+              <jb-field
+                label="What are you looking for?"
+                hint="One line, e.g. Senior Angular, remote worldwide"
+              >
                 <input
+                  jbInput
                   id="invite-note"
                   type="text"
                   formControlName="note"
-                  class="jb-input"
-                  placeholder="Senior Angular, remote worldwide"
                 />
-              </label>
+              </jb-field>
               @if (error()) {
-                <p class="text-sm text-red-700 dark:text-red-300" role="alert">
-                  {{ error() }}
-                </p>
+                <p class="text-sm text-bad" role="alert">{{ error() }}</p>
               }
-              <div class="flex items-center gap-3">
-                <button
-                  type="submit"
-                  class="jb-btn-primary"
-                  [disabled]="email.invalid || busy()"
-                >
-                  Request an invite
-                </button>
-                <span class="text-sm text-neutral-500"
-                  >Have a code?
-                  <a routerLink="/signup" class="underline"
-                    >Create your account</a
-                  ></span
-                >
-              </div>
+              <button
+                type="submit"
+                jbButton="primary"
+                size="lg"
+                [busy]="busy()"
+                [disabled]="email.invalid || busy()"
+              >
+                Request an invite
+              </button>
             </form>
           }
-        </section>
-      }
-
-      <footer
-        class="mt-14 flex flex-wrap gap-x-6 gap-y-2 text-xs text-neutral-500"
-      >
-        <span>© {{ year }} Jobbotix</span>
-        <a routerLink="/privacy" class="underline">Privacy</a>
-        <a routerLink="/login" class="underline">Sign in</a>
-        <a
-          href="https://github.com/rhossain/jobbotix"
-          target="_blank"
-          rel="noopener"
-          class="underline"
-          >Source on GitHub</a
-        >
-      </footer>
+        }
+      </div>
     </section>
+
+    <footer
+      class="flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-6 text-sm text-ink-muted"
+    >
+      <span>© {{ year }} Jobbotix</span>
+      <a routerLink="/privacy" class="hover:text-ink">Privacy</a>
+      <a routerLink="/login" class="hover:text-ink">Sign in</a>
+      <a
+        href="https://github.com/rhossain/jobbotix"
+        target="_blank"
+        rel="noopener"
+        class="hover:text-ink"
+        >Source on GitHub</a
+      >
+    </footer>
   `,
 })
 export class Landing {
   private readonly supabase = injectSupabase();
   private readonly auth = inject(Auth);
   readonly year = new Date().getFullYear();
+  readonly today = new Date().toLocaleDateString(undefined, {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+  /** The sample brief in the hero (fictional roles, as in demo mode). */
+  readonly sample = [
+    {
+      score: 92,
+      title: 'Senior Angular Engineer, AI Products',
+      company: 'Quill & Co',
+      letter: true,
+    },
+    {
+      score: 88,
+      title: 'Senior Frontend Engineer (Angular)',
+      company: 'Northwind Analytics',
+      letter: true,
+    },
+    {
+      score: 74,
+      title: 'Senior Frontend Developer (React)',
+      company: 'Lumen Commerce',
+      letter: false,
+    },
+  ];
+  readonly steps = [
+    {
+      title: 'Searches at 06:45',
+      body: 'Your scheduled run reads the remote boards and skips what you have ruled out.',
+    },
+    {
+      title: 'Scores every posting',
+      body: 'A 0–100 match against your profile, with the reasons it fits and what to watch.',
+    },
+    {
+      title: 'Drafts the paperwork',
+      body: 'A cover letter in your voice and screening answers for anything scoring 70 or more.',
+    },
+    {
+      title: 'You press send',
+      body: 'Read, tweak and apply yourself. Jobbotix never submits on your behalf.',
+    },
+  ];
   readonly form = new FormGroup({
     email: new FormControl('', {
       nonNullable: true,
