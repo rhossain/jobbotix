@@ -34,6 +34,15 @@
         >{{ auth.profile()?.name || auth.user()?.email }}</a
       >
       <button type="button" class="jb-btn" (click)="signOut()">Sign out</button>
+      <button
+        type="button"
+        class="jb-btn hidden px-2 md:inline-block"
+        (click)="shortcuts.helpOpen.set(true)"
+        aria-label="Keyboard shortcuts"
+        title="Keyboard shortcuts (?)"
+      >
+        ?
+      </button>
     </nav>
     }
   </div>
@@ -46,3 +55,46 @@
   <router-outlet></router-outlet>
   }
 </main>
+
+@if (shortcuts.helpOpen()) {
+<div
+  class="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4 print:hidden"
+  (click)="shortcuts.helpOpen.set(false)"
+  (keydown.escape)="shortcuts.helpOpen.set(false)"
+  tabindex="-1"
+>
+  <div
+    class="jb-card w-full max-w-md p-5"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="shortcuts-title"
+    (click)="$event.stopPropagation()"
+    (keydown)="$event.stopPropagation()"
+    tabindex="0"
+  >
+    <div class="flex items-center justify-between">
+      <h2 id="shortcuts-title" class="text-lg font-semibold">
+        Keyboard shortcuts
+      </h2>
+      <button
+        type="button"
+        class="jb-btn"
+        (click)="shortcuts.helpOpen.set(false)"
+      >
+        Close
+      </button>
+    </div>
+    <dl class="mt-4 grid grid-cols-[6rem_1fr] gap-x-4 gap-y-2 text-sm">
+      @for (s of shortcuts.list; track s.keys) {
+      <dt>
+        <kbd
+          class="rounded border border-neutral-300 bg-neutral-100 px-1.5 py-0.5 font-mono text-xs dark:border-neutral-700 dark:bg-neutral-800"
+          >{{ s.keys }}</kbd
+        >
+      </dt>
+      <dd>{{ s.label }}</dd>
+      }
+    </dl>
+  </div>
+</div>
+}

@@ -4,15 +4,11 @@
   "projectType": "application",
   "prefix": "jb",
   "sourceRoot": "apps/web/src",
-  "tags": [
-    "scope:web"
-  ],
+  "tags": ["scope:web"],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
-      "outputs": [
-        "{options.outputPath}"
-      ],
+      "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/apps/web",
@@ -30,10 +26,7 @@
             "output": "/"
           }
         ],
-        "styles": [
-          "apps/web/src/tailwind.css",
-          "apps/web/src/styles.scss"
-        ],
+        "styles": ["apps/web/src/tailwind.css", "apps/web/src/styles.scss"],
         "allowedCommonJsDependencies": [
           "mammoth",
           "lop",
@@ -80,7 +73,8 @@
               "replace": "apps/web/src/environments/environment.ts",
               "with": "apps/web/src/environments/environment.production.ts"
             }
-          ]
+          ],
+          "serviceWorker": "apps/web/ngsw-config.json"
         },
         "development": {
           "optimization": false,
@@ -116,9 +110,7 @@
       "readyWhen": {
         "signal": true
       },
-      "dependsOn": [
-        "build"
-      ],
+      "dependsOn": ["build"],
       "executor": "@nx/web:file-server",
       "options": {
         "buildTarget": "web:build",

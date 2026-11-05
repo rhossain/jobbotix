@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterModule } from '@angular/router';
 import { Auth } from './core/auth';
+import { Shortcuts } from './core/shortcuts';
 import { Toast } from './shared/toast';
 
 @Component({
@@ -15,6 +16,11 @@ export class App {
   protected readonly toast = inject(Toast);
   private readonly router = inject(Router);
   protected readonly title = 'Jobbotix';
+  protected readonly shortcuts = inject(Shortcuts);
+
+  constructor() {
+    this.shortcuts.install();
+  }
 
   async signOut() {
     await this.auth.signOut();
