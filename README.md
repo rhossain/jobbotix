@@ -35,8 +35,64 @@ no backend, signed in as a demo user, on fictional roles kept in the browser.
 Set it to `false` and fill `environment.production.ts` (copy the `.example`)
 once a Supabase project exists.
 
+## Deploy
+
+Everything below is one-time setup; after it, `git push` to `main` is the
+release (CI runs lint, tests, the database tests and the Deno checks).
+
+### 1. Supabase (free tier)
+
+1. Create a project at supabase.com. Copy the project URL and the **anon** key
+   into `apps/web/src/environments/environment.production.ts` (git-ignored;
+   copy the `.example`). The service-role key never goes anywhere near the app.
+2. `npx supabase login`, `npx supabase link --project-ref <ref>`, then
+   `npx supabase db push` (migrations 0001–0013, with RLS, cron jobs and RPCs).
+3. Enable the `pg_cron`, `pg_net` and `vault` extensions in Database →
+   Extensions if `db push` did not.
+4. Deploy the functions: `npx supabase functions deploy` (all of
+   `ingest-roles list-roles extract-role send-digest tailor-resume
+set-anthropic-key draft-letter answer-screening prep-role`).
+5. Secrets (Project Settings → Edge Functions): `RESEND_API_KEY`,
+   `DIGEST_CRON_SECRET` (any long random string), `APP_URL`
+   (`https://app.jobbotix.com`), `DIGEST_FROM` (`Jobbotix <digest@jobbotix.com>`).
+6. Vault (Database → Vault): `project_url` = the project URL, and
+   `digest_cron_secret` = the same value as `DIGEST_CRON_SECRET`; the hourly
+   digest cron reads both.
+7. Resend: add jobbotix.com with the SPF and DKIM records it shows.
+8. Sign up first: the first account becomes the admin. Sign-up is invite-only
+   until you flip it on `/admin`.
+
+### 2. Cloudflare Pages
+
+Create a Pages project from the GitHub repo with:
+
+- Build command: `npm ci && npx nx build web`
+- Output directory: `dist/apps/web/browser`
+- Environment variable: `NODE_VERSION=22`
+
+`apps/web/public/_redirects` gives the SPA fallback and `_headers` sets the
+security headers, so nothing else is needed. Add `app.jobbotix.com` (and the
+apex, with jobbotix.io redirecting to .com) under Custom domains.
+
+### 3. Your scheduled task
+
+On the Search profile page, create an ingest key and press _Generate my
+scheduled-task prompt_; paste that prompt into a Claude scheduled task that
+runs daily. The run posts to `/functions/v1/ingest-roles` with the key.
+`tools/migrate-tracker.mjs` moves rows from the old Job Pipeline artifact into
+your account once.
+
+## What runs where
+
+| Need                                          | Where                                                                              | Needs a key? |
+| --------------------------------------------- | ---------------------------------------------------------------------------------- | ------------ |
+| Find, score, draft (daily)                    | Your Claude scheduled task → ingest API                                            | No           |
+| Tailored resume, letter, Q&A, prep in the app | Edge Functions with **your** Anthropic key from Vault; local templates without one | Optional     |
+| Digest email                                  | pg_cron → send-digest → Resend                                                     | Resend key   |
+
 ## Status
 
-Phase 0 (foundation) is code-complete except for deploying to a Supabase
-project. Phase 1 screens (Today, Roles, Board, Role detail, Search profile)
-run in demo mode. See the plan and TODO docs for phases and decisions.
+Phases 0–3 are code-complete and run in demo mode (`environment.demo: true`):
+every screen works with no backend. The Supabase implementations sit behind
+the same repository interfaces and switch on when the project exists. See the
+plan and TODO docs for what is left (deployment, domains, first outside user).
