@@ -13,205 +13,200 @@ import {
 } from '@jobbotix/shared-types';
 import { MarketRepo, RolesRepo } from '../../core/data/repos';
 import { StatusLabelPipe } from '../../shared/format';
+import {
+  BarRow,
+  Button,
+  EmptyState,
+  Icon,
+  PageHeader,
+  Skeleton,
+  Stat,
+} from '../../ui';
 
 const WEEKS = 8;
 
 /** Applications per week, response rate, time in each status, score bands. */
 @Component({
   selector: 'jb-insights',
-  imports: [RouterLink, StatusLabelPipe],
+  imports: [
+    BarRow,
+    Button,
+    EmptyState,
+    Icon,
+    PageHeader,
+    RouterLink,
+    Skeleton,
+    Stat,
+    StatusLabelPipe,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="flex flex-col gap-8">
-      <header>
-        <h1 class="text-2xl font-semibold tracking-tight">Insights</h1>
-        <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-          The last {{ weeks }} weeks of your search, from the roles and status
-          changes in the tracker.
-        </p>
-      </header>
+    <jb-page-header
+      title="Insights"
+      [lead]="
+        'The last ' +
+        weeks +
+        ' weeks of your search, from the roles and status changes in the tracker.'
+      "
+    />
 
-      @if (repo.roles().length === 0) {
-        <div class="jb-empty">
-          <b>Nothing to measure yet.</b>
+    <div class="mt-8 flex flex-col gap-6 md:gap-8">
+      @if (!repo.loaded()) {
+        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <jb-skeleton shape="tile" [count]="1" />
+          <jb-skeleton shape="tile" [count]="1" />
+          <jb-skeleton shape="tile" [count]="1" />
+          <jb-skeleton shape="tile" [count]="1" />
+        </div>
+        <jb-skeleton shape="line" [count]="6" />
+      } @else if (repo.roles().length === 0) {
+        <jb-empty-state title="Nothing to measure yet" icon="chart-column">
           Once roles land and you move them through the board, this page shows
           how many you apply to each week, how often you hear back, and where
-          time goes. <a routerLink="/roles/new" class="underline">Add a role</a>
-          to start.
-        </div>
+          time goes.
+          <div actions>
+            <a jbButton="primary" routerLink="/roles/new"
+              ><jb-icon name="plus" /> Add a role</a
+            >
+          </div>
+        </jb-empty-state>
       } @else {
         @let i = insights();
-        <!-- headline numbers -->
-        <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <div class="jb-card p-4">
-            <div class="text-xs uppercase tracking-wide text-neutral-500">
-              Applied
-            </div>
-            <div class="mt-1 text-3xl font-semibold tabular-nums">
-              {{ i.applied }}
-            </div>
-            <div class="text-xs text-neutral-500">
-              {{ appliedThisWeek() }} this week
-            </div>
-          </div>
-          <div class="jb-card p-4">
-            <div class="text-xs uppercase tracking-wide text-neutral-500">
-              Response rate
-            </div>
-            <div class="mt-1 text-3xl font-semibold tabular-nums">
-              {{
-                i.responseRate === null
-                  ? '–'
-                  : (i.responseRate * 100).toFixed(0) + '%'
-              }}
-            </div>
-            <div class="text-xs text-neutral-500">
-              {{ i.responded }} of {{ i.applied }} heard back
-              @if (i.medianDaysToResponse !== null) {
-                · median {{ i.medianDaysToResponse }} days
-              }
-            </div>
-          </div>
-          <div class="jb-card p-4">
-            <div class="text-xs uppercase tracking-wide text-neutral-500">
-              Interviewing
-            </div>
-            <div class="mt-1 text-3xl font-semibold tabular-nums">
-              {{ i.interviews }}
-            </div>
-            <div class="text-xs text-neutral-500">
-              {{ i.offers }} offer{{ i.offers === 1 ? '' : 's' }}
-            </div>
-          </div>
-          <div class="jb-card p-4">
-            <div class="text-xs uppercase tracking-wide text-neutral-500">
-              In the tracker
-            </div>
-            <div class="mt-1 text-3xl font-semibold tabular-nums">
-              {{ repo.roles().length }}
-            </div>
-            <div class="text-xs text-neutral-500">
-              {{ foundThisWeek() }} found this week
-            </div>
-          </div>
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <jb-stat
+            label="Applied"
+            [value]="i.applied"
+            [sub]="appliedThisWeek() + ' this week'"
+            tone="brand"
+          />
+          <jb-stat
+            label="Response rate"
+            [value]="
+              i.responseRate === null
+                ? '–'
+                : (i.responseRate * 100).toFixed(0) + '%'
+            "
+            [sub]="
+              i.responded +
+              ' of ' +
+              i.applied +
+              ' heard back' +
+              (i.medianDaysToResponse !== null
+                ? ', median ' + i.medianDaysToResponse + ' days'
+                : '')
+            "
+          />
+          <jb-stat
+            label="Interviewing"
+            [value]="i.interviews"
+            [sub]="i.offers + ' offer' + (i.offers === 1 ? '' : 's')"
+            tone="signal"
+          />
+          <jb-stat
+            label="In the tracker"
+            [value]="repo.roles().length"
+            [sub]="foundThisWeek() + ' found this week'"
+          />
         </div>
 
-        <!-- per week -->
-        <section>
-          <h2 class="jb-section-title">Per week</h2>
-          <p class="mt-1 text-xs text-neutral-500">
-            Dark bars: applications sent. Light bars: roles found by the runs.
-          </p>
-          <svg
-            class="mt-3 h-40 w-full max-w-2xl"
-            [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH"
+        <!-- Per week -->
+        <section class="jb-card p-5 md:p-6">
+          <div class="flex flex-wrap items-end justify-between gap-3">
+            <h2 class="text-lg font-semibold text-ink">Per week</h2>
+            <p class="flex gap-4 text-xs text-ink-muted">
+              <span class="inline-flex items-center gap-1.5"
+                ><span class="size-2.5 rounded-sm bg-line-strong"></span>Found
+                by runs</span
+              >
+              <span class="inline-flex items-center gap-1.5"
+                ><span class="size-2.5 rounded-sm bg-brand"></span>Applied</span
+              >
+            </p>
+          </div>
+          <div
+            class="mt-6 flex h-48 items-stretch gap-1 sm:gap-2"
             role="img"
             [attr.aria-label]="weeksLabel()"
           >
-            @for (w of i.weeks; track w.weekStart; let idx = $index) {
-              @let x = idx * slot + 8;
-              <rect
-                [attr.x]="x"
-                [attr.y]="barY(w.found)"
-                [attr.width]="barW"
-                [attr.height]="barH(w.found)"
-                class="fill-neutral-300 dark:fill-neutral-700"
-                rx="2"
-              />
-              <rect
-                [attr.x]="x + barW + 3"
-                [attr.y]="barY(w.applied)"
-                [attr.width]="barW"
-                [attr.height]="barH(w.applied)"
-                class="fill-brand-600"
-                rx="2"
-              />
-              @if (w.applied) {
-                <text
-                  [attr.x]="x + barW + 3 + barW / 2"
-                  [attr.y]="barY(w.applied) - 3"
-                  text-anchor="middle"
-                  class="fill-neutral-700 text-[9px] dark:fill-neutral-200"
+            @for (w of i.weeks; track w.weekStart) {
+              <div class="flex min-w-0 flex-1 flex-col">
+                <div
+                  class="flex flex-1 items-end justify-center gap-0.5 sm:gap-1"
                 >
-                  {{ w.applied }}
-                </text>
-              }
-              <text
-                [attr.x]="x + barW + 1.5"
-                [attr.y]="chartH - 4"
-                text-anchor="middle"
-                class="fill-neutral-500 text-[9px]"
-              >
-                {{ weekLabel(w.weekStart) }}
-              </text>
+                  <span
+                    class="jb-bar bg-line-strong"
+                    [style.height.%]="pct(w.found, maxBar())"
+                  ></span>
+                  <span
+                    class="jb-bar relative bg-brand"
+                    [style.height.%]="pct(w.applied, maxBar())"
+                  >
+                    @if (w.applied) {
+                      <span
+                        class="absolute -top-5 left-1/2 -translate-x-1/2 text-xs font-semibold text-ink"
+                        >{{ w.applied }}</span
+                      >
+                    }
+                  </span>
+                </div>
+                <span
+                  class="mt-2 truncate border-t border-line pt-2 text-center text-[0.6875rem] text-ink-muted sm:text-xs"
+                >
+                  {{ weekLabel(w.weekStart) }}
+                </span>
+              </div>
             }
-          </svg>
+          </div>
         </section>
 
-        <div class="grid gap-8 md:grid-cols-2">
-          <!-- funnel -->
-          <section>
-            <h2 class="jb-section-title">Where roles are</h2>
-            <ul class="mt-2 space-y-1.5 text-sm">
+        <div class="grid gap-6 md:grid-cols-2 md:gap-8">
+          <section class="jb-card p-5 md:p-6">
+            <h2 class="text-lg font-semibold text-ink">Where roles are</h2>
+            <div class="mt-4 flex flex-col gap-3">
               @for (f of i.funnel; track f.status) {
-                <li class="grid grid-cols-[6rem_1fr_2rem] items-center gap-2">
-                  <span class="text-neutral-600 dark:text-neutral-300">{{
-                    f.status | statusLabel
-                  }}</span>
-                  <span
-                    class="h-3 rounded bg-neutral-200 dark:bg-neutral-800"
-                    aria-hidden="true"
-                  >
-                    <span
-                      class="block h-3 rounded bg-brand-600"
-                      [style.width.%]="pct(f.count, maxFunnel())"
-                    ></span>
-                  </span>
-                  <span class="text-right tabular-nums">{{ f.count }}</span>
-                </li>
+                <jb-bar-row
+                  [label]="$any(f.status | statusLabel)"
+                  [value]="f.count"
+                  [max]="maxFunnel()"
+                />
               }
-            </ul>
+            </div>
           </section>
 
-          <!-- scores -->
-          <section>
-            <h2 class="jb-section-title">Score distribution</h2>
-            <ul class="mt-2 space-y-1.5 text-sm">
+          <section class="jb-card p-5 md:p-6">
+            <h2 class="text-lg font-semibold text-ink">Score distribution</h2>
+            <div class="mt-4 flex flex-col gap-3">
               @for (b of i.scores; track b.label) {
-                <li class="grid grid-cols-[6rem_1fr_2rem] items-center gap-2">
-                  <span class="text-neutral-600 dark:text-neutral-300">{{
-                    b.label
-                  }}</span>
-                  <span
-                    class="h-3 rounded bg-neutral-200 dark:bg-neutral-800"
-                    aria-hidden="true"
-                  >
-                    <span
-                      class="block h-3 rounded"
-                      [class.bg-emerald-600]="b.min >= 85"
-                      [class.bg-brand-600]="b.min >= 70 && b.min < 85"
-                      [class.bg-amber-500]="b.min >= 50 && b.min < 70"
-                      [class.bg-neutral-400]="b.min < 50"
-                      [style.width.%]="pct(b.count, maxScore())"
-                    ></span>
-                  </span>
-                  <span class="text-right tabular-nums">{{ b.count }}</span>
-                </li>
+                <jb-bar-row
+                  [label]="b.label"
+                  [value]="b.count"
+                  [max]="maxScore()"
+                  [tone]="
+                    b.min >= 85
+                      ? 'good'
+                      : b.min >= 70
+                        ? 'brand'
+                        : b.min >= 50
+                          ? 'signal'
+                          : 'muted'
+                  "
+                />
               }
-            </ul>
-            <p class="mt-2 text-xs text-neutral-500">
+            </div>
+            <p class="mt-4 text-xs text-ink-muted">
               If most roles sit under 70, tighten the search profile; if most
-              sit at 85+, the weights are too generous to be useful.
+              sit at 85 and up, the weights are too generous to be useful.
             </p>
           </section>
         </div>
 
-        <!-- market -->
         @if (market(); as m) {
-          <section>
-            <h2 class="jb-section-title">Across Jobbotix, last 30 days</h2>
+          <section class="jb-card p-5 md:p-6">
+            <h2 class="text-lg font-semibold text-ink">
+              Across Jobbotix, last 30 days
+            </h2>
             @if (!m.enough) {
-              <p class="mt-2 text-sm text-neutral-500">
+              <p class="mt-2 text-sm text-ink-muted">
                 Shown once at least two people's runs have landed, so nothing
                 here can point at one person. For now this is your own
                 {{ m.roles }} roles: {{ m.ai_share }}% mention AI-assisted work,
@@ -219,108 +214,87 @@ const WEEKS = 8;
                 {{ m.median_score }}.
               </p>
             } @else {
-              <p class="mt-1 text-xs text-neutral-500">
+              <p class="mt-1 text-sm text-ink-muted">
                 {{ m.roles }} postings found by {{ m.users }} people; counts
                 only, nobody's rows. {{ m.ai_share }}% mention AI-assisted work,
                 {{ m.contract_share }}% are contracts, median score
                 {{ m.median_score }}.
               </p>
-              <div class="mt-3 grid gap-6 md:grid-cols-2">
+              <div class="mt-5 grid gap-8 md:grid-cols-2">
                 <div>
-                  <h3
-                    class="text-xs font-semibold uppercase tracking-wide text-neutral-500"
-                  >
+                  <h3 class="text-sm font-semibold text-ink">
                     Most-asked stacks
                   </h3>
-                  <ul class="mt-2 space-y-1.5 text-sm">
+                  <div class="mt-3 flex flex-col gap-3">
                     @for (st of m.stacks; track st.name) {
-                      <li
-                        class="grid grid-cols-[8rem_1fr_2rem] items-center gap-2"
-                      >
-                        <span class="truncate">{{ st.name }}</span>
-                        <span
-                          class="h-3 rounded bg-neutral-200 dark:bg-neutral-800"
-                          aria-hidden="true"
-                        >
-                          <span
-                            class="block h-3 rounded bg-brand-600"
-                            [style.width.%]="pct(st.count, m.stacks[0].count)"
-                          ></span>
-                        </span>
-                        <span class="text-right tabular-nums">{{
-                          st.count
-                        }}</span>
-                      </li>
+                      <jb-bar-row
+                        [label]="st.name"
+                        [value]="st.count"
+                        [max]="m.stacks[0].count"
+                      />
                     }
-                  </ul>
+                  </div>
                 </div>
                 <div>
-                  <h3
-                    class="text-xs font-semibold uppercase tracking-wide text-neutral-500"
-                  >
-                    Remote scope
-                  </h3>
-                  <ul class="mt-2 space-y-1.5 text-sm">
+                  <h3 class="text-sm font-semibold text-ink">Remote scope</h3>
+                  <div class="mt-3 flex flex-col gap-3">
                     @for (r of m.remote; track r.scope) {
-                      <li
-                        class="grid grid-cols-[8rem_1fr_2rem] items-center gap-2"
-                      >
-                        <span class="truncate">{{ r.scope }}</span>
-                        <span
-                          class="h-3 rounded bg-neutral-200 dark:bg-neutral-800"
-                          aria-hidden="true"
-                        >
-                          <span
-                            class="block h-3 rounded bg-brand-600"
-                            [style.width.%]="pct(r.count, m.remote[0].count)"
-                          ></span>
-                        </span>
-                        <span class="text-right tabular-nums">{{
-                          r.count
-                        }}</span>
-                      </li>
+                      <jb-bar-row
+                        [label]="r.scope"
+                        [value]="r.count"
+                        [max]="m.remote[0].count"
+                        tone="signal"
+                      />
                     }
-                  </ul>
+                  </div>
                 </div>
               </div>
             }
           </section>
         }
 
-        <!-- dwell -->
-        <section>
-          <h2 class="jb-section-title">Time in each status</h2>
+        <section class="jb-card p-5 md:p-6">
+          <h2 class="text-lg font-semibold text-ink">Time in each status</h2>
           @if (i.dwell.length === 0) {
-            <p class="mt-2 text-sm text-neutral-500">
+            <p class="mt-2 text-sm text-ink-muted">
               No status changes recorded yet. Move a role on the board and this
               fills in.
             </p>
           } @else {
-            <table class="mt-2 w-full max-w-md text-sm">
-              <thead
-                class="text-left text-xs uppercase tracking-wide text-neutral-500"
-              >
-                <tr>
-                  <th class="py-1 pr-4">Status</th>
-                  <th class="py-1 pr-4">Mean days before moving on</th>
-                  <th class="py-1">Roles</th>
+            <table class="mt-4 w-full text-sm">
+              <thead>
+                <tr
+                  class="border-b border-line text-left text-xs text-ink-muted"
+                >
+                  <th class="py-2 pr-4 font-medium">Status</th>
+                  <th class="py-2 pr-4 text-right font-medium">
+                    Mean days before moving on
+                  </th>
+                  <th class="py-2 text-right font-medium">Roles</th>
                 </tr>
               </thead>
               <tbody>
                 @for (d of i.dwell; track d.status) {
-                  <tr
-                    class="border-t border-neutral-200 dark:border-neutral-800"
-                  >
-                    <td class="py-1.5 pr-4">{{ d.status | statusLabel }}</td>
-                    <td class="py-1.5 pr-4 tabular-nums">{{ d.meanDays }}</td>
-                    <td class="py-1.5 tabular-nums">{{ d.samples }}</td>
+                  <tr class="border-b border-line last:border-b-0">
+                    <td class="py-2.5 pr-4 text-ink">
+                      {{ d.status | statusLabel }}
+                    </td>
+                    <td class="py-2.5 pr-4 text-right text-ink tabular-nums">
+                      {{ d.meanDays }}
+                    </td>
+                    <td class="py-2.5 text-right text-ink-muted tabular-nums">
+                      {{ d.samples }}
+                    </td>
                   </tr>
                 }
               </tbody>
             </table>
             @if (shortlistDwell(); as sd) {
               @if (sd > 3) {
-                <p class="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                <p
+                  class="mt-4 flex items-start gap-2 rounded-control bg-warn-tint px-3 py-2.5 text-sm text-warn"
+                >
+                  <jb-icon name="clock" [size]="17" class="mt-px" />
                   Shortlisted roles wait {{ sd }} days on average before you
                   act. Postings close; aim for under three.
                 </p>
@@ -329,7 +303,17 @@ const WEEKS = 8;
           }
         </section>
       }
-    </section>
+    </div>
+  `,
+  styles: `
+    .jb-bar {
+      display: block;
+      flex: 1;
+      max-width: 1.75rem;
+      min-height: 2px;
+      border-radius: 4px 4px 0 0;
+      transition: height var(--dur-slow) var(--motion-ease);
+    }
   `,
 })
 export class InsightsPage {
@@ -366,12 +350,7 @@ export class InsightsPage {
       .join('; '),
   );
 
-  // chart geometry (viewBox units)
-  readonly chartW = 480;
-  readonly chartH = 120;
-  readonly slot = this.chartW / WEEKS;
-  readonly barW = Math.floor((this.slot - 16) / 2);
-  private readonly maxBar = computed(() =>
+  readonly maxBar = computed(() =>
     Math.max(1, ...this.insights().weeks.flatMap((w) => [w.applied, w.found])),
   );
 
@@ -386,12 +365,6 @@ export class InsightsPage {
       .catch(() => this.market.set(null));
   }
 
-  barH(n: number): number {
-    return Math.round(((this.chartH - 30) * n) / this.maxBar());
-  }
-  barY(n: number): number {
-    return this.chartH - 18 - this.barH(n);
-  }
   pct(n: number, max: number): number {
     return Math.round((100 * n) / max);
   }
