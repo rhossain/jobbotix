@@ -6,8 +6,12 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { computeInsights, type RoleEventRow } from '@jobbotix/shared-types';
-import { RolesRepo } from '../../core/data/repos';
+import {
+  computeInsights,
+  type MarketSignals,
+  type RoleEventRow,
+} from '@jobbotix/shared-types';
+import { MarketRepo, RolesRepo } from '../../core/data/repos';
 import { StatusLabelPipe } from '../../shared/format';
 
 const WEEKS = 8;
@@ -202,6 +206,87 @@ const WEEKS = 8;
           </section>
         </div>
 
+        <!-- market -->
+        @if (market(); as m) {
+          <section>
+            <h2 class="jb-section-title">Across Jobbotix, last 30 days</h2>
+            @if (!m.enough) {
+              <p class="mt-2 text-sm text-neutral-500">
+                Shown once at least two people's runs have landed, so nothing
+                here can point at one person. For now this is your own
+                {{ m.roles }} roles: {{ m.ai_share }}% mention AI-assisted work,
+                {{ m.contract_share }}% are contracts, median score
+                {{ m.median_score }}.
+              </p>
+            } @else {
+              <p class="mt-1 text-xs text-neutral-500">
+                {{ m.roles }} postings found by {{ m.users }} people; counts
+                only, nobody's rows. {{ m.ai_share }}% mention AI-assisted work,
+                {{ m.contract_share }}% are contracts, median score
+                {{ m.median_score }}.
+              </p>
+              <div class="mt-3 grid gap-6 md:grid-cols-2">
+                <div>
+                  <h3
+                    class="text-xs font-semibold uppercase tracking-wide text-neutral-500"
+                  >
+                    Most-asked stacks
+                  </h3>
+                  <ul class="mt-2 space-y-1.5 text-sm">
+                    @for (st of m.stacks; track st.name) {
+                      <li
+                        class="grid grid-cols-[8rem_1fr_2rem] items-center gap-2"
+                      >
+                        <span class="truncate">{{ st.name }}</span>
+                        <span
+                          class="h-3 rounded bg-neutral-200 dark:bg-neutral-800"
+                          aria-hidden="true"
+                        >
+                          <span
+                            class="block h-3 rounded bg-brand-600"
+                            [style.width.%]="pct(st.count, m.stacks[0].count)"
+                          ></span>
+                        </span>
+                        <span class="text-right tabular-nums">{{
+                          st.count
+                        }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+                <div>
+                  <h3
+                    class="text-xs font-semibold uppercase tracking-wide text-neutral-500"
+                  >
+                    Remote scope
+                  </h3>
+                  <ul class="mt-2 space-y-1.5 text-sm">
+                    @for (r of m.remote; track r.scope) {
+                      <li
+                        class="grid grid-cols-[8rem_1fr_2rem] items-center gap-2"
+                      >
+                        <span class="truncate">{{ r.scope }}</span>
+                        <span
+                          class="h-3 rounded bg-neutral-200 dark:bg-neutral-800"
+                          aria-hidden="true"
+                        >
+                          <span
+                            class="block h-3 rounded bg-brand-600"
+                            [style.width.%]="pct(r.count, m.remote[0].count)"
+                          ></span>
+                        </span>
+                        <span class="text-right tabular-nums">{{
+                          r.count
+                        }}</span>
+                      </li>
+                    }
+                  </ul>
+                </div>
+              </div>
+            }
+          </section>
+        }
+
         <!-- dwell -->
         <section>
           <h2 class="jb-section-title">Time in each status</h2>
@@ -250,7 +335,9 @@ const WEEKS = 8;
 export class InsightsPage {
   protected readonly repo = inject(RolesRepo);
   readonly weeks = WEEKS;
+  private readonly marketRepo = inject(MarketRepo);
   readonly events = signal<RoleEventRow[]>([]);
+  readonly market = signal<MarketSignals | null>(null);
   readonly insights = computed(() =>
     computeInsights(this.repo.roles(), this.events(), { weeks: WEEKS }),
   );
@@ -293,6 +380,10 @@ export class InsightsPage {
     void this.repo
       .statusEvents(WEEKS * 7 + 60)
       .then((evs) => this.events.set(evs));
+    void this.marketRepo
+      .signals()
+      .then((m) => this.market.set(m))
+      .catch(() => this.market.set(null));
   }
 
   barH(n: number): number {

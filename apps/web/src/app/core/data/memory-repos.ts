@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
+  type MarketSignals,
   localAnswer,
   localPrep,
   normalisePrep,
@@ -45,6 +46,7 @@ import {
   PrepRepo,
   AdminRepo,
   SharesRepo,
+  MarketRepo,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -1006,6 +1008,68 @@ export class MemorySharesRepo extends SharesRepo {
           remote_scope: r.remote_scope,
           status_changed_at: r.status_changed_at,
         })),
+    };
+  }
+}
+
+@Injectable()
+export class MemoryMarketRepo extends MarketRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+
+  /** One user in demo: the same aggregates, flagged as not yet shared. */
+  async signals(): Promise<MarketSignals> {
+    const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+    const rs = this.roles.snapshot().roles.filter((r) => r.found_at >= since);
+    const count = new Map<string, number>();
+    for (const r of rs)
+      for (const s of r.stack) {
+        const k = s.trim().toLowerCase();
+        count.set(k, (count.get(k) ?? 0) + 1);
+      }
+    const scope = (s: string) =>
+      /worldwide|anywhere/i.test(s)
+        ? 'Worldwide'
+        : /overlap|utc|gmt|est|pst|cet|time ?zone/i.test(s)
+          ? 'Timezone overlap'
+          : /remote/i.test(s)
+            ? 'Remote, region-limited'
+            : s
+              ? 'Other'
+              : 'Unstated';
+    const remote = new Map<string, number>();
+    for (const r of rs)
+      remote.set(
+        scope(r.remote_scope),
+        (remote.get(scope(r.remote_scope)) ?? 0) + 1,
+      );
+    const scores = rs.map((r) => r.score).sort((a, b) => a - b);
+    const mid = Math.floor(scores.length / 2);
+    return {
+      since,
+      users: 1,
+      roles: rs.length,
+      enough: false,
+      stacks: [...count.entries()]
+        .filter(([, c]) => c >= 2)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15)
+        .map(([name, c]) => ({ name, count: c })),
+      remote: [...remote.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([s, c]) => ({ scope: s, count: c })),
+      ai_share: rs.length
+        ? Math.round((100 * rs.filter((r) => r.ai_match).length) / rs.length)
+        : 0,
+      contract_share: rs.length
+        ? Math.round(
+            (100 * rs.filter((r) => r.type === 'contract').length) / rs.length,
+          )
+        : 0,
+      median_score: scores.length
+        ? scores.length % 2
+          ? scores[mid]
+          : (scores[mid - 1] + scores[mid]) / 2
+        : 0,
     };
   }
 }

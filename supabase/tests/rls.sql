@@ -278,4 +278,26 @@ do $$ begin
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- ---------------------------------------------------------------------------
+-- Market signals: aggregates only, hidden until 2 users / 3 roles, anon refused
+-- ---------------------------------------------------------------------------
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare v jsonb;
+begin
+  v := public.market_signals();
+  if (v->>'users')::int < 1 then raise exception 'FAIL: market_signals users'; end if;
+  if v::text ilike '%1111-1111%' or v::text ilike '%2222-2222%' then raise exception 'FAIL: market_signals leaks user ids'; end if;
+  if v ? 'enough' = false then raise exception 'FAIL: market_signals shape'; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role anon;
+do $$ begin
+  perform public.market_signals();
+  raise exception 'FAIL: anon could call market_signals';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+
 \echo RLS tests passed

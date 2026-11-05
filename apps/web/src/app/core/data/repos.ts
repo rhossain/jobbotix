@@ -1,5 +1,6 @@
 import type { Signal } from '@angular/core';
 import type {
+  MarketSignals,
   PrepSheet,
   SharedView,
   VariantDiff,
@@ -200,6 +201,10 @@ export abstract class SharesRepo {
   abstract revoke(id: string): Promise<void>;
   /** Public read by token; null when unknown or revoked. */
   abstract view(token: string): Promise<SharedView | null>;
+}
+
+export abstract class MarketRepo {
+  abstract signals(): Promise<MarketSignals>;
 }
 
 export interface ModelChoice {

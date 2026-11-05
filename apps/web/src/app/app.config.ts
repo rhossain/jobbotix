@@ -19,6 +19,7 @@ import {
   MemoryPrepRepo,
   MemoryAdminRepo,
   MemorySharesRepo,
+  MemoryMarketRepo,
   MemorySettingsRepo,
   MemoryVariantsRepo,
 } from './core/data/memory-repos';
@@ -32,6 +33,7 @@ import {
   PrepRepo,
   AdminRepo,
   SharesRepo,
+  MarketRepo,
   SettingsRepo,
   VariantsRepo,
 } from './core/data/repos';
@@ -45,6 +47,7 @@ import {
   SupabasePrepRepo,
   SupabaseAdminRepo,
   SupabaseSharesRepo,
+  SupabaseMarketRepo,
   SupabaseSettingsRepo,
   SupabaseVariantsRepo,
 } from './core/data/supabase-repos';
@@ -66,6 +69,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: PrepRepo, useClass: MemoryPrepRepo },
       { provide: AdminRepo, useClass: MemoryAdminRepo },
       { provide: SharesRepo, useClass: MemorySharesRepo },
+      { provide: MarketRepo, useClass: MemoryMarketRepo },
     ]
   : [
       { provide: RolesRepo, useClass: SupabaseRolesRepo },
@@ -79,6 +83,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: PrepRepo, useClass: SupabasePrepRepo },
       { provide: AdminRepo, useClass: SupabaseAdminRepo },
       { provide: SharesRepo, useClass: SupabaseSharesRepo },
+      { provide: MarketRepo, useClass: SupabaseMarketRepo },
     ];
 
 export const appConfig: ApplicationConfig = {

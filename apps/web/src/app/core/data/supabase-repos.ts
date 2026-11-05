@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import type {
+  MarketSignals,
   PrepSheet,
   SharedView,
   VariantDiff,
@@ -38,6 +39,7 @@ import {
   PrepRepo,
   AdminRepo,
   SharesRepo,
+  MarketRepo,
   type AdminTotals,
   type AdminUser,
 } from './repos';
@@ -750,5 +752,16 @@ export class SupabaseSharesRepo extends SharesRepo {
   async view(token: string) {
     const { data } = await this.supabase.rpc('shared_view', { p_token: token });
     return (data as SharedView | null) ?? null;
+  }
+}
+
+@Injectable()
+export class SupabaseMarketRepo extends MarketRepo {
+  private readonly supabase = injectSupabase();
+
+  async signals() {
+    const { data, error } = await this.supabase.rpc('market_signals');
+    if (error) throw new Error(error.message);
+    return data as unknown as MarketSignals;
   }
 }
