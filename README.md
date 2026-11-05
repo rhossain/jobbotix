@@ -36,6 +36,28 @@ no backend, signed in as a demo user, on fictional roles kept in the browser.
 Set it to `false` and fill `environment.production.ts` (copy the `.example`)
 once a Supabase project exists.
 
+## Design system
+
+The UI is built from tokens and a small kit; pages should not invent their own.
+
+- **Tokens** live in `apps/web/src/tailwind.css`: surfaces, ink, brand, signal,
+  status colours, radii, elevation, motion and the type scale, for light and
+  dark. `data-theme` on `<html>` switches themes (System / Light / Dark in
+  Settings); with no choice the OS decides. `npm test` runs a contrast check on
+  the token pairs (`web:test-tokens`).
+- **Type**: Bricolage Grotesque (self-hosted via Fontsource) for everything,
+  IBM Plex Mono for codes and keys.
+- **Kit**: `apps/web/src/app/ui/` (buttons, match ring, fields, tabs, sheet,
+  confirm dialog, toast stack, skeletons, stats, empty states, copy button,
+  scaled A4 page). In a development build, `/_ui` shows every component in
+  every state.
+- **Shell**: `apps/web/src/app/shell/`: sidebar (desktop), icon rail
+  (tablet), top bar and bottom tab bar (phones), command palette (⌘K / Ctrl K).
+- **Icons**: Lucide, generated into `ui/icons.generated.ts` by
+  `node tools/gen-icons.mjs`; add a name to its list to ship another icon.
+- Global classes (`jb-card`, `jb-tag`, `jb-chip`, `jb-status`, …) sit in
+  Tailwind's components layer, so a utility on an element always wins.
+
 ## Deploy
 
 Everything below is one-time setup; after it, `git push` to `main` is the
