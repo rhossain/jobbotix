@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import type { VariantDiff } from '@jobbotix/shared-types';
 import type {
   AiUsageRow,
+  CoverLetterRow,
   IngestKeyRow,
   Json,
   ProfileRow,
@@ -26,6 +27,7 @@ import {
   VariantsRepo,
   SearchProfileInput,
   SearchProfileRepo,
+  LettersRepo,
 } from './repos';
 
 /**
@@ -480,5 +482,59 @@ export class SupabaseSettingsRepo extends SettingsRepo {
       .eq('id', id);
     if (error) throw error;
     await this.load();
+  }
+}
+
+@Injectable()
+export class SupabaseLettersRepo extends LettersRepo {
+  private readonly supabase = injectSupabase();
+  readonly voiceSamples = signal<CoverLetterRow[]>([]);
+
+  async load() {
+    const { data } = await this.supabase
+      .from('cover_letters')
+      .select('*')
+      .eq('voice_sample', true)
+      .order('created_at', { ascending: true });
+    this.voiceSamples.set(data ?? []);
+  }
+
+  async addVoiceSample(body: string) {
+    const text = body.trim();
+    if (!text) return;
+    const user = (await this.supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Sign in first');
+    const oldest = this.voiceSamples()[0];
+    if (this.voiceSamples().length >= 3 && oldest)
+      await this.supabase.from('cover_letters').delete().eq('id', oldest.id);
+    const { error } = await this.supabase.from('cover_letters').insert({
+      user_id: user.id,
+      body: text,
+      voice_sample: true,
+    });
+    if (error) throw new Error(error.message);
+    await this.load();
+  }
+
+  async removeVoiceSample(id: string) {
+    await this.supabase.from('cover_letters').delete().eq('id', id);
+    await this.load();
+  }
+
+  async generate(roleId: string, opts?: { model?: string; rewrite?: boolean }) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      body?: string;
+      method?: 'ai' | 'local';
+      model?: string;
+      error?: string;
+    }>('draft-letter', { body: { roleId, ...opts } });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.body)
+      throw new Error(data?.error ?? 'Could not draft the letter');
+    return {
+      body: data.body,
+      method: data.method ?? 'local',
+      model: data.model,
+    };
   }
 }

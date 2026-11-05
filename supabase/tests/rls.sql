@@ -136,4 +136,37 @@ exception when insufficient_privilege then null;
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- ---------------------------------------------------------------------------
+-- Cover letters: a voice sample needs no role; a draft does; one draft per role
+-- ---------------------------------------------------------------------------
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+insert into public.cover_letters (user_id, body, voice_sample)
+  values ('11111111-1111-1111-1111-111111111111', 'A letter I wrote myself.', true);
+do $$ begin
+  insert into public.cover_letters (user_id, body) values ('11111111-1111-1111-1111-111111111111', 'orphan draft');
+  raise exception 'FAIL: draft without a role was accepted';
+exception when check_violation then null;
+end $$;
+do $$
+declare v_role uuid;
+begin
+  select id into v_role from public.roles where user_id = '11111111-1111-1111-1111-111111111111' limit 1;
+  insert into public.cover_letters (user_id, role_id, body) values ('11111111-1111-1111-1111-111111111111', v_role, 'draft one');
+  begin
+    insert into public.cover_letters (user_id, role_id, body) values ('11111111-1111-1111-1111-111111111111', v_role, 'draft two');
+    raise exception 'FAIL: second draft for the same role was accepted';
+  exception when unique_violation then null;
+  end;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if exists (select 1 from public.cover_letters where voice_sample) then
+    raise exception 'FAIL: user 2 can see user 1 voice samples';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

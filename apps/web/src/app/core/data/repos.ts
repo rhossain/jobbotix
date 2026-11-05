@@ -2,6 +2,7 @@ import type { Signal } from '@angular/core';
 import type { VariantDiff } from '@jobbotix/shared-types';
 import type {
   AiUsageRow,
+  CoverLetterRow,
   IngestKeyRow,
   ProfileRow,
   Json,
@@ -101,6 +102,29 @@ export abstract class VariantsRepo {
     sections: ResumeSections,
   ): Promise<ResumeVariantRow>;
   abstract approve(variantId: string): Promise<ResumeVariantRow>;
+}
+
+export interface LetterResult {
+  body: string;
+  method: 'ai' | 'local';
+  model?: string;
+}
+
+export abstract class LettersRepo {
+  /** Letters the user wrote themselves, used to steer tone (max 3). */
+  abstract readonly voiceSamples: Signal<CoverLetterRow[]>;
+  abstract load(): Promise<void>;
+  abstract addVoiceSample(body: string): Promise<void>;
+  abstract removeVoiceSample(id: string): Promise<void>;
+  /**
+   * Drafts the role's letter from the master resume and the voice samples
+   * (model with a key, local template otherwise) and stores it on the role.
+   * `rewrite` asks for an improved version of the current letter instead.
+   */
+  abstract generate(
+    roleId: string,
+    opts?: { model?: string; rewrite?: boolean },
+  ): Promise<LetterResult>;
 }
 
 export interface ModelChoice {

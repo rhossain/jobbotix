@@ -14,7 +14,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { SettingsRepo } from '../../core/data/repos';
+import { LettersRepo, SettingsRepo } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 
@@ -196,6 +196,57 @@ import { Toast } from '../../shared/toast';
         }
       </section>
 
+      <!-- Voice samples -->
+      <section class="flex flex-col gap-3">
+        <h2 class="jb-section-title">Voice samples</h2>
+        <p class="text-sm text-neutral-600 dark:text-neutral-300">
+          Up to three cover letters or emails you wrote yourself. Drafts copy
+          their tone (sentence length, directness), never their content. The
+          oldest is replaced when you add a fourth.
+        </p>
+        @for (v of letters.voiceSamples(); track v.id) {
+          <article class="jb-card p-3 text-sm">
+            <div class="flex items-start justify-between gap-2">
+              <span class="text-xs text-neutral-500"
+                >{{ v.word_count ?? 0 }} words · added
+                {{ v.created_at | relativeDay }}</span
+              >
+              <button
+                type="button"
+                class="jb-btn px-2 py-1"
+                (click)="removeSample(v.id)"
+                [disabled]="busy()"
+              >
+                Remove
+              </button>
+            </div>
+            <p class="mt-1 line-clamp-3 whitespace-pre-line">{{ v.body }}</p>
+          </article>
+        }
+        <form
+          (ngSubmit)="addSample()"
+          [formGroup]="sampleForm"
+          novalidate
+          class="flex flex-col gap-2"
+        >
+          <textarea
+            id="st-sample"
+            class="jb-input min-h-28 text-sm"
+            formControlName="body"
+            placeholder="Paste a letter or a longer email you wrote…"
+          ></textarea>
+          <div>
+            <button
+              type="submit"
+              class="jb-btn"
+              [disabled]="sampleForm.invalid || busy()"
+            >
+              Add sample
+            </button>
+          </div>
+        </form>
+      </section>
+
       <!-- Ingest keys -->
       <section class="flex flex-col gap-3">
         <h2 class="jb-section-title">Ingest keys</h2>
@@ -244,6 +295,13 @@ import { Toast } from '../../shared/toast';
 })
 export class Settings {
   protected readonly repo = inject(SettingsRepo);
+  protected readonly letters = inject(LettersRepo);
+  readonly sampleForm = new FormGroup({
+    body: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.required, Validators.minLength(80)],
+    }),
+  });
   private readonly toast = inject(Toast);
 
   readonly busy = signal(false);
@@ -296,6 +354,7 @@ export class Settings {
 
   constructor() {
     void this.repo.load();
+    void this.letters.load();
     effect(() => {
       const p = this.repo.profile();
       if (p)
@@ -353,6 +412,29 @@ export class Settings {
       await this.repo.clearAnthropicKey();
       this.last4.set('');
       this.toast.show('Key removed');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  async addSample() {
+    if (this.sampleForm.invalid || this.busy()) return;
+    this.busy.set(true);
+    try {
+      await this.letters.addVoiceSample(this.sampleForm.controls.body.value);
+      this.sampleForm.reset();
+      this.toast.show('Sample added');
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not add the sample');
+    } finally {
+      this.busy.set(false);
+    }
+  }
+
+  async removeSample(id: string) {
+    this.busy.set(true);
+    try {
+      await this.letters.removeVoiceSample(id);
     } finally {
       this.busy.set(false);
     }

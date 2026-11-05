@@ -15,11 +15,13 @@ import {
   type RoleRow,
   type ScreeningAnswerRow,
 } from '@jobbotix/shared-types';
-import { RolesRepo } from '../../core/data/repos';
+import { LettersRepo, RolesRepo } from '../../core/data/repos';
+import { ModelPicker } from '../../shared/model-picker';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { StatusSelect } from '../../shared/status-select';
 import { Toast } from '../../shared/toast';
 import { VariantPanel } from './variant-panel';
+import { wordCount } from '@jobbotix/shared-types';
 
 type Tab = 'fit' | 'resume' | 'posting' | 'activity';
 
@@ -31,6 +33,7 @@ type Tab = 'fit' | 'resume' | 'posting' | 'activity';
     TypeLabelPipe,
     StatusSelect,
     VariantPanel,
+    ModelPicker,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -168,8 +171,50 @@ type Tab = 'fit' | 'resume' | 'posting' | 'activity';
                     >
                       {{ r.cover_letter ? 'Edit' : 'Write one' }}
                     </button>
+                    <button
+                      type="button"
+                      class="jb-btn"
+                      (click)="draftLetter(r, !!r.cover_letter)"
+                      [disabled]="drafting()"
+                    >
+                      {{
+                        drafting()
+                          ? 'Drafting…'
+                          : r.cover_letter
+                            ? 'Rewrite'
+                            : 'Draft one'
+                      }}
+                    </button>
                   }
                 </div>
+              </div>
+              <div
+                class="mt-1 flex flex-wrap items-center gap-2 text-xs text-neutral-500"
+              >
+                @if (!editingLetter()) {
+                  <jb-model-picker [(value)]="letterModel" />
+                }
+                @if (r.cover_letter) {
+                  <span>{{ letterWords(r.cover_letter) }} words</span>
+                }
+                @if (letterMethod(); as lm) {
+                  <span>{{
+                    lm.method === 'ai'
+                      ? '· written by ' +
+                        (lm.model || 'the model') +
+                        ' on your key'
+                      : '· local draft from your resume (no model call)'
+                  }}</span>
+                }
+                @if (letters.voiceSamples().length === 0) {
+                  <span
+                    >· add
+                    <a routerLink="/settings" class="underline"
+                      >voice samples</a
+                    >
+                    so drafts sound like you</span
+                  >
+                }
               </div>
               @if (editingLetter()) {
                 <textarea
@@ -373,6 +418,14 @@ export class RoleDetail {
   readonly answers = signal<ScreeningAnswerRow[]>([]);
   readonly editingLetter = signal(false);
   readonly letterDraft = signal('');
+  readonly letterModel = signal('');
+  readonly drafting = signal(false);
+  readonly letterMethod = signal<{
+    method: 'ai' | 'local';
+    model?: string;
+  } | null>(null);
+  protected readonly letters = inject(LettersRepo);
+  readonly letterWords = wordCount;
   readonly noteState = signal('');
 
   private noteTimer: ReturnType<typeof setTimeout> | undefined;
@@ -424,6 +477,23 @@ export class RoleDetail {
   startEditLetter(r: RoleRow) {
     this.letterDraft.set(r.cover_letter);
     this.editingLetter.set(true);
+  }
+
+  async draftLetter(r: RoleRow, rewrite: boolean) {
+    this.drafting.set(true);
+    try {
+      const res = await this.letters.generate(r.id, {
+        model: this.letterModel() || undefined,
+        rewrite,
+      });
+      this.letterMethod.set({ method: res.method, model: res.model });
+      await this.repo.load();
+      this.toast.show(rewrite ? 'Letter rewritten' : 'Letter drafted');
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not draft the letter');
+    } finally {
+      this.drafting.set(false);
+    }
   }
 
   async saveLetter() {

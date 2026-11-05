@@ -8,7 +8,6 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import {
   applyVariant,
@@ -20,14 +19,15 @@ import {
   type VariantChange,
   type VariantDiff,
 } from '@jobbotix/shared-types';
-import { ResumesRepo, SettingsRepo, VariantsRepo } from '../../core/data/repos';
+import { ResumesRepo, VariantsRepo } from '../../core/data/repos';
+import { ModelPicker } from '../../shared/model-picker';
 import { ResumePreview } from '../../shared/resume-preview';
 import { Toast } from '../../shared/toast';
 
 /** The Resume tab on a role: tailored changes to accept or reject, keyword coverage, PDF. */
 @Component({
   selector: 'jb-variant-panel',
-  imports: [NgTemplateOutlet, RouterLink, ResumePreview],
+  imports: [RouterLink, ResumePreview, ModelPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!resumes.master()) {
@@ -51,7 +51,7 @@ import { Toast } from '../../shared/toast';
           >
             {{ busy() ? 'Working…' : 'Generate tailored resume' }}
           </button>
-          <ng-container *ngTemplateOutlet="modelPicker" />
+          <jb-model-picker [(value)]="model" />
         </div>
       </div>
     } @else {
@@ -75,7 +75,7 @@ import { Toast } from '../../shared/toast';
             }
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <ng-container *ngTemplateOutlet="modelPicker" />
+            <jb-model-picker [(value)]="model" />
             <button
               type="button"
               class="jb-btn"
@@ -207,28 +207,6 @@ import { Toast } from '../../shared/toast';
         <jb-resume-preview [r]="applied()" [print]="true" />
       </div>
     }
-
-    <ng-template #modelPicker>
-      @if (hasKey()) {
-        <select
-          class="jb-input jb-input-inline"
-          aria-label="Model for this generation"
-          [value]="model()"
-          (change)="model.set($any($event.target).value)"
-        >
-          <option value="">Default model</option>
-          @for (m of settings.models(); track m.id) {
-            <option [value]="m.id">{{ m.label }}</option>
-          }
-        </select>
-      } @else {
-        <span class="text-xs text-neutral-500"
-          >No AI key: local suggestions only.
-          <a routerLink="/settings" class="underline">Add a key</a> for
-          model-written changes.</span
-        >
-      }
-    </ng-template>
   `,
   styles: `
     .jb-btn-on {
@@ -240,16 +218,12 @@ import { Toast } from '../../shared/toast';
 })
 export class VariantPanel {
   protected readonly resumes = inject(ResumesRepo);
-  protected readonly settings = inject(SettingsRepo);
   private readonly variants = inject(VariantsRepo);
   readonly model = signal('');
   readonly lastMethod = signal<{
     method: 'ai' | 'local';
     model?: string;
   } | null>(null);
-  readonly hasKey = computed(
-    () => !!this.settings.profile()?.anthropic_key_ref,
-  );
   private readonly toast = inject(Toast);
 
   readonly role = input.required<RoleRow>();
@@ -287,7 +261,6 @@ export class VariantPanel {
 
   constructor() {
     void this.resumes.load();
-    void this.settings.load();
     effect(() => {
       const id = this.role().id;
       untracked(

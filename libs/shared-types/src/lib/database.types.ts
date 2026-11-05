@@ -173,7 +173,7 @@ export type ResumeVariantRow = Timestamps & {
 export type CoverLetterRow = Timestamps & {
   id: string;
   user_id: string;
-  role_id: string;
+  role_id: string | null;
   body: string;
   word_count: number | null;
   status: VariantStatus;
@@ -352,6 +352,7 @@ export type Database = {
         Insertable<
           CoverLetterRow,
           | 'id'
+          | 'role_id'
           | 'body'
           | 'word_count'
           | 'status'

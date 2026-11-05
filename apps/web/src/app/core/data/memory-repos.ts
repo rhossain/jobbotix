@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
+  localLetter,
   applyVariant,
   heuristicExtract,
   keywordReport,
@@ -9,6 +10,7 @@ import {
 } from '@jobbotix/shared-types';
 import type {
   AiUsageRow,
+  CoverLetterRow,
   IngestKeyRow,
   ProfileRow,
   Json,
@@ -32,6 +34,7 @@ import {
   VariantsRepo,
   SearchProfileInput,
   SearchProfileRepo,
+  LettersRepo,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -55,6 +58,7 @@ interface DemoState {
   profileRow: ProfileRow;
   ingestKeys: IngestKeyRow[];
   usage: AiUsageRow[];
+  voiceSamples: CoverLetterRow[];
 }
 
 /** Reads the demo state from localStorage; falls back to the sample data. */
@@ -74,6 +78,9 @@ function loadState(): DemoState {
           resumes: Array.isArray(parsed.resumes)
             ? parsed.resumes
             : seedResumes(),
+          voiceSamples: Array.isArray(parsed.voiceSamples)
+            ? parsed.voiceSamples
+            : [],
         };
     }
   } catch {
@@ -90,6 +97,7 @@ function loadState(): DemoState {
     profileRow: seedProfile(),
     ingestKeys: [],
     usage: [],
+    voiceSamples: [],
   };
 }
 
@@ -603,5 +611,78 @@ export class MemorySettingsRepo extends SettingsRepo {
       const k = s.ingestKeys.find((x) => x.id === id);
       if (k) k.revoked_at = new Date().toISOString();
     });
+  }
+}
+
+@Injectable()
+export class MemoryLettersRepo extends LettersRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+  readonly voiceSamples = computed(() => this.roles.snapshot().voiceSamples);
+
+  async load() {
+    /* nothing to fetch */
+  }
+
+  async addVoiceSample(body: string) {
+    const text = body.trim();
+    if (!text) return;
+    this.roles.patch((s) => {
+      if (s.voiceSamples.length >= 3) s.voiceSamples.shift();
+      const now = new Date().toISOString();
+      s.voiceSamples.push({
+        id: crypto.randomUUID(),
+        user_id: DEMO_USER_ID,
+        role_id: null,
+        body: text,
+        word_count: text.split(/\s+/).length,
+        status: 'draft',
+        voice_sample: true,
+        created_at: now,
+        updated_at: now,
+      });
+    });
+  }
+
+  async removeVoiceSample(id: string) {
+    this.roles.patch((s) => {
+      s.voiceSamples = s.voiceSamples.filter((v) => v.id !== id);
+    });
+  }
+
+  async generate(roleId: string, opts?: { model?: string; rewrite?: boolean }) {
+    const st = this.roles.snapshot();
+    const role = st.roles.find((r) => r.id === roleId);
+    const master = st.resumes.find((r) => r.is_master);
+    if (!role) throw new Error('Role not found');
+    if (!master) throw new Error('Save a master resume first');
+    const body = localLetter({
+      resume: normaliseResume(master.sections),
+      posting: {
+        company: role.company,
+        title: role.title,
+        text: role.posting_text,
+        stack: role.stack,
+        reasons: role.reasons,
+        gaps: role.gaps,
+      },
+      voiceSamples: st.voiceSamples.map((v) => v.body),
+      current: opts?.rewrite ? role.cover_letter : '',
+    });
+    this.roles.patch((s) => {
+      const r = s.roles.find((x) => x.id === roleId);
+      if (r) {
+        r.cover_letter = body;
+        r.updated_at = new Date().toISOString();
+      }
+      s.events.push({
+        id: crypto.randomUUID(),
+        user_id: DEMO_USER_ID,
+        role_id: roleId,
+        kind: 'generated',
+        payload: { what: 'cover letter', method: 'local' },
+        created_at: new Date().toISOString(),
+      });
+    });
+    return { body, method: 'local' as const };
   }
 }
