@@ -1,5 +1,5 @@
 import type { Signal } from '@angular/core';
-import type { VariantDiff } from '@jobbotix/shared-types';
+import type { PrepSheet, VariantDiff } from '@jobbotix/shared-types';
 import type {
   AiUsageRow,
   CoverLetterRow,
@@ -141,6 +141,13 @@ export abstract class ScreeningRepo {
     roleId: string,
     opts?: { ids?: string[]; model?: string },
   ): Promise<{ answered: number; method: 'ai' | 'local'; model?: string }>;
+}
+
+export abstract class PrepRepo {
+  /** Builds the sheet (model with a key, local otherwise) and stores it on the role. */
+  abstract generate(roleId: string, model?: string): Promise<PrepSheet>;
+  /** Saves the user's edits (notes, practised ticks) without regenerating. */
+  abstract save(roleId: string, prep: PrepSheet): Promise<void>;
 }
 
 export interface ModelChoice {

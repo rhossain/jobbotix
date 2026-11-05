@@ -20,10 +20,11 @@ import { ModelPicker } from '../../shared/model-picker';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { StatusSelect } from '../../shared/status-select';
 import { Toast } from '../../shared/toast';
+import { PrepPanel } from './prep-panel';
 import { VariantPanel } from './variant-panel';
 import { wordCount } from '@jobbotix/shared-types';
 
-type Tab = 'fit' | 'resume' | 'posting' | 'activity';
+type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
 
 @Component({
   selector: 'jb-role-detail',
@@ -33,6 +34,7 @@ type Tab = 'fit' | 'resume' | 'posting' | 'activity';
     TypeLabelPipe,
     StatusSelect,
     VariantPanel,
+    PrepPanel,
     ModelPicker,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -341,6 +343,9 @@ type Tab = 'fit' | 'resume' | 'posting' | 'activity';
           @case ('resume') {
             <jb-variant-panel [role]="r" />
           }
+          @case ('prep') {
+            <jb-prep-panel [role]="r" />
+          }
           @case ('posting') {
             <section class="grid gap-4 text-sm md:grid-cols-2">
               <dl class="space-y-2">
@@ -488,6 +493,7 @@ export class RoleDetail {
   readonly tabs: { id: Tab; label: string }[] = [
     { id: 'fit', label: 'Fit' },
     { id: 'resume', label: 'Resume' },
+    { id: 'prep', label: 'Prep' },
     { id: 'posting', label: 'Posting' },
     { id: 'activity', label: 'Activity' },
   ];

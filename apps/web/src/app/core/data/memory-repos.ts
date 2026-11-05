@@ -1,6 +1,9 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   localAnswer,
+  localPrep,
+  normalisePrep,
+  type PrepSheet,
   localLetter,
   applyVariant,
   heuristicExtract,
@@ -37,6 +40,7 @@ import {
   SearchProfileRepo,
   LettersRepo,
   ScreeningRepo,
+  PrepRepo,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -308,6 +312,7 @@ export class MemoryRolesRepo extends RolesRepo {
         posting_hash: '',
         status_changed_at: now,
         follow_up_days: 0,
+        prep: {},
         created_at: now,
         updated_at: now,
       });
@@ -790,5 +795,55 @@ export class MemoryScreeningRepo extends ScreeningRepo {
         });
     });
     return { answered, method: 'local' as const };
+  }
+}
+
+@Injectable()
+export class MemoryPrepRepo extends PrepRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+
+  async generate(roleId: string, model?: string) {
+    void model;
+    const st = this.roles.snapshot();
+    const role = st.roles.find((r) => r.id === roleId);
+    const master = st.resumes.find((r) => r.is_master);
+    if (!role) throw new Error('Role not found');
+    if (!master) throw new Error('Save a master resume first');
+    const previous = normalisePrep(role.prep);
+    const sheet = localPrep(normaliseResume(master.sections), {
+      company: role.company,
+      title: role.title,
+      text: role.posting_text,
+      stack: role.stack,
+      reasons: role.reasons,
+      gaps: role.gaps,
+    });
+    sheet.userNotes = previous.userNotes;
+    const practised = new Set(
+      previous.questions.filter((q) => q.practised).map((q) => q.question),
+    );
+    sheet.questions = sheet.questions.map((q) => ({
+      ...q,
+      practised: practised.has(q.question),
+    }));
+    await this.save(roleId, sheet);
+    this.roles.patch((s) => {
+      s.events.push({
+        id: crypto.randomUUID(),
+        user_id: DEMO_USER_ID,
+        role_id: roleId,
+        kind: 'generated',
+        payload: { what: 'interview prep', method: 'local' },
+        created_at: new Date().toISOString(),
+      });
+    });
+    return sheet;
+  }
+
+  async save(roleId: string, prep: PrepSheet) {
+    this.roles.patch((s) => {
+      const r = s.roles.find((x) => x.id === roleId);
+      if (r) r.prep = prep as unknown as Json;
+    });
   }
 }

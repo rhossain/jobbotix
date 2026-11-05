@@ -27,7 +27,8 @@ export type RoleStatus =
 export type EmploymentType = 'full_time' | 'contract';
 export type RoleEventKind =
   'status_change' | 'note' | 'generated' | 'reminder' | 'run' | 'ingested';
-export type AiJob = 'extract' | 'score' | 'tailor' | 'letter' | 'answer';
+export type AiJob =
+  'extract' | 'score' | 'tailor' | 'letter' | 'answer' | 'prep';
 export type VariantStatus = 'draft' | 'approved';
 
 type Timestamps = { created_at: string; updated_at: string };
@@ -123,6 +124,7 @@ export type RoleRow = Timestamps & {
   posting_hash: string;
   status_changed_at: string;
   follow_up_days: number;
+  prep: Json;
 };
 
 export type RoleEventRow = {
@@ -311,6 +313,7 @@ export type Database = {
           | 'posting_hash'
           | 'status_changed_at'
           | 'follow_up_days'
+          | 'prep'
           | 'created_at'
           | 'updated_at'
         >

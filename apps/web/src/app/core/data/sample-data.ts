@@ -63,6 +63,7 @@ const seed: Seed[] = [
     notes: '',
     status_changed_at: daysAgo(0),
     follow_up_days: 0,
+    prep: {},
   },
   {
     id: 'r-harbor',
@@ -97,6 +98,7 @@ const seed: Seed[] = [
     notes: '',
     status_changed_at: daysAgo(0),
     follow_up_days: 0,
+    prep: {},
   },
   {
     id: 'r-lumen',
@@ -133,6 +135,7 @@ const seed: Seed[] = [
       'Applied via their form on Monday? No, still pending. Need to tailor the React angle.',
     status_changed_at: daysAgo(5),
     follow_up_days: 0,
+    prep: {},
   },
   {
     id: 'r-kestrel',
@@ -158,6 +161,7 @@ const seed: Seed[] = [
     notes: 'Applied 3 days ago. Recruiter: Dana. Follow up next week.',
     status_changed_at: daysAgo(3),
     follow_up_days: 0,
+    prep: {},
   },
   {
     id: 'r-meridian',
@@ -184,6 +188,7 @@ const seed: Seed[] = [
       'First interview Thursday 15:00 Dhaka with the Head of Product. Prepare the design-token story.',
     status_changed_at: daysAgo(2),
     follow_up_days: 0,
+    prep: {},
   },
   {
     id: 'r-brightline',
@@ -206,6 +211,7 @@ const seed: Seed[] = [
     notes: '',
     status_changed_at: daysAgo(4),
     follow_up_days: 0,
+    prep: {},
   },
   {
     id: 'r-saltmarsh',
@@ -230,6 +236,7 @@ const seed: Seed[] = [
     notes: 'Rejected: they went with someone in their timezone.',
     status_changed_at: daysAgo(1),
     follow_up_days: 0,
+    prep: {},
   },
   {
     id: 'r-quill',
@@ -257,6 +264,7 @@ const seed: Seed[] = [
     notes: '',
     status_changed_at: daysAgo(0),
     follow_up_days: 0,
+    prep: {},
   },
 ];
 

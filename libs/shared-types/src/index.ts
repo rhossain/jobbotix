@@ -9,3 +9,4 @@ export * from './lib/resume-import';
 export * from './lib/letter';
 export * from './lib/screening';
 export * from './lib/insights';
+export * from './lib/prep';

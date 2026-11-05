@@ -38,6 +38,7 @@ const role = (
     posting_hash: '',
     status_changed_at: d(changedDaysAgo),
     follow_up_days: 0,
+    prep: {},
     created_at: d(foundDaysAgo),
     updated_at: d(changedDaysAgo),
   }) as RoleRow;

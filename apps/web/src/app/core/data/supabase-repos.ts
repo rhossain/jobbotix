@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import type { VariantDiff } from '@jobbotix/shared-types';
+import type { PrepSheet, VariantDiff } from '@jobbotix/shared-types';
 import type {
   AiUsageRow,
   CoverLetterRow,
@@ -29,6 +29,7 @@ import {
   SearchProfileRepo,
   LettersRepo,
   ScreeningRepo,
+  PrepRepo,
 } from './repos';
 
 /**
@@ -599,5 +600,29 @@ export class SupabaseScreeningRepo extends ScreeningRepo {
       method: data?.method ?? 'local',
       model: data?.model,
     };
+  }
+}
+
+@Injectable()
+export class SupabasePrepRepo extends PrepRepo {
+  private readonly supabase = injectSupabase();
+
+  async generate(roleId: string, model?: string) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      prep?: PrepSheet;
+      error?: string;
+    }>('prep-role', { body: model ? { roleId, model } : { roleId } });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.prep)
+      throw new Error(data?.error ?? 'Could not build the sheet');
+    return data.prep;
+  }
+
+  async save(roleId: string, prep: PrepSheet) {
+    const { error } = await this.supabase
+      .from('roles')
+      .update({ prep: prep as unknown as Json })
+      .eq('id', roleId);
+    if (error) throw new Error(error.message);
   }
 }
