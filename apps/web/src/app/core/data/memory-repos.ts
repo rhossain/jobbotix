@@ -233,6 +233,13 @@ export class MemoryRolesRepo extends RolesRepo {
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
   }
 
+  async statusEvents(days: number) {
+    const since = new Date(Date.now() - days * 86_400_000).toISOString();
+    return this.state()
+      .events.filter((e) => e.kind === 'status_change' && e.created_at >= since)
+      .sort((a, b) => a.created_at.localeCompare(b.created_at));
+  }
+
   async screeningAnswersFor(roleId: string) {
     return this.state()
       .answers.filter((a) => a.role_id === roleId)

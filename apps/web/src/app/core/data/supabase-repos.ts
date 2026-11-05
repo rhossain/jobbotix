@@ -127,6 +127,17 @@ export class SupabaseRolesRepo extends RolesRepo {
     return data ?? [];
   }
 
+  async statusEvents(days: number) {
+    const since = new Date(Date.now() - days * 86_400_000).toISOString();
+    const { data } = await this.supabase
+      .from('role_events')
+      .select('*')
+      .eq('kind', 'status_change')
+      .gte('created_at', since)
+      .order('created_at');
+    return data ?? [];
+  }
+
   async screeningAnswersFor(roleId: string) {
     const { data } = await this.supabase
       .from('screening_answers')

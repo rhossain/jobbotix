@@ -36,6 +36,8 @@ export abstract class RolesRepo {
   abstract setNotes(id: string, notes: string): Promise<void>;
   abstract setCoverLetter(id: string, body: string): Promise<void>;
   abstract eventsFor(roleId: string): Promise<RoleEventRow[]>;
+  /** All status_change events in the last `days`, oldest first. */
+  abstract statusEvents(days: number): Promise<RoleEventRow[]>;
   abstract screeningAnswersFor(roleId: string): Promise<ScreeningAnswerRow[]>;
   abstract dismissReminder(eventId: string): Promise<void>;
   /**
