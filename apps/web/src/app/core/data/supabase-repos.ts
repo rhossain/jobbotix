@@ -127,6 +127,20 @@ export class SupabaseRolesRepo extends RolesRepo {
     this._reminders.update((rs) => rs.filter((r) => r.id !== eventId));
   }
 
+  async addFromUrl(url: string, text = '') {
+    const { data, error } = await this.supabase.functions.invoke<{
+      id: string;
+      existed: boolean;
+      error?: string;
+    }>('extract-role', {
+      body: text ? { url, text } : { url },
+    });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.id) throw new Error(data?.error ?? 'Could not add the role');
+    await this.load();
+    return { id: data.id, existed: data.existed };
+  }
+
   private replace(row: RoleRow) {
     this._roles.update((rs) => rs.map((r) => (r.id === row.id ? row : r)));
   }
@@ -226,4 +240,18 @@ export class SupabaseSavedViewsRepo extends SavedViewsRepo {
     if (error) throw error;
     this._views.update((vs) => vs.filter((v) => v.id !== id));
   }
+}
+
+/** supabase-js wraps non-2xx responses; surface the function's own message. */
+async function describeFunctionError(error: unknown): Promise<string> {
+  const ctx = (error as { context?: Response }).context;
+  if (ctx && typeof ctx.json === 'function') {
+    try {
+      const body = (await ctx.json()) as { error?: string };
+      if (body?.error) return body.error;
+    } catch {
+      /* fall through */
+    }
+  }
+  return (error as Error).message || 'Request failed';
 }

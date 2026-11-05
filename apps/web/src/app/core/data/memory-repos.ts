@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { heuristicExtract } from '@jobbotix/shared-types';
 import type {
   Json,
   RoleEventRow,
@@ -170,6 +171,54 @@ export class MemoryRolesRepo extends RolesRepo {
     this.patch((s) => {
       s.events = s.events.filter((e) => e.id !== eventId);
     });
+  }
+
+  async addFromUrl(url: string, text = '') {
+    const existing = this.state().roles.find((r) => r.url === url);
+    if (existing) return { id: existing.id, existed: true };
+    // Demo mode cannot fetch other sites from the browser; it extracts from pasted text.
+    const ex = heuristicExtract(url, `<title></title>${text}`);
+    const id = newId();
+    const now = new Date().toISOString();
+    this.patch((s) => {
+      s.roles.push({
+        id,
+        user_id: DEMO_USER_ID,
+        company: ex.company || 'Unknown company',
+        title: ex.title || 'Untitled role',
+        url,
+        source: 'Added by hand',
+        location: ex.location,
+        remote_scope: ex.location,
+        type: ex.type,
+        salary: ex.salary,
+        posted_at: null,
+        found_at: now,
+        stack: ex.stack,
+        score: 0,
+        score_breakdown: {},
+        reasons: [],
+        gaps: [],
+        ai_match: false,
+        status: 'new',
+        cover_letter: '',
+        notes: '',
+        posting_text: ex.postingText,
+        posting_hash: '',
+        status_changed_at: now,
+        created_at: now,
+        updated_at: now,
+      });
+      s.events.push({
+        id: newId(),
+        user_id: DEMO_USER_ID,
+        role_id: id,
+        kind: 'ingested',
+        payload: { source: 'manual', method: 'heuristic' },
+        created_at: now,
+      });
+    });
+    return { id, existed: false };
   }
 
   /** Shared with MemorySearchProfileRepo so one storage key holds everything. */

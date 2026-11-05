@@ -58,6 +58,7 @@ const DEFAULT_FILTERS: Filters = {
           </p>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          <a routerLink="/roles/new" class="jb-btn-primary">Add role</a>
           @for (v of views(); track v.id) {
             <span class="inline-flex">
               <button

@@ -30,6 +30,14 @@ export abstract class RolesRepo {
   abstract eventsFor(roleId: string): Promise<RoleEventRow[]>;
   abstract screeningAnswersFor(roleId: string): Promise<ScreeningAnswerRow[]>;
   abstract dismissReminder(eventId: string): Promise<void>;
+  /**
+   * Adds a role by posting URL. `text` is the pasted posting when the page
+   * cannot be fetched. Resolves with the new (or existing) role id.
+   */
+  abstract addFromUrl(
+    url: string,
+    text?: string,
+  ): Promise<{ id: string; existed: boolean }>;
 }
 
 export type SearchProfileInput = Omit<
