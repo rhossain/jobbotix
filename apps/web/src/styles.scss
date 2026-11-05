@@ -474,6 +474,21 @@
     letter-spacing: 0;
   }
 
+  .jb-kbd {
+    display: inline-grid;
+    place-items: center;
+    min-width: 1.35rem;
+    height: 1.35rem;
+    padding: 0 0.3rem;
+    border: 1px solid var(--line-strong);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    background: var(--surface);
+    color: var(--ink-muted);
+    font-size: 0.6875rem;
+    vertical-align: 0.05em;
+  }
+
   // ---------- Section headings ----------
   .jb-section-title {
     color: var(--ink);

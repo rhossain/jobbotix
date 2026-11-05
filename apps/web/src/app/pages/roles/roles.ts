@@ -6,6 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   EMPLOYMENT_TYPE_LABELS,
@@ -18,6 +19,18 @@ import {
 } from '@jobbotix/shared-types';
 import { RolesRepo, SavedViewsRepo } from '../../core/data/repos';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
+import { RoleCard } from '../../shared/role-card';
+import { Toast } from '../../shared/toast';
+import {
+  Button,
+  Confirm,
+  EmptyState,
+  Icon,
+  MatchRing,
+  PageHeader,
+  Sheet,
+  Skeleton,
+} from '../../ui';
 import { StatusSelect } from '../../shared/status-select';
 
 type Sort = 'score' | 'found' | 'posted' | 'company' | 'status';
@@ -42,103 +55,314 @@ const DEFAULT_FILTERS: Filters = {
   source: '',
   sort: 'score',
 };
-/** Every role, as a sortable, filterable table with keyboard navigation. */
+/** Every role, as a sortable, filterable table (cards on phones) with keyboard navigation. */
 @Component({
   selector: 'jb-roles',
-  imports: [RouterLink, RelativeDayPipe, TypeLabelPipe, StatusSelect],
+  imports: [
+    Button,
+    EmptyState,
+    Icon,
+    MatchRing,
+    NgTemplateOutlet,
+    PageHeader,
+    RelativeDayPipe,
+    RoleCard,
+    RouterLink,
+    Sheet,
+    Skeleton,
+    StatusSelect,
+    TypeLabelPipe,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <section class="flex flex-col gap-4">
-      <header class="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 class="text-2xl font-semibold tracking-tight">Roles</h1>
-          <p class="mt-1 text-sm text-neutral-600 dark:text-neutral-300">
-            {{ rows().length }} of {{ repo.roles().length }} roles. Use ↑ ↓ to
-            move, Enter to open.
-          </p>
-        </div>
+    <jb-page-header title="Roles">
+      <p lead class="mt-2 text-ink-muted">
+        {{ rows().length }} of {{ repo.roles().length }} roles<span
+          class="hidden [@media(hover:hover)]:inline"
+          >. Use <kbd class="jb-kbd">↑</kbd> <kbd class="jb-kbd">↓</kbd> to
+          move, <kbd class="jb-kbd">Enter</kbd> to open.</span
+        >
+      </p>
+      <div actions class="hidden gap-2 md:flex">
+        <a jbButton="primary" routerLink="/roles/new"
+          ><jb-icon name="plus" /> Add role</a
+        >
+      </div>
+    </jb-page-header>
+
+    <!-- Toolbar -->
+    <div class="mt-6 flex flex-col gap-3" role="search">
+      <div class="flex gap-2">
+        <label class="relative min-w-0 flex-1">
+          <span class="sr-only">Search roles</span>
+          <jb-icon
+            name="search"
+            [size]="18"
+            class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-ink-faint"
+          />
+          <input
+            id="roles-q"
+            type="search"
+            class="jb-input pl-10"
+            placeholder="Search company, title, stack"
+            [value]="filters().q"
+            (input)="set('q', $any($event.target).value)"
+          />
+        </label>
+        <button
+          type="button"
+          jbButton
+          class="md:hidden"
+          aria-haspopup="dialog"
+          (click)="filtersOpen.set(true)"
+        >
+          <jb-icon name="list-filter" />
+          Filters
+          @if (activeCount()) {
+            <span class="jb-count bg-brand-tint text-brand-ink">{{
+              activeCount()
+            }}</span>
+          }
+        </button>
+      </div>
+      <div class="hidden flex-wrap items-center gap-2 md:flex">
+        <ng-container *ngTemplateOutlet="controls" />
+      </div>
+
+      @if (views().length || !isDefault()) {
         <div class="flex flex-wrap items-center gap-2">
-          <a routerLink="/roles/new" class="jb-btn-primary">Add role</a>
           @for (v of views(); track v.id) {
-            <span class="inline-flex">
+            <span class="inline-flex items-center">
               <button
                 type="button"
-                class="jb-btn rounded-r-none"
+                class="jb-chip rounded-r-none pr-2"
+                [class.is-on]="isCurrent(v)"
                 (click)="applyView(v)"
               >
+                <jb-icon name="bookmark" [size]="14" />
                 {{ v.name }}
               </button>
               <button
                 type="button"
-                class="jb-btn rounded-l-none border-l-0 px-2"
+                class="jb-chip rounded-l-none border-l-0 px-2"
+                [class.is-on]="isCurrent(v)"
                 [attr.aria-label]="'Delete view ' + v.name"
                 (click)="removeView(v)"
               >
-                ×
+                <jb-icon name="x" [size]="14" />
               </button>
             </span>
           }
-          @if (naming()) {
-            <form
-              class="flex gap-2"
-              (submit)="
-                $event.preventDefault();
-                saveView(viewName.value);
-                viewName.value = ''
-              "
-            >
-              <input
-                #viewName
-                id="roles-view-name"
-                class="jb-input w-40"
-                placeholder="View name"
-                aria-label="View name"
-              />
-              <button type="submit" class="jb-btn-primary">Save</button>
-              <button type="button" class="jb-btn" (click)="naming.set(false)">
-                Cancel
+          @if (!isDefault()) {
+            @if (naming()) {
+              <form
+                class="flex items-center gap-2"
+                (submit)="
+                  $event.preventDefault();
+                  saveView(viewName.value);
+                  viewName.value = ''
+                "
+              >
+                <input
+                  #viewName
+                  id="roles-view-name"
+                  class="jb-input min-h-9 w-44"
+                  placeholder="Name this view"
+                  aria-label="View name"
+                />
+                <button type="submit" jbButton="primary" size="sm">Save</button>
+                <button
+                  type="button"
+                  jbButton="ghost"
+                  size="sm"
+                  (click)="naming.set(false)"
+                >
+                  Cancel
+                </button>
+              </form>
+            } @else {
+              <button
+                type="button"
+                class="jb-chip border-dashed"
+                (click)="startNaming()"
+              >
+                <jb-icon name="plus" [size]="14" /> Save as view
               </button>
-            </form>
-          } @else {
-            <button
-              type="button"
-              class="jb-btn"
-              (click)="naming.set(true)"
-              [disabled]="isDefault()"
-            >
-              Save view…
+            }
+            <button type="button" jbButton="ghost" size="sm" (click)="reset()">
+              Clear filters
             </button>
           }
         </div>
-      </header>
+      }
+    </div>
 
-      <div class="flex flex-wrap gap-2" role="search">
-        <input
-          id="roles-q"
-          type="search"
-          class="jb-input flex-1 basis-56"
-          placeholder="Search company, title, stack…"
-          aria-label="Search roles"
-          [value]="filters().q"
-          (input)="set('q', $any($event.target).value)"
+    <!-- Results -->
+    <div class="mt-6">
+      @if (!repo.loaded()) {
+        <jb-skeleton shape="row" [count]="6" />
+      } @else if (repo.roles().length === 0) {
+        <jb-empty-state title="No roles yet" icon="inbox">
+          The daily search adds roles here. Until its first run, add a posting
+          yourself.
+          <div actions>
+            <a jbButton="primary" routerLink="/roles/new"
+              ><jb-icon name="plus" /> Add a role</a
+            >
+          </div>
+        </jb-empty-state>
+      } @else if (rows().length === 0) {
+        <jb-empty-state
+          title="Nothing matches these filters"
+          icon="list-filter"
+        >
+          {{ repo.roles().length }} roles are hidden by the current filters.
+          <div actions>
+            <button type="button" jbButton (click)="reset()">
+              Clear filters
+            </button>
+          </div>
+        </jb-empty-state>
+      } @else {
+        <!-- Phones: cards -->
+        <div class="flex flex-col gap-3 md:hidden">
+          @for (r of rows(); track r.id) {
+            <jb-role-card [role]="r" [showReasons]="false" />
+          }
+        </div>
+
+        <!-- Tablets and up: table -->
+        <div class="jb-card hidden overflow-hidden md:block">
+          <table class="w-full text-sm">
+            <thead>
+              <tr
+                class="border-b border-line text-left text-xs font-medium text-ink-muted"
+              >
+                <th class="w-16 py-3 pr-2 pl-5 font-medium">Match</th>
+                <th class="py-3 pr-4 font-medium">Role</th>
+                <th class="hidden py-3 pr-4 font-medium lg:table-cell">Type</th>
+                <th class="hidden py-3 pr-4 font-medium xl:table-cell">
+                  Remote
+                </th>
+                <th class="py-3 pr-4 font-medium">Found</th>
+                <th class="py-3 pr-5 text-right font-medium">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (r of rows(); track r.id; let i = $index) {
+                <tr
+                  class="jb-row border-b border-line last:border-b-0"
+                  [class.jb-row-active]="i === active()"
+                  [attr.tabindex]="i === active() ? 0 : -1"
+                  [attr.aria-selected]="i === active()"
+                  [attr.data-index]="i"
+                  (focus)="active.set(i)"
+                  (keydown)="onKey($event)"
+                  (click)="open(r)"
+                >
+                  <td class="py-3 pr-2 pl-5">
+                    <jb-match-ring [score]="r.score" size="xs" />
+                  </td>
+                  <td class="min-w-0 py-3 pr-4">
+                    <a
+                      [routerLink]="['/roles', r.id]"
+                      class="font-semibold text-ink no-underline hover:underline"
+                      (click)="$event.stopPropagation()"
+                      >{{ r.title }}</a
+                    >
+                    <div
+                      class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-muted"
+                    >
+                      {{ r.company }}
+                      @if (r.ai_match) {
+                        <span
+                          class="jb-tag jb-tag-ai min-h-5 px-2 text-[0.6875rem]"
+                          >AI</span
+                        >
+                      }
+                      @if (r.salary) {
+                        <span class="text-xs text-ink-faint">{{
+                          r.salary
+                        }}</span>
+                      }
+                    </div>
+                  </td>
+                  <td
+                    class="hidden py-3 pr-4 whitespace-nowrap text-ink-muted lg:table-cell"
+                  >
+                    {{ r.type | typeLabel }}
+                  </td>
+                  <td class="hidden py-3 pr-4 text-ink-muted xl:table-cell">
+                    {{ r.location }}
+                  </td>
+                  <td class="py-3 pr-4 whitespace-nowrap text-ink-muted">
+                    {{ r.found_at | relativeDay }}
+                  </td>
+                  <td class="py-3 pr-5 text-right">
+                    <jb-status-select [role]="r" />
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+
+    <jb-sheet [(open)]="filtersOpen" title="Filter roles">
+      <div class="flex flex-col gap-4">
+        <ng-container
+          *ngTemplateOutlet="controls; context: { stacked: true }"
         />
+      </div>
+      <div footer>
+        <button type="button" jbButton (click)="reset()">Clear</button>
+        <button
+          type="button"
+          jbButton="primary"
+          (click)="filtersOpen.set(false)"
+        >
+          Show {{ rows().length }} roles
+        </button>
+      </div>
+    </jb-sheet>
+
+    <ng-template #controls let-stacked="stacked">
+      <label
+        [class]="
+          stacked ? 'flex flex-col gap-1.5 text-sm font-medium' : 'contents'
+        "
+      >
+        @if (stacked) {
+          Status
+        }
         <select
-          id="roles-status"
-          class="jb-input jb-input-inline"
+          class="jb-input"
+          [class.w-auto]="!stacked"
           aria-label="Status"
-          [value]="filters().status"
           (change)="set('status', $any($event.target).value)"
         >
-          <option value="">All statuses</option>
+          <option value="" [selected]="filters().status === ''">
+            All statuses
+          </option>
           @for (s of statuses; track s) {
             <option [value]="s" [selected]="s === filters().status">
               {{ statusLabels[s] }}
             </option>
           }
         </select>
+      </label>
+      <label
+        [class]="
+          stacked ? 'flex flex-col gap-1.5 text-sm font-medium' : 'contents'
+        "
+      >
+        @if (stacked) {
+          Type
+        }
         <select
-          id="roles-type"
-          class="jb-input jb-input-inline"
+          class="jb-input"
+          [class.w-auto]="!stacked"
           aria-label="Type"
           (change)="set('type', $any($event.target).value)"
         >
@@ -150,10 +374,19 @@ const DEFAULT_FILTERS: Filters = {
             {{ typeLabels.contract }}
           </option>
         </select>
+      </label>
+      <label
+        [class]="
+          stacked ? 'flex flex-col gap-1.5 text-sm font-medium' : 'contents'
+        "
+      >
+        @if (stacked) {
+          Match score
+        }
         <select
-          id="roles-band"
-          class="jb-input jb-input-inline"
-          aria-label="Score"
+          class="jb-input"
+          [class.w-auto]="!stacked"
+          aria-label="Match score"
           (change)="set('band', $any($event.target).value)"
         >
           <option value="" [selected]="filters().band === ''">Any score</option>
@@ -165,34 +398,43 @@ const DEFAULT_FILTERS: Filters = {
             Under 60
           </option>
         </select>
+      </label>
+      <label
+        [class]="
+          stacked ? 'flex flex-col gap-1.5 text-sm font-medium' : 'contents'
+        "
+      >
+        @if (stacked) {
+          Source
+        }
         <select
-          id="roles-source"
-          class="jb-input jb-input-inline"
+          class="jb-input"
+          [class.w-auto]="!stacked"
           aria-label="Source"
           (change)="set('source', $any($event.target).value)"
         >
           <option value="" [selected]="filters().source === ''">
             All sources
           </option>
-          @for (s of sources(); track s) {
-            <option [value]="s" [selected]="s === filters().source">
-              {{ s }}
+          @for (src of sources(); track src) {
+            <option [value]="src" [selected]="src === filters().source">
+              {{ src }}
             </option>
           }
         </select>
-        <label class="flex items-center gap-2 text-sm">
-          <input
-            id="roles-ai"
-            type="checkbox"
-            [checked]="filters().ai"
-            (change)="set('ai', $any($event.target).checked)"
-          />
-          AI-assisted only
-        </label>
+      </label>
+      <label
+        [class]="
+          stacked ? 'flex flex-col gap-1.5 text-sm font-medium' : 'contents'
+        "
+      >
+        @if (stacked) {
+          Sort by
+        }
         <select
-          id="roles-sort"
-          class="jb-input jb-input-inline"
-          aria-label="Sort"
+          class="jb-input"
+          [class.w-auto]="!stacked"
+          aria-label="Sort by"
           (change)="set('sort', $any($event.target).value)"
         >
           <option value="score" [selected]="filters().sort === 'score'">
@@ -211,107 +453,32 @@ const DEFAULT_FILTERS: Filters = {
             Status
           </option>
         </select>
-        @if (!isDefault()) {
-          <button type="button" class="jb-btn" (click)="reset()">Clear</button>
-        }
-      </div>
-
-      @if (!repo.loaded()) {
-        <p class="text-sm text-neutral-500" role="status">Loading…</p>
-      } @else if (repo.roles().length === 0) {
-        <div class="jb-empty">
-          <b>No roles yet.</b>
-          The daily search adds roles here. Until the first run, nothing to
-          triage.
-        </div>
-      } @else if (rows().length === 0) {
-        <div class="jb-empty">
-          <b>Nothing matches these filters.</b>
-          <button type="button" class="underline" (click)="reset()">
-            Clear them
-          </button>
-          to see all {{ repo.roles().length }} roles.
-        </div>
-      } @else {
-        <div class="overflow-x-auto">
-          <table class="w-full text-sm">
-            <thead
-              class="text-left text-xs uppercase tracking-wide text-neutral-500"
-            >
-              <tr>
-                <th class="py-2 pr-3">Score</th>
-                <th class="py-2 pr-3">Role</th>
-                <th class="py-2 pr-3">Type</th>
-                <th class="py-2 pr-3">Remote</th>
-                <th class="py-2 pr-3">Found</th>
-                <th class="py-2 pr-3">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (r of rows(); track r.id; let i = $index) {
-                <tr
-                  class="jb-row border-t border-neutral-200 dark:border-neutral-800"
-                  [class.jb-row-active]="i === active()"
-                  [attr.tabindex]="i === active() ? 0 : -1"
-                  [attr.aria-selected]="i === active()"
-                  [attr.data-index]="i"
-                  (focus)="active.set(i)"
-                  (keydown)="onKey($event)"
-                  (click)="open(r)"
-                >
-                  <td
-                    class="py-2 pr-3 font-mono tabular-nums jb-score-{{
-                      band(r.score)
-                    }}"
-                  >
-                    {{ r.score }}
-                  </td>
-                  <td class="min-w-0 py-2 pr-3">
-                    <a
-                      [routerLink]="['/roles', r.id]"
-                      class="font-medium hover:underline"
-                      (click)="$event.stopPropagation()"
-                      >{{ r.title }}</a
-                    >
-                    <div class="text-neutral-600 dark:text-neutral-300">
-                      {{ r.company }}
-                      @if (r.ai_match) {
-                        <span class="jb-tag jb-tag-ai ml-1">AI</span>
-                      }
-                      @if (r.salary) {
-                        <span class="ml-1 text-xs text-neutral-500">{{
-                          r.salary
-                        }}</span>
-                      }
-                    </div>
-                  </td>
-                  <td class="py-2 pr-3 whitespace-nowrap">
-                    {{ r.type | typeLabel }}
-                  </td>
-                  <td class="py-2 pr-3">{{ r.location }}</td>
-                  <td
-                    class="py-2 pr-3 whitespace-nowrap text-neutral-600 dark:text-neutral-300"
-                  >
-                    {{ r.found_at | relativeDay }}
-                  </td>
-                  <td class="py-2 pr-3"><jb-status-select [role]="r" /></td>
-                </tr>
-              }
-            </tbody>
-          </table>
-        </div>
-      }
-    </section>
+      </label>
+      <label
+        class="inline-flex min-h-10 items-center gap-2.5 text-sm text-ink"
+        [class.ml-1]="!stacked"
+      >
+        <input
+          type="checkbox"
+          role="switch"
+          class="jb-switch"
+          [checked]="filters().ai"
+          (change)="set('ai', $any($event.target).checked)"
+        />
+        AI-assisted only
+      </label>
+    </ng-template>
   `,
   styles: `
     .jb-row {
       cursor: pointer;
+      transition: background-color var(--dur-fast) var(--motion-ease);
     }
     .jb-row:hover {
-      background: color-mix(in srgb, var(--brand) 6%, transparent);
+      background: color-mix(in srgb, var(--brand) 5%, transparent);
     }
     .jb-row-active {
-      background: color-mix(in srgb, var(--brand) 12%, transparent);
+      background: color-mix(in srgb, var(--brand) 9%, transparent);
       outline: none;
     }
     .jb-row:focus-visible {
@@ -328,7 +495,15 @@ export class Roles {
   readonly statusLabels = ROLE_STATUS_LABELS;
   readonly typeLabels = EMPLOYMENT_TYPE_LABELS;
 
+  private readonly confirm = inject(Confirm);
+  private readonly toast = inject(Toast);
   readonly filters = signal<Filters>({ ...DEFAULT_FILTERS });
+  readonly filtersOpen = signal(false);
+  /** Filters set besides search and sort, for the phone Filters button. */
+  readonly activeCount = computed(() => {
+    const f = this.filters();
+    return [f.status, f.type, f.band, f.source, f.ai].filter(Boolean).length;
+  });
   readonly active = signal(0);
   private readonly viewsRepo = inject(SavedViewsRepo);
   readonly views = this.viewsRepo.views;
@@ -463,7 +638,34 @@ export class Roles {
   }
 
   async removeView(v: SavedViewRow) {
-    await this.viewsRepo.remove(v.id);
+    const ok = await this.confirm.ask({
+      title: `Delete the view “${v.name}”?`,
+      body: 'Only the saved filters go; no roles are touched.',
+      action: 'Delete view',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await this.viewsRepo.remove(v.id);
+      this.toast.show(`Deleted “${v.name}”`);
+    } catch {
+      this.toast.error('Could not delete the view');
+    }
+  }
+
+  isCurrent(v: SavedViewRow) {
+    const f = (v.filters ?? {}) as Partial<Filters>;
+    const view = {
+      ...DEFAULT_FILTERS,
+      ...f,
+      sort: (v.sort as Sort) || 'score',
+    };
+    return JSON.stringify(view) === JSON.stringify(this.filters());
+  }
+
+  startNaming() {
+    this.naming.set(true);
+    queueMicrotask(() => document.getElementById('roles-view-name')?.focus());
   }
 
   readonly naming = signal(false);
@@ -473,6 +675,11 @@ export class Roles {
     if (!name) return;
     this.naming.set(false);
     const { sort, ...rest } = this.filters();
-    await this.viewsRepo.save(name, rest, sort);
+    try {
+      await this.viewsRepo.save(name, rest, sort);
+      this.toast.success(`Saved view “${name}”`);
+    } catch {
+      this.toast.error('Could not save the view');
+    }
   }
 }
