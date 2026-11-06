@@ -37,3 +37,19 @@ export async function resolveIngestKey(
   if (!userId) return json(401, { error: 'Unknown or revoked ingest key' });
   return userId as string;
 }
+
+/**
+ * Scheduled callers (pg_cron through call_edge_function) send the cron secret
+ * as a bearer token. CRON_SECRET is the name to use; DIGEST_CRON_SECRET, set
+ * for send-digest, is accepted so one secret serves every job.
+ */
+export function requireCronSecret(req: Request): Response | null {
+  const secret =
+    Deno.env.get('CRON_SECRET') || Deno.env.get('DIGEST_CRON_SECRET') || '';
+  const bearer = req.headers
+    .get('authorization')
+    ?.replace(/^Bearer\s+/i, '')
+    .trim();
+  if (!secret || bearer !== secret) return json(401, { error: 'Not allowed' });
+  return null;
+}
