@@ -77,6 +77,9 @@ interface UserSummary {
   /** Region-locked postings left unjudged because the profile has no country. */
   needsCountry: number;
   aiScored: number;
+  /** Model calls that failed, and the first reason (never the key). */
+  aiFailed: number;
+  aiError?: string;
   errors: string[];
 }
 
@@ -153,6 +156,7 @@ async function matchForUser(
     excluded: 0,
     needsCountry: 0,
     aiScored: 0,
+    aiFailed: 0,
     errors: [],
   };
 
@@ -297,7 +301,11 @@ async function matchForUser(
             c.post,
             c.heuristic,
           );
-          if (ai === 'failed') return;
+          if ('failed' in ai) {
+            summary.aiFailed++;
+            summary.aiError ??= ai.failed;
+            return;
+          }
           summary.aiScored++;
           c.method = 'ai';
           c.scored = {
@@ -390,6 +398,8 @@ async function matchForUser(
       excluded: summary.excluded,
       source: 'jobbotix',
       aiScored: summary.aiScored,
+      aiFailed: summary.aiFailed,
+      ...(summary.aiError ? { aiError: summary.aiError } : {}),
       needsCountry: summary.needsCountry,
     },
   });
@@ -412,7 +422,9 @@ async function aiScore(
   profile: MatchProfile,
   post: MatchPosting,
   heuristic: number,
-): Promise<(ReturnType<typeof parseScoreReply> & object) | 'failed'> {
+): Promise<
+  NonNullable<ReturnType<typeof parseScoreReply>> | { failed: string }
+> {
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -438,8 +450,15 @@ async function aiScore(
       }),
       signal: AbortSignal.timeout(30_000),
     });
-    if (!res.ok) return 'failed';
-    const payload = await res.json();
+    const payload = await res.json().catch(() => null);
+    if (!res.ok) {
+      // Anthropic error bodies name the problem ("invalid x-api-key", an
+      // unknown model, no credit); keep that, never the key.
+      const detail = payload?.error?.message ?? res.statusText;
+      return {
+        failed: `Anthropic ${res.status}: ${String(detail).slice(0, 200)}`,
+      };
+    }
     const reply = Array.isArray(payload?.content)
       ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
       : '';
@@ -453,8 +472,8 @@ async function aiScore(
       tokens_out: Number(u.output_tokens ?? 0),
       cost_usd: 0,
     });
-    return parsed ?? 'failed';
-  } catch {
-    return 'failed';
+    return parsed ?? { failed: 'The model reply had no usable score' };
+  } catch (e) {
+    return { failed: `Could not reach Anthropic: ${(e as Error).message}` };
   }
 }
