@@ -42,6 +42,7 @@ import {
   AdminRepo,
   SharesRepo,
   MarketRepo,
+  SourcesRepo,
   type AdminTotals,
   type AdminUser,
 } from './repos';
@@ -788,5 +789,20 @@ export class SupabaseMarketRepo extends MarketRepo {
     const { data, error } = await this.supabase.rpc('market_signals');
     if (error) throw new Error(error.message);
     return data as unknown as MarketSignals;
+  }
+}
+
+@Injectable()
+export class SupabaseSourcesRepo extends SourcesRepo {
+  private readonly supabase = injectSupabase();
+
+  async list() {
+    const { data, error } = await this.supabase
+      .from('source_catalog')
+      .select('*')
+      .order('enabled', { ascending: false })
+      .order('name');
+    if (error) throw new Error(error.message);
+    return data ?? [];
   }
 }

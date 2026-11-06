@@ -24,6 +24,7 @@ import type {
   SavedViewRow,
   ScreeningAnswerRow,
   SearchProfileRow,
+  SourceCatalogRow,
 } from '@jobbotix/shared-types';
 
 /**
@@ -208,6 +209,11 @@ export abstract class SharesRepo {
 
 export abstract class MarketRepo {
   abstract signals(): Promise<MarketSignals>;
+}
+
+/** The boards and feeds Jobbotix reads, with their health. */
+export abstract class SourcesRepo {
+  abstract list(): Promise<SourceCatalogRow[]>;
 }
 
 export interface ModelChoice {

@@ -15,6 +15,7 @@ import {
   type VariantDiff,
 } from '@jobbotix/shared-types';
 import type {
+  SourceCatalogRow,
   AiUsageRow,
   CoverLetterRow,
   ShareRow,
@@ -49,6 +50,7 @@ import {
   AdminRepo,
   SharesRepo,
   MarketRepo,
+  SourcesRepo,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -57,6 +59,7 @@ import {
   sampleRoles,
   sampleScreeningAnswers,
   sampleSearchProfile,
+  sampleSources,
 } from './sample-data';
 
 const STORAGE_KEY = 'jobbotix.demo.v1';
@@ -1073,5 +1076,13 @@ export class MemoryMarketRepo extends MarketRepo {
           : (scores[mid - 1] + scores[mid]) / 2
         : 0,
     };
+  }
+}
+
+@Injectable()
+export class MemorySourcesRepo extends SourcesRepo {
+  /** Demo: the real catalogue's shape, with made-up health. */
+  async list(): Promise<SourceCatalogRow[]> {
+    return sampleSources();
   }
 }
