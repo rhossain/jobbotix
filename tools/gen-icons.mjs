@@ -1,6 +1,7 @@
 // Generates apps/web/src/app/ui/icons.generated.ts from lucide-static.
-// Only the icons listed here ship; each is stored as element data so the
-// Icon component can render it without innerHTML. Run: node tools/gen-icons.mjs
+// Only the icons listed here ship; each is stored as its inner SVG markup,
+// checked here at build time, which the Icon component writes into its <svg>.
+// Run: node tools/gen-icons.mjs
 import { readFileSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -11,6 +12,7 @@ const root = require
 
 const ICONS = [
   'sunrise',
+  'compass',
   'list',
   'square-kanban',
   'file-text',

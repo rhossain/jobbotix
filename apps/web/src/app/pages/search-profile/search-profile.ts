@@ -54,6 +54,7 @@ const splitLines = (s: string) =>
         <form
           [formGroup]="form"
           (ngSubmit)="save()"
+          data-tour="search-profile"
           class="jb-card grid grid-cols-1 gap-6 p-5 md:grid-cols-2 md:gap-x-8 md:p-7"
           novalidate
         >
@@ -300,7 +301,10 @@ const splitLines = (s: string) =>
         </form>
 
         <section class="jb-card flex flex-col gap-4 p-5 md:p-7">
-          <div class="flex flex-wrap items-center justify-between gap-3">
+          <div
+            class="flex flex-wrap items-center justify-between gap-3"
+            data-tour="search-prompt"
+          >
             <h2 class="jb-section-title">Scheduled-task prompt</h2>
             <div class="flex gap-2">
               <button

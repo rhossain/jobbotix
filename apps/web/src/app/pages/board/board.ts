@@ -77,6 +77,7 @@ const COLUMNS: RoleStatus[] = [
     @if (repo.loaded() && repo.roles().length === 0) {
       <jb-empty-state
         class="mt-8"
+        data-tour="board"
         title="The board fills itself"
         icon="square-kanban"
       >
@@ -84,7 +85,7 @@ const COLUMNS: RoleStatus[] = [
       </jb-empty-state>
     } @else {
       <!-- Phones: one column at a time -->
-      <div class="mt-6 md:hidden">
+      <div class="mt-6 md:hidden" data-tour="board">
         <div
           class="-mx-[var(--gutter)] flex gap-2 overflow-x-auto px-[var(--gutter)] pb-1"
           role="tablist"
@@ -132,7 +133,11 @@ const COLUMNS: RoleStatus[] = [
       </div>
 
       <!-- Tablets and up: all columns, drag and drop -->
-      <div class="jb-board mt-8 hidden md:grid" cdkDropListGroup>
+      <div
+        class="jb-board mt-8 hidden md:grid"
+        cdkDropListGroup
+        data-tour="board"
+      >
         @for (col of columns; track col) {
           <section
             class="jb-col"

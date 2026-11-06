@@ -27,6 +27,8 @@ import { MoreSheet, TabBar, TopBar } from './shell/mobile-nav';
 import { SECONDARY_NAV, ShellState } from './shell/shell-state';
 import { Sidebar } from './shell/sidebar';
 import { ThemeSwitch } from './shell/theme-switch';
+import { Tour } from './shell/tour';
+import { TourOverlay } from './shell/tour-overlay';
 import { Button, Confirm, ConfirmHost, Icon, ToastHost } from './ui';
 
 /** Detail pages and where their back chevron goes on phones. */
@@ -50,6 +52,7 @@ const PARENTS: [RegExp, { link: string; label: string }][] = [
     ThemeSwitch,
     ToastHost,
     TopBar,
+    TourOverlay,
   ],
   selector: 'jb-root',
   templateUrl: './app.html',
@@ -61,6 +64,7 @@ export class App {
   protected readonly shell = inject(ShellState);
   protected readonly viewport = inject(Viewport);
   protected readonly confirm = inject(Confirm);
+  protected readonly tour = inject(Tour);
   private readonly router = inject(Router);
   private readonly toast = inject(Toast);
   private readonly doc = inject(DOCUMENT);

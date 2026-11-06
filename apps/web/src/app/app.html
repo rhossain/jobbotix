@@ -41,6 +41,8 @@
 <jb-more-sheet (signOut)="signOut()" />
 } @defer (when shell.paletteOpen(); prefetch on idle) {
 <jb-command-palette />
+} @defer (when tour.active(); prefetch on idle) {
+<jb-tour />
 } } @else {
 <header class="jb-public-header print:hidden">
   <a

@@ -73,7 +73,7 @@ const csv = (s: string) =>
   },
   template: `
     <section class="flex flex-col gap-4 print:hidden">
-      <jb-page-header title="Master resume">
+      <jb-page-header title="Master resume" data-tour="resume">
         <p lead class="mt-2 max-w-[var(--reading-max)] text-ink-muted">
           The source every tailored variant starts from.
           <span class="whitespace-nowrap" [class.text-warn]="words() > 650"

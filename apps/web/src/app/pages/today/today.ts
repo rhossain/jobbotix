@@ -60,7 +60,7 @@ interface Reminder {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-pull-refresh [action]="refresh" />
-    <jb-page-header [title]="greeting()">
+    <jb-page-header [title]="greeting()" data-tour="today-summary">
       <p eyebrow class="mb-1.5 text-sm font-medium text-brand-ink">
         {{ dateLine }}
       </p>
@@ -165,7 +165,7 @@ interface Reminder {
         </section>
       }
 
-      <section aria-labelledby="new-heading">
+      <section aria-labelledby="new-heading" data-tour="today-new">
         <div class="flex items-baseline justify-between gap-4">
           <h2
             id="new-heading"

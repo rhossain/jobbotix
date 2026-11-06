@@ -18,18 +18,40 @@ import { LettersRepo, SettingsRepo } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { Theme, type ThemePreference } from '../../core/theme';
-import { Confirm, PageHeader, Tabs, type TabItem } from '../../ui';
+import { Tour } from '../../shell/tour';
+import {
+  Button,
+  Confirm,
+  Icon,
+  PageHeader,
+  Tabs,
+  type TabItem,
+} from '../../ui';
 
 /** Account, AI key and model, usage, ingest keys. */
 @Component({
   selector: 'jb-settings',
-  imports: [PageHeader, ReactiveFormsModule, RelativeDayPipe, RouterLink, Tabs],
+  imports: [
+    Button,
+    Icon,
+    PageHeader,
+    ReactiveFormsModule,
+    RelativeDayPipe,
+    RouterLink,
+    Tabs,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-page-header
       title="Settings"
       lead="Your account, appearance, AI key and the keys your scheduled runs use."
-    />
+    >
+      <div actions>
+        <button type="button" jbButton (click)="tour.start()">
+          <jb-icon name="compass" /> Take the tour
+        </button>
+      </div>
+    </jb-page-header>
     <section class="mt-8 flex max-w-3xl flex-col gap-5">
       <!-- Profile -->
       <form
@@ -102,7 +124,10 @@ import { Confirm, PageHeader, Tabs, type TabItem } from '../../ui';
       </section>
 
       <!-- AI -->
-      <section class="jb-card flex flex-col gap-4 p-5 md:p-6">
+      <section
+        class="jb-card flex flex-col gap-4 p-5 md:p-6"
+        data-tour="settings-ai"
+      >
         <h2 class="jb-section-title">AI</h2>
         <p class="text-sm text-ink-muted">
           Your daily search already produces scores, letters and answers through
@@ -317,6 +342,7 @@ import { Confirm, PageHeader, Tabs, type TabItem } from '../../ui';
 })
 export class Settings {
   protected readonly theme = inject(Theme);
+  protected readonly tour = inject(Tour);
   private readonly confirm = inject(Confirm);
   protected readonly themes: TabItem<ThemePreference>[] = [
     { id: 'system', label: 'System', icon: 'monitor' },

@@ -99,7 +99,11 @@ const DEFAULT_FILTERS: Filters = {
     </jb-page-header>
 
     <!-- Toolbar -->
-    <div class="mt-6 flex flex-col gap-3" role="search">
+    <div
+      class="mt-6 flex flex-col gap-3"
+      role="search"
+      data-tour="roles-search"
+    >
       <div class="flex gap-2">
         <label class="relative min-w-0 flex-1">
           <span class="sr-only">Search roles</span>

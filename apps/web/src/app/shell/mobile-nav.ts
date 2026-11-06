@@ -16,6 +16,7 @@ import { Button, Icon, Sheet } from '../ui';
 import { Logo } from './logo';
 import { PRIMARY_NAV, SECONDARY_NAV, ShellState } from './shell-state';
 import { ThemeSwitch } from './theme-switch';
+import { Tour } from './tour';
 
 /**
  * Phone top bar: back chevron on detail pages (or the logo), the page title,
@@ -300,6 +301,11 @@ export class TabBar {
         }
       </ul>
 
+      <button type="button" class="row" (click)="tour.start()">
+        <jb-icon name="compass" [size]="20" class="text-ink-muted" />
+        <span class="flex-1">Take the tour</span>
+      </button>
+
       <div class="row cursor-default">
         <jb-icon name="sun" [size]="20" class="text-ink-muted" />
         <span class="flex-1">Theme</span>
@@ -324,13 +330,25 @@ export class TabBar {
       font-weight: 500;
       text-decoration: none;
     }
-    a.row:active {
+    button.row {
+      width: 100%;
+      background: none;
+      border-width: 0 0 1px;
+      font: inherit;
+      font-size: 1rem;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+    }
+    a.row:active,
+    button.row:active {
       background: var(--surface-sunken);
     }
   `,
 })
 export class MoreSheet {
   protected readonly shell = inject(ShellState);
+  protected readonly tour = inject(Tour);
   private readonly auth = inject(Auth);
   readonly signOut = output<void>();
 

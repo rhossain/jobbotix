@@ -15,6 +15,7 @@ import { Shortcuts } from '../core/shortcuts';
 import { Theme } from '../core/theme';
 import { Icon, type IconName } from '../ui';
 import { PRIMARY_NAV, SECONDARY_NAV, ShellState } from './shell-state';
+import { Tour } from './tour';
 
 interface Command {
   id: string;
@@ -161,6 +162,7 @@ export class CommandPalette {
   private readonly roles = inject(RolesRepo);
   private readonly auth = inject(Auth);
   private readonly theme = inject(Theme);
+  private readonly tour = inject(Tour);
 
   private readonly dialog =
     viewChild.required<ElementRef<HTMLDialogElement>>('dialog');
@@ -199,6 +201,13 @@ export class CommandPalette {
             : 'Switch to dark theme',
         icon: this.theme.resolved() === 'dark' ? 'sun' : 'moon',
         run: () => this.theme.toggle(),
+      },
+      {
+        id: 'tour',
+        group: 'Actions',
+        label: 'Take the tour',
+        icon: 'compass',
+        run: () => this.tour.start(),
       },
       {
         id: 'shortcuts',
