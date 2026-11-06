@@ -160,10 +160,13 @@ async function matchForUser(
     errors: [],
   };
 
-  const floor = now.getTime() - cfg.lookback_days * 86_400_000;
-  const since = new Date(
-    Math.max(floor, p.last_matched_at ? Date.parse(p.last_matched_at) : 0),
-  ).toISOString();
+  // The watermark is used as Postgres wrote it (microseconds): a JS Date
+  // would round it down and re-read the last posting every hour.
+  const floor = new Date(now.getTime() - cfg.lookback_days * 86_400_000);
+  const since =
+    p.last_matched_at && Date.parse(p.last_matched_at) >= floor.getTime()
+      ? p.last_matched_at
+      : floor.toISOString();
 
   const [postingsRes, rolesRes, excludedRes] = await Promise.all([
     admin
@@ -387,22 +390,24 @@ async function matchForUser(
     else summary.excluded = excludedRows.length;
   }
 
-  await admin.from('role_events').insert({
-    user_id: p.user_id,
-    role_id: null,
-    kind: 'run',
-    payload: {
-      at: now.toISOString(),
-      searched: summary.considered,
-      added: summary.added,
-      excluded: summary.excluded,
-      source: 'jobbotix',
-      aiScored: summary.aiScored,
-      aiFailed: summary.aiFailed,
-      ...(summary.aiError ? { aiError: summary.aiError } : {}),
-      needsCountry: summary.needsCountry,
-    },
-  });
+  // A run that saw nothing new (all already tracked) is not worth reporting.
+  if (summary.considered > 0)
+    await admin.from('role_events').insert({
+      user_id: p.user_id,
+      role_id: null,
+      kind: 'run',
+      payload: {
+        at: now.toISOString(),
+        searched: summary.considered,
+        added: summary.added,
+        excluded: summary.excluded,
+        source: 'jobbotix',
+        aiScored: summary.aiScored,
+        aiFailed: summary.aiFailed,
+        ...(summary.aiError ? { aiError: summary.aiError } : {}),
+        needsCountry: summary.needsCountry,
+      },
+    });
 
   await admin
     .from('search_profiles')
