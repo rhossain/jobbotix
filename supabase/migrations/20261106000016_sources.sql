@@ -314,7 +314,9 @@ begin
 end $$;
 revoke execute on function public.call_edge_function(text, jsonb) from public, anon, authenticated;
 
--- Fetch every six hours; match every hour, ahead of the hourly digest at :05.
-select cron.schedule('fetch-sources', '17 */6 * * *', $$select public.call_edge_function('fetch-sources')$$);
+-- Fetch every six hours; match every hour at :50, ahead of the hourly digest
+-- at :05. The fetch hours (UTC) put one fetch-and-match just before 06:05 in
+-- UTC+6, so a morning digest there carries the night's postings.
+select cron.schedule('fetch-sources', '17 5,11,17,23 * * *', $$select public.call_edge_function('fetch-sources')$$);
 select cron.schedule('match-postings', '50 * * * *', $$select public.call_edge_function('match-postings')$$);
 select cron.schedule('purge-stale-postings', '40 2 * * 0', $$select public.purge_stale_postings()$$);
