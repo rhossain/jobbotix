@@ -110,7 +110,7 @@
       "options": {
         "watch": false
       },
-      "dependsOn": ["test-tokens"]
+      "dependsOn": ["test-design"]
     },
     "serve-static": {
       "continuous": true,
@@ -125,7 +125,7 @@
         "spa": true
       }
     },
-    "test-tokens": {
+    "test-design": {
       "executor": "nx:run-commands",
       "options": {
         "command": "vitest run --config apps/web/vitest.tokens.config.mts",
@@ -133,8 +133,7 @@
       },
       "cache": true,
       "inputs": [
-        "{projectRoot}/src/tailwind.css",
-        "{projectRoot}/src/**/*.node-spec.ts",
+        "{projectRoot}/src/**/*",
         "{projectRoot}/vitest.tokens.config.mts"
       ]
     }

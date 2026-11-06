@@ -44,7 +44,8 @@ The UI is built from tokens and a small kit; pages should not invent their own.
   status colours, radii, elevation, motion and the type scale, for light and
   dark. `data-theme` on `<html>` switches themes (System / Light / Dark in
   Settings); with no choice the OS decides. `npm test` runs a contrast check on
-  the token pairs (`web:test-tokens`).
+  the token pairs and a design guard that rejects hard-coded colours, off-scale
+  radii and tiny type in templates (`web:test-design`).
 - **Type**: Bricolage Grotesque (self-hosted via Fontsource) for everything,
   IBM Plex Mono for codes and keys.
 - **Kit**: `apps/web/src/app/ui/` (buttons, match ring, fields, tabs, sheet,
