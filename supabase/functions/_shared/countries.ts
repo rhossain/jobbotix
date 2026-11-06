@@ -240,7 +240,8 @@ export function parseLocations(items: string[]): ParsedLocations {
   for (const p of parts) {
     const s = strip(p)
       .replace(/^remote /, '')
-      .replace(/ remote$/, '');
+      .replace(/ remote$/, '')
+      .replace(/ only$/, '');
     if (!s) continue;
     if (WORLDWIDE.test(s)) {
       out.worldwide = true;

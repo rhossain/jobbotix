@@ -422,4 +422,23 @@ do $$ begin
   end if;
 end $$;
 
+-- Phase 2 sources are catalogued with budgets; the fan-out is service-only.
+do $$ begin
+  if (select count(*) from public.source_catalog where enabled) < 8 then
+    raise exception 'FAIL: phase 2 sources missing from the catalog';
+  end if;
+  if (select max_requests_per_run from public.source_catalog where id = 'remotive') <> 1 then
+    raise exception 'FAIL: Remotive budget is not one request a run';
+  end if;
+  perform public.fetch_all_sources();   -- as the owner: runs (pg_net is stubbed)
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  perform public.fetch_all_sources();
+  raise exception 'FAIL: a user could call fetch_all_sources';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

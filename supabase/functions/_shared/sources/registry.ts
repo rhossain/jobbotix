@@ -8,12 +8,19 @@ import {
   remotive,
   workingnomads,
 } from './boards.ts';
+import { hn, weworkremotely } from './feeds.ts';
 import { himalayas } from './himalayas.ts';
 import type { SourceAdapter } from './types.ts';
 
 export const ADAPTERS: Record<string, SourceAdapter> = Object.fromEntries(
-  [himalayas, jobicy, remoteok, workingnomads, arbeitnow, remotive].map((a) => [
-    a.id,
-    a,
-  ]),
+  [
+    himalayas,
+    jobicy,
+    remoteok,
+    workingnomads,
+    arbeitnow,
+    remotive,
+    weworkremotely,
+    hn,
+  ].map((a) => [a.id, a]),
 );
