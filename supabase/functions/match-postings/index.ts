@@ -74,6 +74,8 @@ interface UserSummary {
   considered: number;
   added: number;
   excluded: number;
+  /** Region-locked postings left unjudged because the profile has no country. */
+  needsCountry: number;
   aiScored: number;
   errors: string[];
 }
@@ -149,6 +151,7 @@ async function matchForUser(
     considered: 0,
     added: 0,
     excluded: 0,
+    needsCountry: 0,
     aiScored: 0,
     errors: [],
   };
@@ -243,6 +246,10 @@ async function matchForUser(
 
     const r = matchPosting(profile, post, now);
     if (r.kind === 'irrelevant') continue;
+    if (r.kind === 'needs_country') {
+      summary.needsCountry++;
+      continue;
+    }
     if (r.kind === 'excluded') {
       if (!excludedUrls.has(normaliseUrl(link)) && excludedRows.length < 50) {
         excludedRows.push({
@@ -383,6 +390,7 @@ async function matchForUser(
       excluded: summary.excluded,
       source: 'jobbotix',
       aiScored: summary.aiScored,
+      needsCountry: summary.needsCountry,
     },
   });
 

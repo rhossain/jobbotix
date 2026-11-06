@@ -14,8 +14,11 @@ const strip = (s: string) =>
     .toLowerCase()
     .replace(/&/g, ' and ')
     .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\bsaint\b/g, 'st')
     .replace(/\s+/g, ' ')
-    .trim();
+    .trim()
+    .replace(/^the /, '')
+    .replace(/ and the /g, ' and ');
 
 const NOT_COUNTRIES = new Set(['EU', 'EZ', 'UN', 'QO', 'XA', 'XB', 'ZZ']);
 
@@ -70,6 +73,32 @@ const ALIASES: Record<string, string> = {
   'palestinian territories': 'PS',
   palestine: 'PS',
   'vatican city': 'VA',
+  'holy see': 'VA',
+  // ISO's "Name, Qualifier" spellings, as boards copy them
+  'congo the democratic republic of': 'CD',
+  'congo the democratic republic of the': 'CD',
+  'democratic republic of congo': 'CD',
+  'dr congo': 'CD',
+  drc: 'CD',
+  congo: 'CG',
+  'republic of congo': 'CG',
+  'korea republic of': 'KR',
+  'korea democratic people s republic of': 'KP',
+  'iran islamic republic of': 'IR',
+  'tanzania united republic of': 'TZ',
+  'moldova republic of': 'MD',
+  'bolivia plurinational state of': 'BO',
+  'venezuela bolivarian republic of': 'VE',
+  'micronesia federated states of': 'FM',
+  'lao people s democratic republic': 'LA',
+  'syrian arab republic': 'SY',
+  'taiwan province of china': 'TW',
+  'palestine state of': 'PS',
+  'brunei darussalam': 'BN',
+  'cabo verde': 'CV',
+  'virgin islands british': 'VG',
+  'virgin islands u s': 'VI',
+  'macedonia the former yugoslav republic of': 'MK',
 };
 
 let NAME_TO_CODE: Map<string, string> | null = null;
@@ -194,10 +223,20 @@ export function parseLocations(items: string[]): ParsedLocations {
     regions: [],
     unknown: [],
   };
-  const parts = items
-    .flatMap((x) => String(x ?? '').split(/[,;/|]| or | and /i))
-    .map((x) => x.replace(/\(.*?\)/g, '').trim())
-    .filter(Boolean);
+  // A whole item first ("Congo, The Democratic Republic of the" is one
+  // country); split on separators only when the whole item is not a place.
+  const parts = items.flatMap((x) => {
+    const whole = String(x ?? '')
+      .replace(/\(.*?\)/g, '')
+      .trim();
+    if (!whole) return [];
+    const w = strip(whole).replace(/^remote /, '');
+    if (WORLDWIDE.test(w) || toRegion(w) || toCountryCode(w)) return [whole];
+    return whole
+      .split(/[,;/|]| or | and /i)
+      .map((y) => y.trim())
+      .filter(Boolean);
+  });
   for (const p of parts) {
     const s = strip(p)
       .replace(/^remote /, '')

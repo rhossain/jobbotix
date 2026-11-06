@@ -45,6 +45,9 @@ export interface MatchPosting {
 export type MatchResult =
   | { kind: 'irrelevant'; why: string }
   | { kind: 'excluded'; reason: string }
+  /** Region-locked, and the profile has no country to compare: not stored, so
+   *  the posting is judged again once the user sets one. */
+  | { kind: 'needs_country' }
   | { kind: 'match' };
 
 const word = (term: string) =>
@@ -176,13 +179,9 @@ export function matchPosting(
       break;
     case 'region_locked':
       if (!post.hiring_countries.length && !post.hiring_regions.length) break;
+      if (!allowed.size) return { kind: 'needs_country' };
       if (!fits(post.hiring_countries, post.hiring_regions))
-        return {
-          kind: 'excluded',
-          reason: allowed.size
-            ? `Limited to ${place}`
-            : `Limited to ${place} (set your country in Search profile to keep roles open to it)`,
-        };
+        return { kind: 'excluded', reason: `Limited to ${place}` };
       break;
     case 'hybrid':
     case 'onsite': {

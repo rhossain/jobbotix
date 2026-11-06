@@ -138,10 +138,7 @@ Deno.test(
       { remote_policy: 'region_locked', hiring_countries: ['US'] },
       { home_country: null },
     );
-    assert(
-      noCountry.kind === 'excluded' &&
-        noCountry.reason.includes('set your country'),
-    );
+    assertEquals(noCountry, { kind: 'needs_country' });
   },
 );
 

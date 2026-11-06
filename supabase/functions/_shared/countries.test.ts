@@ -52,3 +52,22 @@ Deno.test('parseLocations splits a board location list', () => {
     'DE',
   ]);
 });
+
+Deno.test(
+  'ISO-style and saint spellings resolve; whole items are not split',
+  () => {
+    assertEquals(toCountryCode('Saint Vincent and the Grenadines'), 'VC');
+    assertEquals(toCountryCode('St. Kitts & Nevis'), 'KN');
+    assertEquals(toCountryCode('Korea, Republic of'), 'KR');
+    assertEquals(toCountryCode('Iran, Islamic Republic of'), 'IR');
+    assertEquals(
+      parseLocations([
+        'Congo, The Democratic Republic of the',
+        'Congo',
+        'Bahamas',
+      ]).countries,
+      ['CD', 'CG', 'BS'],
+    );
+    assertEquals(parseLocations(['US, Canada']).countries, ['US', 'CA']);
+  },
+);

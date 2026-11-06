@@ -407,4 +407,19 @@ do $$ begin
   if (select posting_id from public.roles where company = 'Beta') is null then raise exception 'FAIL: role did not link to the pool'; end if;
 end $$;
 
+-- Changing what a user looks for clears the match watermark; a no-op save does not.
+update public.search_profiles set last_matched_at = now();
+update public.search_profiles set digest_min_score = digest_min_score;
+do $$ begin
+  if exists (select 1 from public.search_profiles where last_matched_at is null) then
+    raise exception 'FAIL: a save that changed nothing reset the watermark';
+  end if;
+end $$;
+update public.search_profiles set home_country = 'AE';
+do $$ begin
+  if exists (select 1 from public.search_profiles where last_matched_at is not null) then
+    raise exception 'FAIL: changing the country did not reset the watermark';
+  end if;
+end $$;
+
 \echo RLS tests passed
