@@ -14,6 +14,7 @@ import { RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { injectSupabase } from '../../core/supabase';
 import { environment } from '../../../environments/environment';
+import { longDate } from '../../shared/format';
 import { Button, Field, FieldControl, Icon, MatchRing } from '../../ui';
 
 /** Public front page: the positioning in one screen, and a way to ask for an invite. */
@@ -231,11 +232,7 @@ export class Landing {
   private readonly supabase = injectSupabase();
   private readonly auth = inject(Auth);
   readonly year = new Date().getFullYear();
-  readonly today = new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  readonly today = longDate(new Date());
   /** The sample brief in the hero (fictional roles, as in demo mode). */
   readonly sample = [
     {

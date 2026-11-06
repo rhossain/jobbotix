@@ -6,6 +6,59 @@ import {
   type RoleStatus,
 } from '@jobbotix/shared-types';
 
+// English date words, formatted by hand: the first Intl/toLocale* call on a
+// page starts the browser's ICU engine, which costs tens of milliseconds on a
+// slow phone, and the app's copy is English anyway.
+const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+const DAYS = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+
+/** "6 Nov" */
+export function shortDate(d: Date): string {
+  return `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`;
+}
+
+/** "6 November" */
+export function dayMonth(d: Date): string {
+  return `${d.getDate()} ${MONTHS[d.getMonth()]}`;
+}
+
+/** "Friday 6 November" */
+export function longDate(d: Date): string {
+  return `${DAYS[d.getDay()]} ${dayMonth(d)}`;
+}
+
+/** "06:45" (24-hour, local time) */
+export function clockTime(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Month abbreviation for a UTC date: "Nov" */
+export function utcMonthShort(d: Date): string {
+  return MONTHS[d.getUTCMonth()].slice(0, 3);
+}
+
 /** "today", "yesterday", "3 days ago", else a short date. */
 export function relativeDay(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -16,7 +69,7 @@ export function relativeDay(iso: string | null | undefined): string {
   if (days <= 0) return 'today';
   if (days === 1) return 'yesterday';
   if (days < 14) return `${days} days ago`;
-  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+  return shortDate(d);
 }
 
 function startOfDay(d: Date) {

@@ -12,7 +12,7 @@ import {
   type RoleEventRow,
 } from '@jobbotix/shared-types';
 import { MarketRepo, RolesRepo } from '../../core/data/repos';
-import { StatusLabelPipe } from '../../shared/format';
+import { StatusLabelPipe, utcMonthShort } from '../../shared/format';
 import {
   BarRow,
   Button,
@@ -370,6 +370,6 @@ export class InsightsPage {
   }
   weekLabel(iso: string): string {
     const d = new Date(iso + 'T00:00:00Z');
-    return `${d.getUTCDate()} ${d.toLocaleString('en', { month: 'short', timeZone: 'UTC' })}`;
+    return `${d.getUTCDate()} ${utcMonthShort(d)}`;
   }
 }

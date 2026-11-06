@@ -21,6 +21,7 @@ import { RolesRepo, SavedViewsRepo } from '../../core/data/repos';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
 import { RoleMover } from '../../shared/role-mover';
+import { Viewport } from '../../core/viewport';
 import { Toast } from '../../shared/toast';
 import {
   Button,
@@ -232,95 +233,106 @@ const DEFAULT_FILTERS: Filters = {
           </div>
         </jb-empty-state>
       } @else {
-        <!-- Phones: cards -->
-        <div class="flex flex-col gap-3 md:hidden">
-          @for (r of rows(); track r.id) {
-            <jb-swipe-row
-              [start]="shortlistAction"
-              [end]="skipAction"
-              (startAction)="mover.move(r, 'shortlist')"
-              (endAction)="mover.move(r, 'skipped')"
-            >
-              <jb-role-card [role]="r" [showReasons]="false" />
-            </jb-swipe-row>
-          }
-        </div>
-
-        <!-- Tablets and up: table -->
-        <div class="jb-card hidden overflow-hidden md:block">
-          <table class="w-full text-sm">
-            <thead>
-              <tr
-                class="border-b border-line text-left text-xs font-medium text-ink-muted"
-              >
-                <th class="w-16 py-3 pr-2 pl-5 font-medium">Match</th>
-                <th class="py-3 pr-4 font-medium">Role</th>
-                <th class="hidden py-3 pr-4 font-medium lg:table-cell">Type</th>
-                <th class="hidden py-3 pr-4 font-medium xl:table-cell">
-                  Remote
-                </th>
-                <th class="py-3 pr-4 font-medium">Found</th>
-                <th class="py-3 pr-5 text-right font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              @for (r of rows(); track r.id; let i = $index) {
-                <tr
-                  class="jb-row border-b border-line last:border-b-0"
-                  [class.jb-row-active]="i === active()"
-                  [attr.tabindex]="i === active() ? 0 : -1"
-                  [attr.aria-selected]="i === active()"
-                  [attr.data-index]="i"
-                  (focus)="active.set(i)"
-                  (keydown)="onKey($event)"
-                  (click)="open(r)"
-                >
-                  <td class="py-3 pr-2 pl-5">
-                    <jb-match-ring [score]="r.score" size="xs" />
-                  </td>
-                  <td class="min-w-0 py-3 pr-4">
-                    <a
-                      [routerLink]="['/roles', r.id]"
-                      class="font-semibold text-ink no-underline hover:underline"
-                      (click)="$event.stopPropagation()"
-                      >{{ r.title }}</a
-                    >
-                    <div
-                      class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-muted"
-                    >
-                      {{ r.company }}
-                      @if (r.ai_match) {
-                        <span
-                          class="jb-tag jb-tag-ai min-h-5 px-2 text-[0.6875rem]"
-                          >AI</span
-                        >
-                      }
-                      @if (r.salary) {
-                        <span class="text-xs text-ink-muted">{{
-                          r.salary
-                        }}</span>
-                      }
-                    </div>
-                  </td>
-                  <td
-                    class="hidden py-3 pr-4 whitespace-nowrap text-ink-muted lg:table-cell"
-                  >
-                    {{ r.type | typeLabel }}
-                  </td>
-                  <td class="hidden py-3 pr-4 text-ink-muted xl:table-cell">
-                    {{ r.location }}
-                  </td>
-                  <td class="py-3 pr-4 whitespace-nowrap text-ink-muted">
-                    {{ r.found_at | relativeDay }}
-                  </td>
-                  <td class="py-3 pr-5 text-right">
-                    <jb-status-select [role]="r" />
-                  </td>
-                </tr>
+        @if (viewport.phone()) {
+          <!-- Phones: cards. The first screenful renders at once, the rest
+               as it scrolls into view. -->
+          <div class="flex flex-col gap-3">
+            @for (r of rows().slice(0, firstScreen); track r.id) {
+              <ng-container
+                *ngTemplateOutlet="phoneCard; context: { $implicit: r }"
+              />
+            }
+            @if (rows().length > firstScreen) {
+              @defer (on viewport; prefetch on idle) {
+                @for (r of rows().slice(firstScreen); track r.id) {
+                  <ng-container
+                    *ngTemplateOutlet="phoneCard; context: { $implicit: r }"
+                  />
+                }
+              } @placeholder {
+                <div class="h-40 rounded-card bg-sunken/60"></div>
               }
-            </tbody>
-          </table>
-        </div>
+            }
+          </div>
+        } @else {
+          <!-- Tablets and up: table -->
+          <div class="jb-card overflow-hidden">
+            <table class="w-full text-sm">
+              <thead>
+                <tr
+                  class="border-b border-line text-left text-xs font-medium text-ink-muted"
+                >
+                  <th class="w-16 py-3 pr-2 pl-5 font-medium">Match</th>
+                  <th class="py-3 pr-4 font-medium">Role</th>
+                  <th class="hidden py-3 pr-4 font-medium lg:table-cell">
+                    Type
+                  </th>
+                  <th class="hidden py-3 pr-4 font-medium xl:table-cell">
+                    Remote
+                  </th>
+                  <th class="py-3 pr-4 font-medium">Found</th>
+                  <th class="py-3 pr-5 text-right font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (r of rows(); track r.id; let i = $index) {
+                  <tr
+                    class="jb-row border-b border-line last:border-b-0"
+                    [class.jb-row-active]="i === active()"
+                    [attr.tabindex]="i === active() ? 0 : -1"
+                    [attr.aria-selected]="i === active()"
+                    [attr.data-index]="i"
+                    (focus)="active.set(i)"
+                    (keydown)="onKey($event)"
+                    (click)="open(r)"
+                  >
+                    <td class="py-3 pr-2 pl-5">
+                      <jb-match-ring [score]="r.score" size="xs" />
+                    </td>
+                    <td class="min-w-0 py-3 pr-4">
+                      <a
+                        [routerLink]="['/roles', r.id]"
+                        class="font-semibold text-ink no-underline hover:underline"
+                        (click)="$event.stopPropagation()"
+                        >{{ r.title }}</a
+                      >
+                      <div
+                        class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-ink-muted"
+                      >
+                        {{ r.company }}
+                        @if (r.ai_match) {
+                          <span
+                            class="jb-tag jb-tag-ai min-h-5 px-2 text-[0.6875rem]"
+                            >AI</span
+                          >
+                        }
+                        @if (r.salary) {
+                          <span class="text-xs text-ink-muted">{{
+                            r.salary
+                          }}</span>
+                        }
+                      </div>
+                    </td>
+                    <td
+                      class="hidden py-3 pr-4 whitespace-nowrap text-ink-muted lg:table-cell"
+                    >
+                      {{ r.type | typeLabel }}
+                    </td>
+                    <td class="hidden py-3 pr-4 text-ink-muted xl:table-cell">
+                      {{ r.location }}
+                    </td>
+                    <td class="py-3 pr-4 whitespace-nowrap text-ink-muted">
+                      {{ r.found_at | relativeDay }}
+                    </td>
+                    <td class="py-3 pr-5 text-right">
+                      <jb-status-select [role]="r" />
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
       }
     </div>
 
@@ -341,6 +353,17 @@ const DEFAULT_FILTERS: Filters = {
         </button>
       </div>
     </jb-sheet>
+
+    <ng-template #phoneCard let-r>
+      <jb-swipe-row
+        [start]="shortlistAction"
+        [end]="skipAction"
+        (startAction)="mover.move(r, 'shortlist')"
+        (endAction)="mover.move(r, 'skipped')"
+      >
+        <jb-role-card [role]="r" [showReasons]="false" />
+      </jb-swipe-row>
+    </ng-template>
 
     <ng-template #controls let-stacked="stacked">
       <label
@@ -512,6 +535,9 @@ export class Roles {
 
   private readonly confirm = inject(Confirm);
   protected readonly mover = inject(RoleMover);
+  protected readonly viewport = inject(Viewport);
+  /** Phone cards rendered before the user scrolls. */
+  protected readonly firstScreen = 8;
   // Touch shortcuts on phone cards; the status pill on each card does the same.
   readonly shortlistAction: SwipeAction = {
     label: 'To apply',

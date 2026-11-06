@@ -2,11 +2,9 @@ import { DOCUMENT } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-  DestroyRef,
   computed,
   effect,
   inject,
-  signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { SwUpdate, type VersionReadyEvent } from '@angular/service-worker';
@@ -21,6 +19,7 @@ import { filter, map } from 'rxjs';
 import { Auth } from './core/auth';
 import { Shortcuts } from './core/shortcuts';
 import { Theme } from './core/theme';
+import { Viewport } from './core/viewport';
 import { Toast } from './shared/toast';
 import { CommandPalette } from './shell/command-palette';
 import { Logo } from './shell/logo';
@@ -28,7 +27,7 @@ import { MoreSheet, TabBar, TopBar } from './shell/mobile-nav';
 import { SECONDARY_NAV, ShellState } from './shell/shell-state';
 import { Sidebar } from './shell/sidebar';
 import { ThemeSwitch } from './shell/theme-switch';
-import { Button, ConfirmHost, Icon, ToastHost } from './ui';
+import { Button, Confirm, ConfirmHost, Icon, ToastHost } from './ui';
 
 /** Detail pages and where their back chevron goes on phones. */
 const PARENTS: [RegExp, { link: string; label: string }][] = [
@@ -60,6 +59,8 @@ const PARENTS: [RegExp, { link: string; label: string }][] = [
 export class App {
   protected readonly auth = inject(Auth);
   protected readonly shell = inject(ShellState);
+  protected readonly viewport = inject(Viewport);
+  protected readonly confirm = inject(Confirm);
   private readonly router = inject(Router);
   private readonly toast = inject(Toast);
   private readonly doc = inject(DOCUMENT);
@@ -99,10 +100,9 @@ export class App {
     /^\/(login|signup|forgot-password|reset-password)/.test(this.url()),
   );
 
-  private readonly wide = signal(false);
   /** Icon rail below 1280px, or when the user collapsed the sidebar. */
   protected readonly rail = computed(
-    () => !this.wide() || this.shell.sidebarCollapsed(),
+    () => !this.viewport.wide() || this.shell.sidebarCollapsed(),
   );
 
   constructor() {
@@ -110,15 +110,6 @@ export class App {
     inject(Shortcuts).install();
 
     const win = this.doc.defaultView;
-    const mq = win?.matchMedia?.('(min-width: 1280px)');
-    if (mq) {
-      this.wide.set(mq.matches);
-      const onChange = (e: MediaQueryListEvent) => this.wide.set(e.matches);
-      mq.addEventListener('change', onChange);
-      inject(DestroyRef).onDestroy(() =>
-        mq.removeEventListener('change', onChange),
-      );
-    }
 
     // The toast stack sits above the phone tab bar while it is shown.
     effect(() => {

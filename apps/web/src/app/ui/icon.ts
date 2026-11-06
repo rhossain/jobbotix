@@ -1,15 +1,22 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   computed,
+  effect,
   input,
+  viewChild,
 } from '@angular/core';
-import { ICONS, type IconElement, type IconName } from './icons.generated';
+import { ICONS, type IconName } from './icons.generated';
 
 /**
- * A Lucide icon drawn from generated element data (no innerHTML). Decorative
- * by default; give the surrounding control an accessible name instead.
- * Size follows the font size unless `size` is set.
+ * A Lucide icon. Decorative by default; give the surrounding control an
+ * accessible name instead. Size follows the font size unless `size` is set.
+ *
+ * The paths are written straight into the <svg> from the generated, build-time
+ * markup in icons.generated.ts (never user content). That keeps each icon to
+ * one component and no per-path template views, which matters with dozens of
+ * icons on a phone's first screen.
  */
 @Component({
   selector: 'jb-icon',
@@ -22,6 +29,7 @@ import { ICONS, type IconElement, type IconName } from './icons.generated';
   },
   template: `
     <svg
+      #svg
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -31,54 +39,7 @@ import { ICONS, type IconElement, type IconName } from './icons.generated';
       width="100%"
       height="100%"
       focusable="false"
-    >
-      @for (el of elements(); track $index) {
-        @switch (el[0]) {
-          @case ('path') {
-            <path [attr.d]="el[1]['d']" />
-          }
-          @case ('circle') {
-            <circle
-              [attr.cx]="el[1]['cx']"
-              [attr.cy]="el[1]['cy']"
-              [attr.r]="el[1]['r']"
-            />
-          }
-          @case ('rect') {
-            <rect
-              [attr.x]="el[1]['x']"
-              [attr.y]="el[1]['y']"
-              [attr.width]="el[1]['width']"
-              [attr.height]="el[1]['height']"
-              [attr.rx]="el[1]['rx']"
-              [attr.ry]="el[1]['ry']"
-            />
-          }
-          @case ('line') {
-            <line
-              [attr.x1]="el[1]['x1']"
-              [attr.y1]="el[1]['y1']"
-              [attr.x2]="el[1]['x2']"
-              [attr.y2]="el[1]['y2']"
-            />
-          }
-          @case ('polyline') {
-            <polyline [attr.points]="el[1]['points']" />
-          }
-          @case ('polygon') {
-            <polygon [attr.points]="el[1]['points']" />
-          }
-          @case ('ellipse') {
-            <ellipse
-              [attr.cx]="el[1]['cx']"
-              [attr.cy]="el[1]['cy']"
-              [attr.rx]="el[1]['rx']"
-              [attr.ry]="el[1]['ry']"
-            />
-          }
-        }
-      }
-    </svg>
+    ></svg>
   `,
   styles: `
     :host {
@@ -99,11 +60,16 @@ export class Icon {
   readonly size = input<number | null>(null);
   readonly stroke = input(1.75);
 
-  protected readonly elements = computed(
-    () => ICONS[this.name()] as readonly IconElement[],
-  );
+  private readonly svg = viewChild.required<ElementRef<SVGSVGElement>>('svg');
   protected readonly dimension = computed(() => {
     const s = this.size();
     return s ? `${s}px` : null;
   });
+
+  constructor() {
+    effect(() => {
+      // Static markup from the generator (see the class comment).
+      this.svg().nativeElement.innerHTML = ICONS[this.name()];
+    });
+  }
 }

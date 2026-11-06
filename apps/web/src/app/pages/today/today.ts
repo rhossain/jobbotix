@@ -24,7 +24,13 @@ import {
 import { Auth } from '../../core/auth';
 import { RolesRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
-import { daysSince, relativeDay } from '../../shared/format';
+import {
+  clockTime,
+  dayMonth,
+  daysSince,
+  longDate,
+  relativeDay,
+} from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
 import { RoleMover } from '../../shared/role-mover';
 import { copyText } from '../../ui/copy-button';
@@ -216,15 +222,20 @@ interface Reminder {
             In flight
             <span class="jb-count">{{ inFlight().length }}</span>
           </h2>
-          <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
-            @for (role of inFlight(); track role.id) {
-              <jb-role-card
-                [role]="role"
-                [showReasons]="false"
-                [compact]="true"
-              />
-            }
-          </div>
+          <!-- Below the fold on phones: built when it scrolls into view. -->
+          @defer (on viewport; prefetch on idle) {
+            <div class="mt-3 grid grid-cols-1 gap-3 lg:grid-cols-2">
+              @for (role of inFlight(); track role.id) {
+                <jb-role-card
+                  [role]="role"
+                  [showReasons]="false"
+                  [compact]="true"
+                />
+              }
+            </div>
+          } @placeholder {
+            <div class="mt-3 h-32 rounded-card bg-sunken/60"></div>
+          }
         </section>
       }
     </div>
@@ -281,11 +292,7 @@ export class Today {
   }
 
   readonly run = this.repo.lastRun;
-  readonly dateLine = new Date().toLocaleDateString(undefined, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  });
+  readonly dateLine = longDate(new Date());
   readonly greeting = computed(() => {
     const h = new Date().getHours();
     const part = h < 12 ? 'morning' : h < 18 ? 'afternoon' : 'evening';
@@ -297,10 +304,7 @@ export class Today {
     const at = this.run()?.at;
     if (!at) return '';
     const rel = relativeDay(at);
-    const time = new Date(at).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    const time = clockTime(new Date(at));
     if (rel === 'today') return `Today's ${time} run`;
     if (rel === 'yesterday') return `Yesterday's ${time} run`;
     return `The run ${rel}`;
@@ -367,10 +371,7 @@ export class Today {
 
   /** A short, non-pushy follow-up the user can paste into email or LinkedIn. */
   followUp(r: Reminder): string {
-    const applied = new Date(r.role.status_changed_at).toLocaleDateString(
-      'en',
-      { day: 'numeric', month: 'long' },
-    );
+    const applied = dayMonth(new Date(r.role.status_changed_at));
     return (
       `Hi,\n\nI applied for the ${r.role.title} role at ${r.role.company} on ${applied} and wanted to check in: is the position still open, and is there anything you need from me to move forward?\n\n` +
       `Happy to do a short call or a take-home whenever suits your team.\n\nThanks,\n${this.auth.profile()?.name || ''}`

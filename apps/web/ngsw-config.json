@@ -24,7 +24,8 @@
           "/icons/**",
           "/icon.svg",
           "/pdf.worker.min.mjs",
-          "/media/*.woff2"
+          "/media/*.woff2",
+          "/fonts/*.woff2"
         ]
       }
     }

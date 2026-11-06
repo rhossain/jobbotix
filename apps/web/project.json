@@ -4,11 +4,15 @@
   "projectType": "application",
   "prefix": "jb",
   "sourceRoot": "apps/web/src",
-  "tags": ["scope:web"],
+  "tags": [
+    "scope:web"
+  ],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
-      "outputs": ["{options.outputPath}"],
+      "outputs": [
+        "{options.outputPath}"
+      ],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/apps/web",
@@ -27,7 +31,6 @@
           }
         ],
         "styles": [
-          "node_modules/@fontsource-variable/bricolage-grotesque/opsz.css",
           "node_modules/@fontsource/ibm-plex-mono/400.css",
           "node_modules/@fontsource/ibm-plex-mono/500.css",
           "apps/web/src/tailwind.css",
@@ -110,14 +113,18 @@
       "options": {
         "watch": false
       },
-      "dependsOn": ["test-design"]
+      "dependsOn": [
+        "test-design"
+      ]
     },
     "serve-static": {
       "continuous": true,
       "readyWhen": {
         "signal": true
       },
-      "dependsOn": ["build"],
+      "dependsOn": [
+        "build"
+      ],
       "executor": "@nx/web:file-server",
       "options": {
         "buildTarget": "web:build",

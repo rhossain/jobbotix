@@ -240,7 +240,9 @@ export class TabBar {
     afterNextRender(() => {
       const win = doc.defaultView;
       if (!win) return;
-      let last = win.scrollY;
+      // Read scroll position only inside scroll events: reading it right
+      // after the first render forces a synchronous layout.
+      let last = 0;
       const onScroll = () => {
         const y = win.scrollY;
         if (Math.abs(y - last) < 24) return;

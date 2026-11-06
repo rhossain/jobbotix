@@ -7,14 +7,17 @@
 </div>
 } @else if (auth.isSignedIn()) {
 <div class="jb-shell" [attr.data-rail]="rail()">
+  @if (!viewport.phone()) {
   <jb-sidebar
     class="hidden md:block print:hidden"
     [rail]="rail()"
     (signOut)="signOut()"
   />
+  }
   <div class="min-w-0">
+    @if (viewport.phone()) {
     <jb-top-bar [title]="pageTitle()" [back]="back()" [showAdd]="showAdd()" />
-    @if (!shell.online()) {
+    } @if (!shell.online()) {
     <p class="jb-offline print:hidden" role="status">
       <jb-icon name="wifi-off" [size]="16" />
       You're offline. Changes won't save until the connection is back.
@@ -25,14 +28,20 @@
     </main>
   </div>
 </div>
+@if (viewport.phone()) {
 <jb-tab-bar
   class="md:hidden print:hidden"
   [moreActive]="moreActive()"
   (more)="shell.moreOpen.set(true)"
 />
+}
+<!-- Rendered only when first opened, so they cost nothing at start-up; their
+     code is fetched while the browser is idle so opening stays instant. -->
+@defer (when shell.moreOpen(); prefetch on idle) {
 <jb-more-sheet (signOut)="signOut()" />
+} @defer (when shell.paletteOpen(); prefetch on idle) {
 <jb-command-palette />
-} @else {
+} } @else {
 <header class="jb-public-header print:hidden">
   <a
     routerLink="/"
@@ -54,4 +63,6 @@
 }
 
 <jb-toast-host class="print:hidden" />
+@defer (when confirm.pending(); prefetch on idle) {
 <jb-confirm-host />
+}

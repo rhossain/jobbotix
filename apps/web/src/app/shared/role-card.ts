@@ -1,7 +1,13 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  input,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { RoleRow } from '@jobbotix/shared-types';
 import { Icon, MatchRing } from '../ui';
+import { Viewport } from '../core/viewport';
 import { RelativeDayPipe, TypeLabelPipe } from './format';
 import { StatusSelect } from './status-select';
 
@@ -27,17 +33,11 @@ import { StatusSelect } from './status-select';
       class="jb-card jb-card-interactive relative flex gap-3.5 p-4 md:gap-5 md:p-5"
       [class.jb-card-ai]="role().ai_match"
     >
-      <!-- Rings set their own display, so the wrappers carry the breakpoints. -->
-      <span class="md:hidden"
-        ><jb-match-ring [score]="role().score" size="sm"
-      /></span>
-      <span class="hidden md:block">
-        <jb-match-ring
-          [score]="role().score"
-          [size]="compact() ? 'sm' : 'md'"
-          [transitionName]="'ring-' + role().id"
-        />
-      </span>
+      <jb-match-ring
+        [score]="role().score"
+        [size]="viewport.phone() || compact() ? 'sm' : 'md'"
+        [transitionName]="'ring-' + role().id"
+      />
       <div class="min-w-0 flex-1">
         <h3
           class="text-base leading-snug font-semibold text-ink md:text-[1.0625rem]"
@@ -90,6 +90,7 @@ import { StatusSelect } from './status-select';
   `,
 })
 export class RoleCard {
+  protected readonly viewport = inject(Viewport);
   readonly role = input.required<RoleRow>();
   readonly showReasons = input(true);
   /** Fewer details: no tag row, a smaller ring. */

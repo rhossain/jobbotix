@@ -22,6 +22,7 @@ import { RelativeDayPipe, TypeLabelPipe } from '../../shared/format';
 import { StatusSelect } from '../../shared/status-select';
 import { Toast } from '../../shared/toast';
 import { ShellState } from '../../shell/shell-state';
+import { Viewport } from '../../core/viewport';
 import {
   BackLink,
   Button,
@@ -77,16 +78,11 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
           class="flex flex-col gap-5 md:flex-row md:items-start md:justify-between md:gap-8"
         >
           <div class="flex min-w-0 items-start gap-4 md:gap-6">
-            <span class="md:hidden"
-              ><jb-match-ring [score]="r.score" size="md"
-            /></span>
-            <span class="hidden md:block">
-              <jb-match-ring
-                [score]="r.score"
-                size="lg"
-                [transitionName]="'ring-' + r.id"
-              />
-            </span>
+            <jb-match-ring
+              [score]="r.score"
+              [size]="viewport.phone() ? 'md' : 'lg'"
+              [transitionName]="'ring-' + r.id"
+            />
             <div class="min-w-0">
               <h1
                 class="text-[1.625rem] leading-tight font-semibold tracking-tight text-ink md:text-3xl"
@@ -643,6 +639,7 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
   `,
 })
 export class RoleDetail {
+  protected readonly viewport = inject(Viewport);
   protected readonly repo = inject(RolesRepo);
   private readonly toast = inject(Toast);
   private readonly confirm = inject(Confirm);
