@@ -22,7 +22,48 @@ export interface DigestRun {
   searched: number;
   added: number;
   excluded: number;
+  /** Runs summed; 1 when only one run counted. */
+  runs?: number;
 }
+
+/**
+ * Sums the runs of the last 24 hours (Jobbotix matches hourly), falling back
+ * to the latest run on record; digest markers are not runs. Mirrors
+ * summariseRuns in libs/shared-types/src/lib/runs.ts.
+ */
+export function summariseRuns(
+  events: { payload: unknown; created_at: string }[],
+  now = new Date(),
+): DigestRun | null {
+  const runs = events
+    .map((e) => ({
+      p: (e.payload ?? {}) as Record<string, unknown>,
+      created: e.created_at,
+    }))
+    .filter((r) => r.p['digest'] !== true)
+    .map((r) => ({
+      at: String(r.p['at'] ?? r.created),
+      searched: Number(r.p['searched'] ?? 0) || 0,
+      added: Number(r.p['added'] ?? 0) || 0,
+      excluded: Number(r.p['excluded'] ?? 0) || 0,
+    }))
+    .sort((a, b) => b.at.localeCompare(a.at));
+  if (!runs.length) return null;
+  const recent = runs.filter(
+    (r) => now.getTime() - Date.parse(r.at) <= 24 * 3_600_000,
+  );
+  const use = recent.length ? recent : [runs[0]];
+  return {
+    at: use[0].at,
+    searched: use.reduce((n, r) => n + r.searched, 0),
+    added: use.reduce((n, r) => n + r.added, 0),
+    excluded: use.reduce((n, r) => n + r.excluded, 0),
+    runs: use.length,
+  };
+}
+
+const runLabel = (r: DigestRun) =>
+  (r.runs ?? 1) > 1 ? `Last 24 hours (${r.runs} runs)` : 'Last run';
 
 export interface DigestInput {
   name: string;
@@ -95,7 +136,7 @@ export function buildDigest(input: DigestInput): DigestEmail {
   if (input.run) {
     lines.push('');
     lines.push(
-      `Last run: ${input.run.searched} listings reviewed, ${input.run.added} added, ${input.run.excluded} excluded.`,
+      `${runLabel(input.run)}: ${input.run.searched} listings reviewed, ${input.run.added} added, ${input.run.excluded} excluded.`,
     );
   }
   if (input.stale.length) {
@@ -143,7 +184,7 @@ export function buildDigest(input: DigestInput): DigestEmail {
            <p style="font:13px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#5d6771;margin:8px 0 0">${withLetter ? `${withLetter} of these have a cover letter ready in the tracker.` : 'No cover letters were drafted for this batch.'}</p>`
         : `<p style="font:15px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#5d6771;margin:12px 0 0">Nothing new since the last run.</p>`
     }
-    ${input.run ? `<p style="font:13px/1.45 'IBM Plex Mono',Menlo,monospace;color:#5d6771;margin:16px 0 0">Last run: ${input.run.searched} listings reviewed · ${input.run.added} added · ${input.run.excluded} excluded</p>` : ''}
+    ${input.run ? `<p style="font:13px/1.45 'IBM Plex Mono',Menlo,monospace;color:#5d6771;margin:16px 0 0">${runLabel(input.run)}: ${input.run.searched} listings reviewed · ${input.run.added} added · ${input.run.excluded} excluded</p>` : ''}
     ${staleHtml}
     <p style="margin:24px 0 0"><a href="${esc(input.appUrl)}/today" style="display:inline-block;background:#0b5a5a;color:#fff;font:600 14px/1 'IBM Plex Sans',Segoe UI,sans-serif;padding:10px 14px;border-radius:6px;text-decoration:none">Open the tracker</a></p>
     <p style="font:12px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#9aa5ad;margin:24px 0 0">You get this because a daily search runs for your Jobbotix account. Change the time or stop it under Search profile.</p>

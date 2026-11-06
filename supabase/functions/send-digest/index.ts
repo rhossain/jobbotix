@@ -11,6 +11,7 @@ import { json, serviceClient } from '../_shared/auth.ts';
 import {
   buildDigest,
   digestDue,
+  summariseRuns,
   type DigestRole,
   type DigestRun,
 } from '../_shared/digest.ts';
@@ -110,20 +111,10 @@ Deno.serve(async (req) => {
         .eq('user_id', userId)
         .eq('kind', 'run')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .limit(60),
     ]);
 
-    const runPayload = run.data?.payload as Record<string, unknown> | undefined;
-    const digestRun: DigestRun | null =
-      runPayload && !runPayload['digest']
-        ? {
-            at: String(runPayload['at'] ?? run.data?.created_at),
-            searched: Number(runPayload['searched'] ?? 0),
-            added: Number(runPayload['added'] ?? 0),
-            excluded: Number(runPayload['excluded'] ?? 0),
-          }
-        : null;
+    const digestRun: DigestRun | null = summariseRuns(run.data ?? [], now);
 
     const email = buildDigest({
       name: p.name,

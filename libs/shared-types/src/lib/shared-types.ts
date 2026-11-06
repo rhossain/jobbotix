@@ -86,10 +86,13 @@ export interface IngestResult {
   errors: { url: string; message: string }[];
 }
 
-/** Summary of the last run, shown at the top of Today. */
+/** Summary of the recent search runs, shown at the top of Today. */
 export interface RunSummary {
+  /** When the latest run finished. */
   at: string;
   searched: number;
   added: number;
   excluded: number;
+  /** How many runs this sums (Jobbotix matches hourly; a scheduled task once a day). */
+  runs: number;
 }

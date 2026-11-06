@@ -1,7 +1,8 @@
-import { deepStrictEqual as assertEquals } from 'node:assert';
+import { deepStrictEqual as assertEquals, ok as assert } from 'node:assert';
 import {
   buildDigest,
   digestDue,
+  summariseRuns,
   isDigestHour,
   isoWeekday,
   type DigestRole,
@@ -106,5 +107,39 @@ Deno.test('digestDue honours weekdays and the off switch', () => {
       now,
     ),
     false,
+  );
+});
+
+Deno.test('summariseRuns sums the last day and labels the digest line', () => {
+  const now = new Date('2026-11-07T06:00:00Z');
+  const ev = (at: string, p: Record<string, unknown>) => ({
+    payload: { at, ...p },
+    created_at: at,
+  });
+  const r = summariseRuns(
+    [
+      ev('2026-11-07T05:50:00Z', { searched: 40, added: 2, excluded: 3 }),
+      ev('2026-11-06T23:50:00Z', { searched: 130, added: 1, excluded: 1 }),
+      ev('2026-11-07T00:05:00Z', { digest: true, roles: 3 }),
+    ],
+    now,
+  )!;
+  assertEquals([r.searched, r.added, r.excluded, r.runs], [170, 3, 4, 2]);
+  const email = buildDigest({
+    name: 'Sazzad',
+    appUrl: 'https://app.jobbotix.com',
+    now,
+    run: r,
+    newRoles: [],
+    stale: [],
+  });
+  assert(
+    email.text.includes(
+      'Last 24 hours (2 runs): 170 listings reviewed, 3 added, 4 excluded.',
+    ),
+  );
+  assertEquals(
+    summariseRuns([ev('2026-11-07T00:05:00Z', { digest: true })], now),
+    null,
   );
 });

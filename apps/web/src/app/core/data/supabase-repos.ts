@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { summariseRuns } from '@jobbotix/shared-types';
 import type {
   MarketSignals,
   PrepSheet,
@@ -73,8 +74,7 @@ export class SupabaseRolesRepo extends RolesRepo {
         .select('*')
         .eq('kind', 'run')
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .limit(60),
       this.supabase
         .from('role_events')
         .select('*')
@@ -84,15 +84,7 @@ export class SupabaseRolesRepo extends RolesRepo {
     ]);
     this._roles.set(roles.data ?? []);
     this._reminders.set(reminders.data ?? []);
-    if (run.data) {
-      const p = run.data.payload as Record<string, number | string>;
-      this._lastRun.set({
-        at: String(p['at'] ?? run.data.created_at),
-        searched: Number(p['searched'] ?? 0),
-        added: Number(p['added'] ?? 0),
-        excluded: Number(p['excluded'] ?? 0),
-      });
-    }
+    this._lastRun.set(summariseRuns(run.data ?? []));
     this.loaded.set(true);
   }
 

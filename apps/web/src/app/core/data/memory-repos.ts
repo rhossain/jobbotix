@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   type MarketSignals,
+  summariseRuns,
   localAnswer,
   localPrep,
   normalisePrep,
@@ -175,19 +176,9 @@ export class MemoryRolesRepo extends RolesRepo {
     ),
   );
   readonly loaded = signal(true);
-  readonly lastRun = computed<RunSummary | null>(() => {
-    const run = this.state()
-      .events.filter((e) => e.kind === 'run')
-      .sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-    if (!run) return null;
-    const p = run.payload as Record<string, number | string>;
-    return {
-      at: String(p['at'] ?? run.created_at),
-      searched: Number(p['searched'] ?? 0),
-      added: Number(p['added'] ?? 0),
-      excluded: Number(p['excluded'] ?? 0),
-    };
-  });
+  readonly lastRun = computed<RunSummary | null>(() =>
+    summariseRuns(this.state().events.filter((e) => e.kind === 'run')),
+  );
   readonly reminders = computed(() =>
     this.state().events.filter((e) => e.kind === 'reminder'),
   );

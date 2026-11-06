@@ -70,8 +70,8 @@ interface Reminder {
           <b class="font-semibold text-ink">{{ r.added }}</b>
           worth a look; {{ r.excluded }} were excluded.
         } @else {
-          No search run has reported yet. Your scheduled task posts here after
-          its first run.
+          Nothing has been searched yet. Jobbotix checks job boards several
+          times a day; new roles appear here within the hour.
         }
       </p>
       <div actions class="hidden gap-2 md:flex">
@@ -299,10 +299,12 @@ export class Today {
     const first = (this.auth.profile()?.name ?? '').split(/\s+/)[0];
     return first ? `Good ${part}, ${first}` : `Good ${part}`;
   });
-  /** "Today's 06:45 run", "Yesterday's 06:45 run", "The run 3 days ago". */
+  /** "In the last 24 hours, 6 runs", "Today's 06:45 run", "The run 3 days ago". */
   readonly runPhrase = computed(() => {
-    const at = this.run()?.at;
+    const r = this.run();
+    const at = r?.at;
     if (!at) return '';
+    if (r.runs > 1) return `In the last 24 hours, ${r.runs} runs`;
     const rel = relativeDay(at);
     const time = clockTime(new Date(at));
     if (rel === 'today') return `Today's ${time} run`;

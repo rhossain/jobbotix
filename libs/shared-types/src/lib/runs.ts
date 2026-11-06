@@ -1,0 +1,50 @@
+import type { Json } from './database.types';
+import type { RunSummary } from './shared-types';
+
+/** The fields of a role_events row this reads. */
+export interface RunEventLike {
+  payload: Json;
+  created_at: string;
+}
+
+const WINDOW_MS = 24 * 3_600_000;
+
+/**
+ * Sums the search runs of the last 24 hours. Jobbotix's own matcher reports
+ * a run every hour that new postings arrive, so the latest single run would
+ * undersell the day; a user's scheduled task reports once a day, and with no
+ * run in the window the latest run on record is returned on its own. Digest
+ * markers (payload.digest) are not runs and are ignored. Supabase's digest
+ * keeps a copy of this in supabase/functions/_shared/digest.ts.
+ */
+export function summariseRuns(
+  events: RunEventLike[],
+  now = new Date(),
+): RunSummary | null {
+  const runs = events
+    .map((e) => ({
+      p: (e.payload ?? {}) as Record<string, unknown>,
+      created: e.created_at,
+    }))
+    .filter((r) => r.p['digest'] !== true)
+    .map((r) => ({
+      at: String(r.p['at'] ?? r.created),
+      searched: Number(r.p['searched'] ?? 0) || 0,
+      added: Number(r.p['added'] ?? 0) || 0,
+      excluded: Number(r.p['excluded'] ?? 0) || 0,
+    }))
+    .sort((a, b) => b.at.localeCompare(a.at));
+  if (!runs.length) return null;
+
+  const recent = runs.filter(
+    (r) => now.getTime() - Date.parse(r.at) <= WINDOW_MS,
+  );
+  const use = recent.length ? recent : [runs[0]];
+  return {
+    at: use[0].at,
+    searched: use.reduce((n, r) => n + r.searched, 0),
+    added: use.reduce((n, r) => n + r.added, 0),
+    excluded: use.reduce((n, r) => n + r.excluded, 0),
+    runs: use.length,
+  };
+}
