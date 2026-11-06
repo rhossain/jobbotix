@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
     catalog,
     admin
       .from('search_profiles')
-      .select('target_roles, stacks')
+      .select('target_roles, stacks, home_country, allowed_countries')
       .eq('active', true),
     admin.from('settings').select('value').eq('key', 'sourcing').maybeSingle(),
   ]);
@@ -65,6 +65,15 @@ Deno.serve(async (req) => {
   );
   if (!queries.length)
     return json(200, { queries, runs: [], note: 'No active search profiles' });
+
+  // Countries users can work in, most common first, for country-scoped sources.
+  const tally = new Map<string, number>();
+  for (const p of profiles ?? [])
+    for (const c of [p.home_country, ...(p.allowed_countries ?? [])])
+      if (typeof c === 'string' && c) tally.set(c, (tally.get(c) ?? 0) + 1);
+  const countries = [...tally.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([c]) => c);
 
   const lookbackDays =
     Number(
@@ -98,6 +107,8 @@ Deno.serve(async (req) => {
         maxRequests: s.max_requests_per_run,
         fetch: globalThis.fetch.bind(globalThis),
         sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
+        countries,
+        secret: (name) => Deno.env.get(name),
       });
       run.requests = result.requests;
       run.warnings = result.warnings.slice(0, 10);

@@ -427,6 +427,9 @@ do $$ begin
   if (select count(*) from public.source_catalog where enabled) < 8 then
     raise exception 'FAIL: phase 2 sources missing from the catalog';
   end if;
+  if exists (select 1 from public.source_catalog where id in ('adzuna', 'jooble', 'reed') and enabled) then
+    raise exception 'FAIL: keyed sources must start disabled';
+  end if;
   if (select max_requests_per_run from public.source_catalog where id = 'remotive') <> 1 then
     raise exception 'FAIL: Remotive budget is not one request a run';
   end if;

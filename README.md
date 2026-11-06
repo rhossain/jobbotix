@@ -70,7 +70,7 @@ release (CI runs lint, tests, the database tests and the Deno checks).
    live in `apps/web/src/environments/environment.production.ts` (committed:
    the anon key is public by design). The service-role key never goes anywhere near the app.
 2. `npx supabase login`, `npx supabase link --project-ref <ref>`, then
-   `npx supabase db push` (migrations 0001–0018, with RLS, cron jobs and RPCs).
+   `npx supabase db push` (migrations 0001–0019, with RLS, cron jobs and RPCs).
 3. Enable the `pg_cron`, `pg_net` and `vault` extensions in Database →
    Extensions if `db push` did not.
 4. Deploy the functions: `npx supabase functions deploy` (all of

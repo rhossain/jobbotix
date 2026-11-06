@@ -50,6 +50,13 @@ export interface AdapterContext {
   fetch: typeof fetch;
   /** Pause between requests; a no-op in tests. */
   sleep: (ms: number) => Promise<void>;
+  /**
+   * Countries users live in or can work for (ISO codes, most users first),
+   * for country-scoped sources. Empty when no profile has set one.
+   */
+  countries?: string[];
+  /** Function secrets an adapter may need (API keys); injected for tests. */
+  secret?: (name: string) => string | undefined;
 }
 
 export interface AdapterResult {

@@ -5,8 +5,14 @@
 
 import { USER_AGENT, type AdapterContext } from './types.ts';
 
+export interface RequestOptions {
+  method?: 'GET' | 'POST';
+  headers?: Record<string, string>;
+  body?: unknown;
+}
+
 export interface Fetcher {
-  json(url: string): Promise<unknown | null>;
+  json(url: string, opts?: RequestOptions): Promise<unknown | null>;
   text(url: string): Promise<string | null>;
   readonly requests: number;
   readonly warnings: string[];
@@ -20,37 +26,50 @@ export function fetcher(ctx: AdapterContext, delayMs = 500): Fetcher {
   let failures = 0;
   const warnings: string[] = [];
 
-  const get = async (url: string, accept: string): Promise<Response | null> => {
+  const get = async (
+    url: string,
+    accept: string,
+    opts: RequestOptions = {},
+  ): Promise<Response | null> => {
     if (requests >= ctx.maxRequests) return null;
     if (requests > 0) await ctx.sleep(delayMs);
     requests++;
     try {
       const res = await ctx.fetch(url, {
-        headers: { 'user-agent': USER_AGENT, accept },
+        method: opts.method ?? 'GET',
+        headers: {
+          'user-agent': USER_AGENT,
+          accept,
+          ...(opts.body !== undefined
+            ? { 'content-type': 'application/json' }
+            : {}),
+          ...(opts.headers ?? {}),
+        },
+        body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
         signal: AbortSignal.timeout(25_000),
       });
       if (!res.ok) {
         failures++;
-        warnings.push(`${res.status} from ${url}`);
+        warnings.push(`${res.status} from ${redact(url)}`);
         return null;
       }
       return res;
     } catch (e) {
       failures++;
-      warnings.push(`${(e as Error).message} for ${url}`);
+      warnings.push(`${(e as Error).message} for ${redact(url)}`);
       return null;
     }
   };
 
   return {
-    async json(url) {
-      const res = await get(url, 'application/json');
+    async json(url, opts) {
+      const res = await get(url, 'application/json', opts);
       if (!res) return null;
       try {
         return await res.json();
       } catch {
         failures++;
-        warnings.push(`Not JSON: ${url}`);
+        warnings.push(`Not JSON: ${redact(url)}`);
         return null;
       }
     },
@@ -77,6 +96,16 @@ export function fetcher(ctx: AdapterContext, delayMs = 500): Fetcher {
         );
     },
   };
+}
+
+/** URLs go into run logs: keys in a query string or a keyed path never do. */
+export function redact(url: string): string {
+  return url
+    .replace(
+      /([?&](?:app_id|app_key|api_key|apikey|key|token)=)[^&]*/gi,
+      '$1***',
+    )
+    .replace(/(jooble\.org\/api\/)[^/?#]+/i, '$1***');
 }
 
 /** Keeps drafts newer than ctx.since (undated ones too) and drops repeats by external id. */
