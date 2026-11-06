@@ -13,6 +13,7 @@
 import { json, resolveIngestKey, serviceClient } from '../_shared/auth.ts';
 import {
   normaliseRole,
+  roleRow,
   type IngestPayload,
   type IngestResult,
 } from '../_shared/ingest.ts';
@@ -94,7 +95,7 @@ Deno.serve(async (req) => {
 
     const { data: inserted, error } = await admin
       .from('roles')
-      .insert({ ...role, user_id: userId, found_at: runAt })
+      .insert({ ...roleRow(role), user_id: userId, found_at: runAt })
       .select('id')
       .single();
     if (error || !inserted) {

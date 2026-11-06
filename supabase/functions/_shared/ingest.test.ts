@@ -1,5 +1,5 @@
 import { deepStrictEqual as assertEquals } from 'node:assert';
-import { fnv1a, normaliseRole } from './ingest.ts';
+import { fnv1a, normaliseRole, roleRow } from './ingest.ts';
 
 Deno.test('normaliseRole maps the tracker document shape', () => {
   const r = normaliseRole({
@@ -75,3 +75,43 @@ Deno.test('fnv1a is stable', () => {
   assertEquals(fnv1a('hello'), fnv1a('hello'));
   assertEquals(fnv1a('hello') === fnv1a('hellp'), false);
 });
+
+Deno.test(
+  'roleRow holds only roles columns (qa goes to screening_answers)',
+  () => {
+    const role = normaliseRole({
+      company: 'X',
+      title: 'Y',
+      url: 'https://x',
+      score: 50,
+      qa: [{ q: 'Why?', a: 'Because' }],
+    });
+    const row = roleRow(role!);
+    assertEquals('qa' in row, false);
+    // Every key must be a column of public.roles (schema migration).
+    const columns = new Set([
+      'company',
+      'title',
+      'url',
+      'source',
+      'location',
+      'remote_scope',
+      'type',
+      'salary',
+      'posted_at',
+      'stack',
+      'score',
+      'score_breakdown',
+      'reasons',
+      'gaps',
+      'ai_match',
+      'cover_letter',
+      'posting_text',
+      'posting_hash',
+    ]);
+    assertEquals(
+      Object.keys(row).filter((k) => !columns.has(k)),
+      [],
+    );
+  },
+);

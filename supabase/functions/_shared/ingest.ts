@@ -48,7 +48,10 @@ export interface IngestResult {
   errors: { url: string; message: string }[];
 }
 
-/** A roles row ready for insert (user_id and found_at added by the caller). */
+/**
+ * A cleaned-up role. Everything but `qa` maps to a roles column (see
+ * roleRow); `qa` goes to screening_answers.
+ */
 export interface NormalisedRole {
   company: string;
   title: string;
@@ -145,6 +148,15 @@ export function normaliseRole(
     posting_hash: posting_text ? fnv1a(posting_text) : '',
     qa,
   };
+}
+
+/**
+ * The roles row for an insert (the caller adds user_id and found_at). `qa`
+ * is not a roles column: sending it makes PostgREST reject the whole insert.
+ */
+export function roleRow(role: NormalisedRole): Omit<NormalisedRole, 'qa'> {
+  const { qa: _qa, ...row } = role;
+  return row;
 }
 
 /** Small stable hash for change detection on posting text (not security). */
