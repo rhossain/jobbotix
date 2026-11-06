@@ -4,21 +4,30 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   Button,
   CopyButton,
   EmptyState,
   Icon,
   PageHeader,
+  PullRefresh,
   Skeleton,
+  SwipeRow,
+  type SwipeAction,
 } from '../../ui';
-import type { RoleEventRow, RoleRow } from '@jobbotix/shared-types';
+import {
+  type RoleEventRow,
+  type RoleRow,
+  type RoleStatus,
+} from '@jobbotix/shared-types';
 import { Auth } from '../../core/auth';
 import { RolesRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
 import { daysSince, relativeDay } from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
+import { RoleMover } from '../../shared/role-mover';
+import { copyText } from '../../ui/copy-button';
 
 interface Reminder {
   event: RoleEventRow;
@@ -36,12 +45,15 @@ interface Reminder {
     EmptyState,
     Icon,
     PageHeader,
+    PullRefresh,
     RoleCard,
     RouterLink,
     Skeleton,
+    SwipeRow,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <jb-pull-refresh [action]="refresh" />
     <jb-page-header [title]="greeting()">
       <p eyebrow class="mb-1.5 text-sm font-medium text-brand-ink">
         {{ dateLine }}
@@ -76,62 +88,71 @@ interface Reminder {
           </h2>
           <ul class="mt-3 flex flex-col gap-2.5">
             @for (r of reminders(); track r.event.id) {
-              <li
-                class="jb-card flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-5 md:px-5"
-              >
-                <div
-                  class="flex min-w-0 flex-1 items-start gap-3 md:items-center md:gap-4"
+              <li>
+                <jb-swipe-row
+                  [start]="r.kind === 'follow_up' ? copyAction : openAction"
+                  [end]="dismissAction"
+                  (startAction)="swipeStart(r)"
+                  (endAction)="dismiss(r.event.id)"
                 >
-                  <span
-                    class="grid size-10 shrink-0 place-items-center rounded-full bg-signal-tint text-signal-ink"
-                    aria-hidden="true"
+                  <div
+                    class="jb-card flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-5 md:px-5"
                   >
-                    <jb-icon
-                      [name]="r.kind === 'follow_up' ? 'send' : 'clock'"
-                      [size]="19"
-                    />
-                  </span>
-                  <p class="min-w-0 flex-1 text-sm text-ink-muted">
-                    <a
-                      [routerLink]="['/roles', r.role.id]"
-                      class="font-semibold text-ink no-underline hover:underline"
-                      >{{ r.role.title }}</a
+                    <div
+                      class="flex min-w-0 flex-1 items-start gap-3 md:items-center md:gap-4"
                     >
-                    at {{ r.role.company }}
-                    @if (r.kind === 'follow_up') {
-                      : applied {{ r.days }} days ago with no reply. A short
-                      follow-up now is normal; after 14 days, move on.
-                    } @else {
-                      has waited in To apply for {{ r.days }} days.
-                    }
-                  </p>
-                </div>
-                <div class="flex gap-2 md:shrink-0">
-                  @if (r.kind === 'follow_up') {
-                    <jb-copy-button
-                      class="flex-1 md:flex-none"
-                      variant="primary"
-                      label="Copy follow-up"
-                      confirm="Follow-up copied"
-                      [text]="followUp(r)"
-                    />
-                  } @else {
-                    <a
-                      jbButton="primary"
-                      class="flex-1 md:flex-none"
-                      [routerLink]="['/roles', r.role.id]"
-                      >Apply now</a
-                    >
-                  }
-                  <button
-                    type="button"
-                    jbButton
-                    class="flex-1 md:flex-none"
-                    (click)="dismiss(r.event.id)"
-                  >
-                    Dismiss
-                  </button>
-                </div>
+                      <span
+                        class="grid size-10 shrink-0 place-items-center rounded-full bg-signal-tint text-signal-ink"
+                        aria-hidden="true"
+                      >
+                        <jb-icon
+                          [name]="r.kind === 'follow_up' ? 'send' : 'clock'"
+                          [size]="19"
+                        />
+                      </span>
+                      <p class="min-w-0 flex-1 text-sm text-ink-muted">
+                        <a
+                          [routerLink]="['/roles', r.role.id]"
+                          class="font-semibold text-ink no-underline hover:underline"
+                          >{{ r.role.title }}</a
+                        >
+                        at {{ r.role.company }}
+                        @if (r.kind === 'follow_up') {
+                          : applied {{ r.days }} days ago with no reply. A short
+                          follow-up now is normal; after 14 days, move on.
+                        } @else {
+                          has waited in To apply for {{ r.days }} days.
+                        }
+                      </p>
+                    </div>
+                    <div class="flex gap-2 md:shrink-0">
+                      @if (r.kind === 'follow_up') {
+                        <jb-copy-button
+                          class="flex-1 md:flex-none"
+                          variant="primary"
+                          label="Copy follow-up"
+                          confirm="Follow-up copied"
+                          [text]="followUp(r)"
+                        />
+                      } @else {
+                        <a
+                          jbButton="primary"
+                          class="flex-1 md:flex-none"
+                          [routerLink]="['/roles', r.role.id]"
+                          >Apply now</a
+                        >
+                      }
+                      <button
+                        type="button"
+                        jbButton
+                        class="flex-1 md:flex-none"
+                        (click)="dismiss(r.event.id)"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                </jb-swipe-row>
               </li>
             }
           </ul>
@@ -172,7 +193,14 @@ interface Reminder {
           } @else {
             <div class="flex flex-col gap-3">
               @for (role of fresh(); track role.id) {
-                <jb-role-card [role]="role" />
+                <jb-swipe-row
+                  [start]="shortlistAction"
+                  [end]="skipAction"
+                  (startAction)="move(role, 'shortlist')"
+                  (endAction)="move(role, 'skipped')"
+                >
+                  <jb-role-card [role]="role" />
+                </jb-swipe-row>
               }
             </div>
           }
@@ -206,6 +234,51 @@ export class Today {
   protected readonly repo = inject(RolesRepo);
   private readonly auth = inject(Auth);
   private readonly toast = inject(Toast);
+  private readonly router = inject(Router);
+  private readonly mover = inject(RoleMover);
+
+  // Touch shortcuts; the buttons on each row do the same.
+  readonly copyAction: SwipeAction = {
+    label: 'Copy follow-up',
+    icon: 'copy',
+    tone: 'brand',
+  };
+  readonly openAction: SwipeAction = {
+    label: 'Open',
+    icon: 'arrow-up-right',
+    tone: 'brand',
+  };
+  readonly dismissAction: SwipeAction = {
+    label: 'Dismiss',
+    icon: 'x',
+    tone: 'muted',
+  };
+  readonly shortlistAction: SwipeAction = {
+    label: 'To apply',
+    icon: 'bookmark',
+    tone: 'brand',
+  };
+  readonly skipAction: SwipeAction = {
+    label: 'Skip',
+    icon: 'x',
+    tone: 'muted',
+  };
+
+  readonly refresh = () => this.repo.load();
+
+  async swipeStart(r: Reminder) {
+    if (r.kind !== 'follow_up') {
+      await this.router.navigate(['/roles', r.role.id]);
+      return;
+    }
+    if (await copyText(this.followUp(r)))
+      this.toast.success('Follow-up copied');
+    else this.toast.error('Could not reach the clipboard; use the Copy button');
+  }
+
+  move(role: RoleRow, to: RoleStatus) {
+    return this.mover.move(role, to);
+  }
 
   readonly run = this.repo.lastRun;
   readonly dateLine = new Date().toLocaleDateString(undefined, {

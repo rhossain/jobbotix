@@ -20,6 +20,7 @@ import {
 import { RolesRepo, SavedViewsRepo } from '../../core/data/repos';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
+import { RoleMover } from '../../shared/role-mover';
 import { Toast } from '../../shared/toast';
 import {
   Button,
@@ -28,8 +29,11 @@ import {
   Icon,
   MatchRing,
   PageHeader,
+  PullRefresh,
   Sheet,
   Skeleton,
+  SwipeRow,
+  type SwipeAction,
 } from '../../ui';
 import { StatusSelect } from '../../shared/status-select';
 
@@ -65,16 +69,19 @@ const DEFAULT_FILTERS: Filters = {
     MatchRing,
     NgTemplateOutlet,
     PageHeader,
+    PullRefresh,
     RelativeDayPipe,
     RoleCard,
     RouterLink,
     Sheet,
     Skeleton,
     StatusSelect,
+    SwipeRow,
     TypeLabelPipe,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
+    <jb-pull-refresh [action]="refresh" />
     <jb-page-header title="Roles">
       <p lead class="mt-2 text-ink-muted">
         {{ rows().length }} of {{ repo.roles().length }} roles<span
@@ -228,7 +235,14 @@ const DEFAULT_FILTERS: Filters = {
         <!-- Phones: cards -->
         <div class="flex flex-col gap-3 md:hidden">
           @for (r of rows(); track r.id) {
-            <jb-role-card [role]="r" [showReasons]="false" />
+            <jb-swipe-row
+              [start]="shortlistAction"
+              [end]="skipAction"
+              (startAction)="mover.move(r, 'shortlist')"
+              (endAction)="mover.move(r, 'skipped')"
+            >
+              <jb-role-card [role]="r" [showReasons]="false" />
+            </jb-swipe-row>
           }
         </div>
 
@@ -497,6 +511,19 @@ export class Roles {
   readonly typeLabels = EMPLOYMENT_TYPE_LABELS;
 
   private readonly confirm = inject(Confirm);
+  protected readonly mover = inject(RoleMover);
+  // Touch shortcuts on phone cards; the status pill on each card does the same.
+  readonly shortlistAction: SwipeAction = {
+    label: 'To apply',
+    icon: 'bookmark',
+    tone: 'brand',
+  };
+  readonly skipAction: SwipeAction = {
+    label: 'Skip',
+    icon: 'x',
+    tone: 'muted',
+  };
+  readonly refresh = () => this.repo.load();
   private readonly toast = inject(Toast);
   readonly filters = signal<Filters>({ ...DEFAULT_FILTERS });
   readonly filtersOpen = signal(false);

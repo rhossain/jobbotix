@@ -20,6 +20,7 @@ import {
   Sheet,
   Skeleton,
   Stat,
+  SwipeRow,
   Tabs,
   type TabItem,
 } from '../../ui';
@@ -44,6 +45,7 @@ import {
     Sheet,
     Skeleton,
     Stat,
+    SwipeRow,
     Tabs,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -204,6 +206,22 @@ import {
           <jb-bar-row label="Interview" [value]="2" [max]="18" tone="signal" />
           <jb-bar-row label="Offer" [value]="1" [max]="18" tone="good" />
         </div>
+      </section>
+
+      <section class="flex flex-col gap-4">
+        <h2 class="jb-section-title">Swipe row (touch only)</h2>
+        <jb-swipe-row
+          class="max-w-xl"
+          [start]="{ label: 'To apply', icon: 'bookmark', tone: 'brand' }"
+          [end]="{ label: 'Skip', icon: 'x', tone: 'muted' }"
+          (startAction)="toast.show('Swiped right')"
+          (endAction)="toast.show('Swiped left')"
+        >
+          <div class="jb-card p-4 text-sm text-ink-muted">
+            On a phone, swipe this card left or right. Mouse and keyboard users
+            get the same actions from buttons on real rows.
+          </div>
+        </jb-swipe-row>
       </section>
 
       <section class="flex flex-col gap-4">
