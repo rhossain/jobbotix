@@ -261,3 +261,25 @@ Deno.test('model scoring prompt and reply parsing', () => {
   assertEquals(parseScoreReply('{"score": "high"}'), null);
   assertEquals(parseScoreReply('no json'), null);
 });
+
+Deno.test('secondary stacks count in the title, not in the tags', () => {
+  // Remote OK / WWR tag lots of non-frontend jobs "typescript"
+  assertEquals(
+    m({
+      title: 'Software Engineer Interviewer',
+      tags: ['TypeScript', 'Python'],
+    }).kind,
+    'irrelevant',
+  );
+  assertEquals(
+    m({ title: 'Senior TypeScript Engineer', tags: [] }).kind,
+    'match',
+  );
+  assertEquals(
+    m(
+      { title: 'Software Engineer', tags: ['React'] },
+      { stacks: ['Angular', 'React'] },
+    ).kind,
+    'match',
+  );
+});

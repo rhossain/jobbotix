@@ -111,13 +111,35 @@ export function relevance(p: MatchProfile, post: MatchPosting): string | null {
     const kw = roleKeywords(role);
     if (kw.length && kw.every((k) => word(k).test(title))) return role;
   }
-  for (const s of p.stacks) {
+  // Any stack in the title counts; in the tags only the primary stack or a
+  // frontend framework does: "TypeScript" or "Node" tags sit on countless
+  // backend, data and interviewer jobs.
+  for (const [i, s] of p.stacks.entries()) {
     const t = stackTerm(s);
     if (!t) continue;
-    if (word(t).test(title) || word(t).test(tags)) return s;
+    if (word(t).test(title)) return s;
+    if ((i === 0 || FRAMEWORKS.has(t)) && word(t).test(tags)) return s;
   }
   return null;
 }
+
+const FRAMEWORKS = new Set([
+  'angular',
+  'angularjs',
+  'react',
+  'vue',
+  'svelte',
+  'next',
+  'nextjs',
+  'nuxt',
+  'solid',
+  'solidjs',
+  'ember',
+  'preact',
+  'qwik',
+  'remix',
+  'astro',
+]);
 
 export function matchPosting(
   p: MatchProfile,
