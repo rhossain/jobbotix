@@ -21,6 +21,7 @@ import { ShareButton } from '../../shared/share-button';
 import { RelativeDayPipe, TypeLabelPipe } from '../../shared/format';
 import { StatusSelect } from '../../shared/status-select';
 import { Toast } from '../../shared/toast';
+import { ShellState } from '../../shell/shell-state';
 import {
   BackLink,
   Button,
@@ -689,6 +690,12 @@ export class RoleDetail {
   private noteTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
+    inject(ShellState).usePageAction({
+      label: 'Open posting',
+      icon: 'arrow-up-right',
+      run: () => undefined,
+      href: () => this.role()?.url ?? null,
+    });
     void this.repo.load();
     effect(() => {
       const id = this.id();

@@ -23,7 +23,7 @@ import { ThemeSwitch } from './theme-switch';
  */
 @Component({
   selector: 'jb-top-bar',
-  imports: [Icon, Logo, RouterLink],
+  imports: [Button, Icon, Logo, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'jb-top-bar block md:hidden print:hidden' },
   template: `
@@ -50,7 +50,41 @@ import { ThemeSwitch } from './theme-switch';
       >
         {{ title() }}
       </p>
-      @if (showAdd()) {
+      @if (shell.pageAction(); as a) {
+        @if (a.href) {
+          <a
+            class="grid size-11 place-items-center rounded-full text-ink no-underline active:bg-sunken"
+            target="_blank"
+            rel="noopener"
+            [href]="a.href()"
+            [attr.aria-label]="a.label"
+          >
+            <jb-icon [name]="a.icon" [size]="21" />
+          </a>
+        } @else if (a.text) {
+          <button
+            type="button"
+            jbButton="primary"
+            size="sm"
+            class="mx-1"
+            [busy]="a.busy?.() ?? false"
+            [disabled]="(a.disabled?.() ?? false) || (a.busy?.() ?? false)"
+            (click)="a.run()"
+          >
+            {{ a.label }}
+          </button>
+        } @else {
+          <button
+            type="button"
+            class="grid size-11 place-items-center rounded-full text-ink active:bg-sunken disabled:opacity-40"
+            [attr.aria-label]="a.label"
+            [disabled]="a.disabled?.() ?? false"
+            (click)="a.run()"
+          >
+            <jb-icon [name]="a.icon" [size]="21" />
+          </button>
+        }
+      } @else if (showAdd()) {
         <a
           routerLink="/roles/new"
           class="grid size-11 place-items-center rounded-full text-ink no-underline active:bg-sunken"

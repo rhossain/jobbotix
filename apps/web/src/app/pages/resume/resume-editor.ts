@@ -23,6 +23,7 @@ import { ResumePreview } from '../../shared/resume-preview';
 import { ResumeImportPanel } from './resume-import';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
+import { ShellState } from '../../shell/shell-state';
 import {
   Button,
   Confirm,
@@ -637,23 +638,6 @@ const csv = (s: string) =>
       <p class="text-xs text-ink-muted">
         Tailored variants on each role start from whatever is saved here.
       </p>
-
-      @if (dirty()) {
-        <div class="md:hidden">
-          <div class="jb-savebar" role="status">
-            <span class="text-sm font-medium text-ink">Unsaved changes</span>
-            <button
-              type="button"
-              jbButton="primary"
-              [busy]="saving()"
-              [disabled]="saving()"
-              (click)="save()"
-            >
-              Save version
-            </button>
-          </div>
-        </div>
-      }
     </section>
 
     <!-- Print: only the page -->
@@ -681,24 +665,6 @@ const csv = (s: string) =>
     }
     .jb-legend + * {
       clear: both;
-    }
-    .jb-savebar {
-      position: fixed;
-      left: var(--gutter);
-      right: var(--gutter);
-      bottom: calc(
-        var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 0.75rem
-      );
-      z-index: 25;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 1rem;
-      padding: 0.6rem 0.6rem 0.6rem 1rem;
-      border: 1px solid var(--line);
-      border-radius: var(--r-card);
-      background: var(--surface-raised);
-      box-shadow: var(--elev-overlay);
     }
     .jb-field {
       display: flex;
@@ -739,6 +705,15 @@ export class ResumeEditor {
   readonly csv = csv;
 
   constructor() {
+    // Phones: Save sits in the top bar; desktop uses the header button.
+    inject(ShellState).usePageAction({
+      label: 'Save',
+      icon: 'check',
+      text: true,
+      run: () => this.save(),
+      disabled: () => !this.dirty(),
+      busy: () => this.saving(),
+    });
     void this.repo.load();
     effect(() => {
       const m = this.repo.master();

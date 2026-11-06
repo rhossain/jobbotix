@@ -32,6 +32,23 @@ export const SECONDARY_NAV: NavItem[] = [
   { label: 'Settings', link: '/settings', icon: 'settings' },
 ];
 
+/**
+ * A page's main action, shown in the phone top bar (desktop shows the page's
+ * own button). Text actions render as a small primary button ("Save"),
+ * others as an icon button with the label as its name.
+ */
+export interface PageAction {
+  label: string;
+  icon: IconName;
+  run: () => unknown;
+  /** Show the label as a small primary button instead of an icon. */
+  text?: boolean;
+  disabled?: () => boolean;
+  busy?: () => boolean;
+  /** A link instead of a button (opens in a new tab). */
+  href?: () => string | null;
+}
+
 const COLLAPSE_KEY = 'jb-sidebar-collapsed';
 
 /** UI state the shell, the shortcuts and the pages share. */
@@ -43,6 +60,8 @@ export class ShellState {
   /** 'help' opens the palette on the keyboard-shortcut list. */
   readonly paletteMode = signal<'commands' | 'help'>('commands');
   readonly moreOpen = signal(false);
+  /** Set by the page on screen; cleared when it is destroyed. */
+  readonly pageAction = signal<PageAction | null>(null);
   readonly sidebarCollapsed = signal(readCollapsed());
   readonly online = signal(
     typeof navigator === 'undefined' ? true : navigator.onLine,
@@ -64,6 +83,17 @@ export class ShellState {
   openPalette(mode: 'commands' | 'help' = 'commands') {
     this.paletteMode.set(mode);
     this.paletteOpen.set(true);
+  }
+
+  /**
+   * Shows `action` in the phone top bar while the calling page lives.
+   * Call from a page constructor (it uses the page's DestroyRef).
+   */
+  usePageAction(action: PageAction, destroyRef = inject(DestroyRef)) {
+    this.pageAction.set(action);
+    destroyRef.onDestroy(() => {
+      if (this.pageAction() === action) this.pageAction.set(null);
+    });
   }
 
   toggleSidebar() {
