@@ -28,6 +28,7 @@ import type {
   ResumeSections,
   ResumeVariantRow,
   RoleStatus,
+  PostingSeenOn,
   RunSummary,
   SavedViewRow,
   ScreeningAnswerRow,
@@ -257,6 +258,12 @@ export class MemoryRolesRepo extends RolesRepo {
     return this.state()
       .events.filter((e) => e.role_id === roleId)
       .sort((a, b) => b.created_at.localeCompare(a.created_at));
+  }
+
+  async seenOn(role: RoleRow): Promise<PostingSeenOn[]> {
+    return role.source
+      ? [{ sourceId: role.source_id ?? '', name: role.source, url: role.url }]
+      : [];
   }
 
   async statusEvents(days: number) {

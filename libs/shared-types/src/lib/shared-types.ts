@@ -96,3 +96,10 @@ export interface RunSummary {
   /** How many runs this sums (Jobbotix matches hourly; a scheduled task once a day). */
   runs: number;
 }
+
+/** One board a posting was seen on, with the page to credit and open. */
+export interface PostingSeenOn {
+  sourceId: string;
+  name: string;
+  url: string;
+}

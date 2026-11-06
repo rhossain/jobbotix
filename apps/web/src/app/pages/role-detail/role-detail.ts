@@ -13,6 +13,7 @@ import {
   ROLE_STATUS_LABELS,
   type RoleEventRow,
   type RoleRow,
+  type PostingSeenOn,
   type ScreeningAnswerRow,
 } from '@jobbotix/shared-types';
 import { LettersRepo, RolesRepo, ScreeningRepo } from '../../core/data/repos';
@@ -573,9 +574,23 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
                 <dd class="m-0 text-right text-ink">
                   {{ r.found_at | relativeDay }}
                 </dd>
-                <dt class="text-ink-muted">Source</dt>
+                <dt class="text-ink-muted">Found on</dt>
                 <dd class="m-0 text-right text-ink">
-                  {{ r.source || 'Unknown' }}
+                  @for (
+                    s of seenOn();
+                    track s.sourceId + s.url;
+                    let last = $last
+                  ) {
+                    <a
+                      class="underline decoration-line underline-offset-2 hover:text-brand-ink"
+                      [href]="s.url"
+                      target="_blank"
+                      rel="noopener"
+                      >{{ s.name }}</a
+                    >{{ last ? '' : ', ' }}
+                  } @empty {
+                    {{ r.source || 'Unknown' }}
+                  }
                 </dd>
               </dl>
             </section>
@@ -661,6 +676,7 @@ export class RoleDetail {
   );
   readonly events = signal<RoleEventRow[]>([]);
   readonly answers = signal<ScreeningAnswerRow[]>([]);
+  readonly seenOn = signal<PostingSeenOn[]>([]);
   readonly editingLetter = signal(false);
   readonly letterDraft = signal('');
   readonly letterModel = signal('');
@@ -709,12 +725,25 @@ export class RoleDetail {
     this.answers.set(answers);
   }
 
+  private readonly loadSeenOn = effect(() => {
+    const r = this.role();
+    if (!r) return;
+    untracked(
+      () =>
+        void this.repo.seenOn(r).then((list) => {
+          if (this.role()?.id === r.id) this.seenOn.set(list);
+        }),
+    );
+  });
+
   describe(e: RoleEventRow): string {
     const p = (e.payload ?? {}) as Record<string, unknown>;
     switch (e.kind) {
       case 'status_change':
         return `Moved from ${label(p['from'])} to ${label(p['to'])}`;
       case 'ingested':
+        if (p['method'])
+          return `Found by Jobbotix${p['source'] ? ` on ${p['source']}` : ''}, scored ${p['score']}${p['method'] === 'ai' ? ' by the model' : ' on keywords'}`;
         return `Found by the daily run${p['source'] ? ` on ${p['source']}` : ''}, scored ${p['score']}`;
       case 'reminder':
         return `Reminder: in To apply for ${p['days']} days`;

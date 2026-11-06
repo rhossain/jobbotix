@@ -21,6 +21,7 @@ import type {
   SavedViewRow,
   RoleRow,
   RoleStatus,
+  PostingSeenOn,
   RunSummary,
   SearchProfileRow,
 } from '@jobbotix/shared-types';
@@ -130,6 +131,34 @@ export class SupabaseRolesRepo extends RolesRepo {
       .eq('role_id', roleId)
       .order('created_at', { ascending: false });
     return data ?? [];
+  }
+
+  async seenOn(role: RoleRow): Promise<PostingSeenOn[]> {
+    const own = role.source
+      ? [{ sourceId: role.source_id ?? '', name: role.source, url: role.url }]
+      : [];
+    if (!role.posting_id) return own;
+    const { data } = await this.supabase
+      .from('posting_sources')
+      .select('source_id, url, first_seen_at, source_catalog(name)')
+      .eq('posting_id', role.posting_id)
+      .order('first_seen_at', { ascending: true });
+    const rows = (data ?? []) as unknown as {
+      source_id: string;
+      url: string;
+      source_catalog: { name: string } | { name: string }[] | null;
+    }[];
+    if (!rows.length) return own;
+    return rows.map((r) => {
+      const c = Array.isArray(r.source_catalog)
+        ? r.source_catalog[0]
+        : r.source_catalog;
+      return {
+        sourceId: r.source_id,
+        name: c?.name ?? r.source_id,
+        url: r.url,
+      };
+    });
   }
 
   async statusEvents(days: number) {

@@ -19,6 +19,7 @@ import type {
   ResumeSections,
   ResumeVariantRow,
   RoleStatus,
+  PostingSeenOn,
   RunSummary,
   SavedViewRow,
   ScreeningAnswerRow,
@@ -46,6 +47,8 @@ export abstract class RolesRepo {
   /** All status_change events in the last `days`, oldest first. */
   abstract statusEvents(days: number): Promise<RoleEventRow[]>;
   abstract screeningAnswersFor(roleId: string): Promise<ScreeningAnswerRow[]>;
+  /** Every board the role's posting was seen on, first seen first. */
+  abstract seenOn(role: RoleRow): Promise<PostingSeenOn[]>;
   abstract dismissReminder(eventId: string): Promise<void>;
   /**
    * Adds a role by posting URL. `text` is the pasted posting when the page
