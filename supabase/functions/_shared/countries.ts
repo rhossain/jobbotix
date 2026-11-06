@@ -203,7 +203,7 @@ export function regionIncludes(region: string, country: string): boolean {
 }
 
 const WORLDWIDE =
-  /^(worldwide|anywhere|global|globally|world ?wide|remote|anywhere in the world|all countries|international)$/;
+  /^(worldwide|anywhere|global|globally|world ?wide|remote|anywhere in the world|all countries|international|work from anywhere|100 remote|fully remote|no restrictions|remote anywhere|anywhere remote)$/;
 
 export interface ParsedLocations {
   worldwide: boolean;

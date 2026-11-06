@@ -128,7 +128,13 @@ export function toIso(v: unknown): string | null {
   }
   if (typeof v === 'string') {
     if (/^\d+$/.test(v)) return toIso(Number(v));
-    const t = Date.parse(v);
+    // "2026-11-05 10:00:00" / "2026-11-05T10:00:00" with no zone: boards mean UTC
+    const s = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(
+      v.trim(),
+    )
+      ? v.trim().replace(' ', 'T') + 'Z'
+      : v;
+    const t = Date.parse(s);
     return Number.isNaN(t) ? null : new Date(t).toISOString();
   }
   return null;
@@ -158,3 +164,35 @@ export function employmentType(v: unknown): 'full_time' | 'contract' {
     ? 'contract'
     : 'full_time';
 }
+
+/** A draft with every optional field defaulted, so adapters set only what they know. */
+export function draft(
+  p: Partial<DraftPosting> &
+    Pick<
+      DraftPosting,
+      'external_id' | 'source_url' | 'company' | 'title' | 'url'
+    >,
+): DraftPosting {
+  return {
+    location: '',
+    remote_policy: 'unknown',
+    hiring_countries: [],
+    hiring_regions: [],
+    timezones: '',
+    source_country: null,
+    employment_type: 'full_time',
+    seniority: '',
+    salary_min: null,
+    salary_max: null,
+    salary_currency: '',
+    salary_text: '',
+    tags: [],
+    description: '',
+    company_logo: '',
+    posted_at: null,
+    expires_at: null,
+    ...p,
+  };
+}
+
+export const isHttp = (s: string) => /^https?:\/\//i.test(s);
