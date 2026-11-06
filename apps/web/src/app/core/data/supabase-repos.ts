@@ -291,6 +291,10 @@ async function describeFunctionError(error: unknown): Promise<string> {
       /* fall through */
     }
   }
+  // The request never got an answer (offline, blocked, or the function is
+  // not deployed); supabase-js's own wording means nothing to a user.
+  if ((error as Error)?.name === 'FunctionsFetchError')
+    return "Couldn't reach the server. Check your connection and try again.";
   return (error as Error).message || 'Request failed';
 }
 
