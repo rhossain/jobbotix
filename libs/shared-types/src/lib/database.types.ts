@@ -30,6 +30,11 @@ export type RoleEventKind =
 export type AiJob =
   'extract' | 'score' | 'tailor' | 'letter' | 'answer' | 'prep';
 export type VariantStatus = 'draft' | 'approved';
+export type RemotePolicy =
+  'worldwide' | 'region_locked' | 'hybrid' | 'onsite' | 'unknown';
+export type SourceKind =
+  'board' | 'aggregator' | 'ats' | 'community' | 'capture';
+export type SourceAccess = 'public_api' | 'keyed_api' | 'rss' | 'manual';
 
 type Timestamps = { created_at: string; updated_at: string };
 
@@ -96,6 +101,12 @@ export type SearchProfileRow = Timestamps & {
   digest_min_score: number;
   digest_enabled: boolean;
   active: boolean;
+  /** ISO 3166-1 alpha-2, e.g. 'BD'. */
+  home_country: string | null;
+  /** Further countries the user can legally work in or for. */
+  allowed_countries: string[];
+  remote_only: boolean;
+  last_matched_at: string | null;
 };
 
 export type RoleRow = Timestamps & {
@@ -125,6 +136,78 @@ export type RoleRow = Timestamps & {
   status_changed_at: string;
   follow_up_days: number;
   prep: Json;
+  posting_id: string | null;
+  source_id: string | null;
+  remote_policy: RemotePolicy;
+  hiring_countries: string[];
+};
+
+export type SourceCatalogRow = Timestamps & {
+  id: string;
+  name: string;
+  kind: SourceKind;
+  access: SourceAccess;
+  homepage: string;
+  country: string | null;
+  enabled: boolean;
+  max_requests_per_run: number;
+  attribution: string;
+  notes: string;
+  last_run_at: string | null;
+  last_success_at: string | null;
+  last_error: string | null;
+  last_fetched: number;
+  last_new: number;
+};
+
+export type SourceRunRow = {
+  id: number;
+  source_id: string;
+  started_at: string;
+  finished_at: string | null;
+  requests: number;
+  fetched: number;
+  inserted: number;
+  updated: number;
+  error: string | null;
+};
+
+export type PostingRow = {
+  id: string;
+  dedupe_key: string;
+  company: string;
+  title: string;
+  url: string;
+  location: string;
+  remote_policy: RemotePolicy;
+  hiring_countries: string[];
+  hiring_regions: string[];
+  timezones: string;
+  source_country: string | null;
+  employment_type: EmploymentType;
+  seniority: string;
+  salary_min: number | null;
+  salary_max: number | null;
+  salary_currency: string;
+  salary_text: string;
+  tags: string[];
+  description: string;
+  company_logo: string;
+  ats_kind: string | null;
+  ats_slug: string | null;
+  posted_at: string | null;
+  expires_at: string | null;
+  first_seen_at: string;
+  last_seen_at: string;
+};
+
+export type PostingSourceRow = {
+  source_id: string;
+  external_id: string;
+  posting_id: string;
+  url: string;
+  first_seen_at: string;
+  last_seen_at: string;
 };
 
 export type RoleEventRow = {
@@ -295,6 +378,10 @@ export type Database = {
           | 'digest_min_score'
           | 'digest_enabled'
           | 'active'
+          | 'home_country'
+          | 'allowed_countries'
+          | 'remote_only'
+          | 'last_matched_at'
           | 'created_at'
           | 'updated_at'
         >
@@ -325,6 +412,10 @@ export type Database = {
           | 'status_changed_at'
           | 'follow_up_days'
           | 'prep'
+          | 'posting_id'
+          | 'source_id'
+          | 'remote_policy'
+          | 'hiring_countries'
           | 'created_at'
           | 'updated_at'
         >
@@ -394,6 +485,28 @@ export type Database = {
           'id' | 'token' | 'role_id' | 'created_at' | 'revoked_at' | 'views'
         >
       >;
+      source_catalog: Table<
+        SourceCatalogRow,
+        Insertable<
+          SourceCatalogRow,
+          | 'homepage'
+          | 'country'
+          | 'enabled'
+          | 'max_requests_per_run'
+          | 'attribution'
+          | 'notes'
+          | 'last_run_at'
+          | 'last_success_at'
+          | 'last_error'
+          | 'last_fetched'
+          | 'last_new'
+          | 'created_at'
+          | 'updated_at'
+        >
+      >;
+      source_runs: Table<SourceRunRow, Partial<SourceRunRow>>;
+      postings: Table<PostingRow, Partial<PostingRow>>;
+      posting_sources: Table<PostingSourceRow, Partial<PostingSourceRow>>;
       ai_usage: Table<
         AiUsageRow,
         Insertable<
@@ -441,6 +554,9 @@ export type Database = {
       role_event_kind: RoleEventKind;
       ai_job: AiJob;
       variant_status: VariantStatus;
+      remote_policy: RemotePolicy;
+      source_kind: SourceKind;
+      source_access: SourceAccess;
     };
     CompositeTypes: Record<string, never>;
   };

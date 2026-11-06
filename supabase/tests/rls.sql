@@ -300,4 +300,111 @@ exception when insufficient_privilege then null;
 end $$;
 reset role;
 
+-- ---------------------------------------------------------------------------
+-- Sourcing: the shared pool is written only through ingest_postings (service
+-- role); signed-in users read it; the catalog is admin-written; run logs are
+-- admin-only; a posting seen twice is stored once with two sources.
+-- ---------------------------------------------------------------------------
+do $$
+declare v jsonb;
+begin
+  v := public.ingest_postings('himalayas', '[
+    {"dedupe_key":"k1","external_id":"h-1","source_url":"https://himalayas.app/j/1","company":"Acme","title":"Senior Angular Engineer",
+     "url":"https://acme.example/apply","remote_policy":"worldwide","hiring_countries":[],"tags":["Angular"],"description":"short"},
+    {"dedupe_key":"k2","external_id":"h-2","company":"Beta","title":"Frontend Lead","url":"https://beta.example/apply",
+     "remote_policy":"region_locked","hiring_countries":["DE","PL"]}
+  ]'::jsonb);
+  if (v->>'inserted')::int <> 2 then raise exception 'FAIL: ingest_postings inserted %', v; end if;
+
+  insert into public.source_catalog (id, name, kind, access) values ('testboard', 'Test board', 'board', 'public_api');
+  v := public.ingest_postings('testboard', '[
+    {"dedupe_key":"k1","external_id":"t-9","company":"Acme","title":"Senior Angular Engineer",
+     "url":"https://other.example/x","remote_policy":"unknown","description":"a much longer description than before"}
+  ]'::jsonb);
+  if (v->>'updated')::int <> 1 or (v->>'inserted')::int <> 0 then raise exception 'FAIL: repeat posting not merged %', v; end if;
+  if (select url from public.postings where dedupe_key = 'k1') <> 'https://acme.example/apply' then
+    raise exception 'FAIL: first URL was overwritten';
+  end if;
+  if (select remote_policy from public.postings where dedupe_key = 'k1') <> 'worldwide' then
+    raise exception 'FAIL: known remote policy was overwritten by unknown';
+  end if;
+  if (select description from public.postings where dedupe_key = 'k1') not like 'a much longer%' then
+    raise exception 'FAIL: longer description did not win';
+  end if;
+  if (select count(*) from public.posting_sources ps join public.postings p on p.id = ps.posting_id
+       where p.dedupe_key = 'k1') <> 2 then
+    raise exception 'FAIL: posting should be seen on two sources';
+  end if;
+
+  begin
+    perform public.ingest_postings('nope', '[]'::jsonb);
+    raise exception 'FAIL: unknown source accepted';
+  exception when invalid_parameter_value then null;
+  end;
+
+  perform public.record_source_run('himalayas', now() - interval '1 minute', 3, 40, 2, 0, null);
+  if (select last_new from public.source_catalog where id = 'himalayas') <> 2 then
+    raise exception 'FAIL: record_source_run did not update the catalog';
+  end if;
+
+  begin
+    insert into public.postings (dedupe_key, company, title, url, hiring_countries)
+    values ('bad', 'X', 'Y', 'https://x', '{de}');
+    raise exception 'FAIL: lower-case country code accepted';
+  exception when check_violation then null;
+  end;
+end $$;
+
+-- A non-admin reads the pool and the catalog, nothing more.
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if (select count(*) from public.postings) < 2 then raise exception 'FAIL: user cannot read the pool'; end if;
+  if (select count(*) from public.posting_sources) < 3 then raise exception 'FAIL: user cannot read posting sources'; end if;
+  if (select count(*) from public.source_catalog where id = 'himalayas') <> 1 then raise exception 'FAIL: user cannot read the catalog'; end if;
+  if (select count(*) from public.source_runs) <> 0 then raise exception 'FAIL: non-admin reads source_runs'; end if;
+end $$;
+do $$ begin
+  insert into public.postings (dedupe_key, company, title, url) values ('evil', 'E', 'E', 'https://e');
+  raise exception 'FAIL: user wrote to the pool';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  update public.source_catalog set enabled = false where id = 'himalayas';
+  if not (select enabled from public.source_catalog where id = 'himalayas') then
+    raise exception 'FAIL: non-admin disabled a source';
+  end if;
+end $$;
+do $$ begin
+  perform public.ingest_postings('himalayas', '[]'::jsonb);
+  raise exception 'FAIL: user could call ingest_postings';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.call_edge_function('fetch-sources');
+  raise exception 'FAIL: user could call call_edge_function';
+exception when insufficient_privilege then null;
+end $$;
+
+-- A role can point at the pool and carry location fields; the admin reads run logs.
+update public.roles set posting_id = (select id from public.postings where dedupe_key = 'k2'),
+                        remote_policy = 'region_locked', hiring_countries = '{DE,PL}'
+ where company = 'Beta';
+update public.search_profiles set home_country = 'BD', allowed_countries = '{BD,AE}';
+reset role; reset request.jwt.claim.sub;
+update public.profiles set is_admin = true where id = '11111111-1111-1111-1111-111111111111';
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if (select count(*) from public.source_runs) < 1 then raise exception 'FAIL: admin cannot read source_runs'; end if;
+  if (select count(*) from public.roles where remote_policy = 'region_locked') <> 0 then
+    raise exception 'FAIL: user 1 sees user 2 location fields';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+update public.profiles set is_admin = false where id = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if (select posting_id from public.roles where company = 'Beta') is null then raise exception 'FAIL: role did not link to the pool'; end if;
+end $$;
+
 \echo RLS tests passed

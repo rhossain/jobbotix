@@ -12,6 +12,9 @@ import { RouterLink } from '@angular/router';
 import {
   DEFAULT_SCORING_WEIGHTS,
   SCORING_WEIGHT_LABELS,
+  countryName,
+  countryOptions,
+  parseCountryList,
   renderSearchPrompt,
   resolveScoringWeights,
   type EmploymentType,
@@ -115,6 +118,40 @@ const splitLines = (s: string) =>
                 class="jb-input"
               />
             </label>
+          </fieldset>
+
+          <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
+            <legend class="jb-section-title mb-2">Where you can work</legend>
+            <label class="flex flex-col gap-1">
+              <span>Country you live in</span>
+              <select
+                id="sp-home-country"
+                formControlName="homeCountry"
+                class="jb-input"
+              >
+                <option value="">Not set</option>
+                @for (c of countries; track c.code) {
+                  <option [value]="c.code">{{ c.name }}</option>
+                }
+              </select>
+            </label>
+            <label class="flex flex-col gap-1">
+              <span
+                >Other countries you can work for
+                <span class="text-ink-muted">(comma-separated)</span></span
+              >
+              <input
+                id="sp-allowed-countries"
+                type="text"
+                formControlName="allowedCountries"
+                class="jb-input"
+                placeholder="e.g. United Arab Emirates, Germany"
+              />
+            </label>
+            <p class="text-ink-muted">
+              Roles open only to certain countries or regions are kept when they
+              include one of these; the rest are skipped with the reason shown.
+            </p>
           </fieldset>
 
           <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
@@ -406,6 +443,8 @@ export class SearchProfile {
     worldwide: new FormControl(true, { nonNullable: true }),
     overlapOk: new FormControl(true, { nonNullable: true }),
     excludeRegions: new FormControl('', { nonNullable: true }),
+    homeCountry: new FormControl('', { nonNullable: true }),
+    allowedCountries: new FormControl('', { nonNullable: true }),
     visaRequired: new FormControl(true, { nonNullable: true }),
     nonEnglish: new FormControl(true, { nonNullable: true }),
     hybrid: new FormControl(true, { nonNullable: true }),
@@ -428,6 +467,8 @@ export class SearchProfile {
       ) as Record<keyof ScoringWeights, FormControl<number>>,
     ),
   });
+
+  readonly countries = countryOptions();
 
   readonly weekdays = [
     { n: 1, label: 'Mon' },
@@ -491,6 +532,8 @@ export class SearchProfile {
       excludeRegions: Array.isArray(remote['exclude_regions'])
         ? (remote['exclude_regions'] as string[]).join(', ')
         : '',
+      homeCountry: p.home_country ?? '',
+      allowedCountries: (p.allowed_countries ?? []).map(countryName).join(', '),
       visaRequired: excl['visa_required'] !== false,
       nonEnglish: excl['non_english'] !== false,
       hybrid: excl['hybrid_or_onsite'] !== false,
@@ -515,6 +558,11 @@ export class SearchProfile {
     ];
     if (!employment_types.length) {
       this.toast.show('Pick at least one employment type');
+      return;
+    }
+    const allowed = parseCountryList(v.allowedCountries);
+    if (allowed.unknown.length) {
+      this.toast.show(`Not a country we know: ${allowed.unknown.join(', ')}`);
       return;
     }
     this.saving.set(true);
@@ -546,6 +594,9 @@ export class SearchProfile {
           Math.max(0, Number(v.digestMinScore) || 0),
         ),
         digest_enabled: v.digestEnabled,
+        home_country: v.homeCountry || null,
+        allowed_countries: allowed.codes.filter((c) => c !== v.homeCountry),
+        remote_only: v.hybrid,
       });
       this.form.markAsPristine();
       this.savedAt.set(Date.now());

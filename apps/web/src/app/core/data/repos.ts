@@ -59,7 +59,7 @@ export abstract class RolesRepo {
 
 export type SearchProfileInput = Omit<
   SearchProfileRow,
-  'id' | 'user_id' | 'created_at' | 'updated_at' | 'active'
+  'id' | 'user_id' | 'created_at' | 'updated_at' | 'active' | 'last_matched_at'
 >;
 
 export abstract class SearchProfileRepo {
