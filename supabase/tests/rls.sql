@@ -444,4 +444,23 @@ exception when insufficient_privilege then null;
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- vault_read_secret returns a secret to the service role and nobody else.
+select public.vault_upsert_secret('test_key_ref', 'sk-test-123');
+do $$ begin
+  if public.vault_read_secret('test_key_ref') <> 'sk-test-123' then
+    raise exception 'FAIL: vault_read_secret did not return the secret';
+  end if;
+  if public.vault_read_secret('no_such_secret') is not null then
+    raise exception 'FAIL: a missing secret should read as null';
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  perform public.vault_read_secret('test_key_ref');
+  raise exception 'FAIL: a user could read a Vault secret';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

@@ -18,6 +18,7 @@ import {
   parseExtraction,
   type ExtractedRole,
 } from '../_shared/extract.ts';
+import { readVaultSecret } from '../_shared/vault.ts';
 
 const ANTHROPIC_VERSION = '2023-06-01';
 
@@ -199,19 +200,3 @@ Deno.serve(
     return json(200, { id: inserted.id, existed: false, method });
   }),
 );
-
-/** Reads a secret the user stored in Supabase Vault by name; null when absent. */
-async function readVaultSecret(
-  admin: ReturnType<typeof serviceClient>,
-  name: string,
-): Promise<string | null> {
-  const { data } = await admin
-    .schema('vault')
-    .from('decrypted_secrets')
-    .select('decrypted_secret')
-    .eq('name', name)
-    .maybeSingle();
-  return (
-    (data as { decrypted_secret?: string } | null)?.decrypted_secret ?? null
-  );
-}
