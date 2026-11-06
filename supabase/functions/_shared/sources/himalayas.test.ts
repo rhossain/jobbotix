@@ -238,3 +238,21 @@ Deno.test('salary and date helpers', () => {
   assertEquals(toIso('2026-11-02'), '2026-11-02T00:00:00.000Z');
   assertEquals(toIso('soon'), null);
 });
+
+Deno.test(
+  'text() decodes entities and repairs Latin-1-decoded UTF-8',
+  async () => {
+    const { text } = await import('./normalise.ts');
+    assertEquals(text('hims &#038; hers'), 'hims & hers');
+    assertEquals(
+      text('Scheduling &amp; Coordinating'),
+      'Scheduling & Coordinating',
+    );
+    assertEquals(
+      text('ML Engineer â\u0080\u0094 Bench'),
+      'ML Engineer — Bench',
+    );
+    assertEquals(text('CafÃ©'), 'Café');
+    assertEquals(text('Café — ok'), 'Café — ok');
+  },
+);

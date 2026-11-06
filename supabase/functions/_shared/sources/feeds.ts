@@ -11,7 +11,9 @@
 import { parseLocations } from '../countries.ts';
 import { htmlToText } from '../extract.ts';
 import { fetcher, keepRecent, remoteFields } from './http.ts';
+export { decodeEntities } from './normalise.ts';
 import {
+  decodeEntities,
   descriptionText,
   draft,
   employmentType,
@@ -20,21 +22,6 @@ import {
   toIso,
 } from './normalise.ts';
 import type { AdapterContext, DraftPosting, SourceAdapter } from './types.ts';
-
-/** Decodes the HTML entities feeds and HN use, numeric ones included. */
-export function decodeEntities(s: string): string {
-  return s
-    .replace(/&#x([0-9a-f]+);/gi, (_, h) =>
-      String.fromCodePoint(parseInt(h, 16)),
-    )
-    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
-    .replace(/&quot;/g, '"')
-    .replace(/&apos;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&');
-}
 
 // ---------------------------------------------------------------------------
 // RSS (just enough for job feeds: <item> blocks, plain or CDATA fields)
@@ -175,7 +162,9 @@ export function parseHnComment(c: HnComment): DraftPosting | null {
       .map((p) =>
         p
           .replace(/remote/gi, ' ')
-          .replace(/[()\-–,:/]/g, ' ')
+          .replace(/[()]/g, ' ')
+          // keep "," and "/": they separate the countries in "(US/Canada/UK)"
+          .replace(/^[\s\-–:,]+|[\s\-–:,]+$/g, '')
           .trim(),
       )
       .filter(Boolean);

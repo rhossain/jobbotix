@@ -146,8 +146,42 @@ export const num = (v: unknown): number | null => {
   return Number.isFinite(n) && n > 0 ? Math.round(n) : null;
 };
 
+/** Decodes the HTML entities feeds and HN use, numeric ones included. */
+export function decodeEntities(s: string): string {
+  return s
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) =>
+      String.fromCodePoint(parseInt(h, 16)),
+    )
+    .replace(/&#(\d+);/g, (_, d) => String.fromCodePoint(Number(d)))
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&');
+}
+
+/**
+ * Repairs UTF-8 that a feed decoded as Latin-1 ("â\u0080\u0094" for an em
+ * dash, "Ã©" for é). Only when the whole string re-decodes cleanly.
+ */
+export function fixMojibake(s: string): string {
+  if (!/[ÃÂâ][\u0080-\u00bf]/.test(s)) return s;
+  if ([...s].some((c) => c.charCodeAt(0) > 255)) return s;
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(
+      Uint8Array.from(s, (c) => c.charCodeAt(0)),
+    );
+  } catch {
+    return s;
+  }
+}
+
+/** A feed's string field, cleaned: entities decoded, encoding repaired, spaces collapsed. */
 export const text = (v: unknown, max = 300): string =>
-  typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '';
+  typeof v === 'string'
+    ? decodeEntities(fixMojibake(v)).replace(/\s+/g, ' ').trim().slice(0, max)
+    : '';
 
 export const textList = (v: unknown, max = 40): string[] =>
   Array.isArray(v)

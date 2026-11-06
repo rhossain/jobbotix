@@ -71,3 +71,23 @@ Deno.test(
     assertEquals(parseLocations(['US, Canada']).countries, ['US', 'CA']);
   },
 );
+
+Deno.test(
+  'US cities and states mean the United States; country codes still win alone',
+  () => {
+    assertEquals(parseLocations(['Los Angeles, CA']).countries, ['US']);
+    assertEquals(parseLocations(['New York, NY']).countries, ['US']);
+    assertEquals(parseLocations(['Remote: South Carolina']).countries, ['US']);
+    assertEquals(parseLocations(['Boston']).countries, ['US']);
+    assertEquals(parseLocations(['CA']).countries, ['CA']);
+    assertEquals(parseLocations(['Berlin, DE']).countries, ['DE']);
+    assertEquals(parseLocations(['Georgia']).countries, ['GE']);
+    assertEquals(parseLocations(['US/Canada/Brazil/Poland/UK']).countries, [
+      'US',
+      'CA',
+      'BR',
+      'PL',
+      'GB',
+    ]);
+  },
+);

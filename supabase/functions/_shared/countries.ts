@@ -192,6 +192,88 @@ const REGIONS: Record<string, Set<string>> = {
   'european time zones': set(EUROPE),
 };
 
+// US state codes as boards write them after a city ("Austin, TX"). DE and IN
+// are left out: "Berlin, DE" and "Pune, IN" are far commoner in these feeds
+// than Delaware and Indiana.
+const US_STATE_CODES = new Set(
+  'AL AK AZ AR CA CO CT FL GA HI ID IL IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT VA WA WV WI WY DC'.split(
+    ' ',
+  ),
+);
+const US_STATE_NAMES = new Set([
+  'alabama',
+  'alaska',
+  'arizona',
+  'arkansas',
+  'california',
+  'colorado',
+  'connecticut',
+  'delaware',
+  'florida',
+  'hawaii',
+  'idaho',
+  'illinois',
+  'indiana',
+  'iowa',
+  'kansas',
+  'kentucky',
+  'louisiana',
+  'maine',
+  'maryland',
+  'massachusetts',
+  'michigan',
+  'minnesota',
+  'mississippi',
+  'missouri',
+  'montana',
+  'nebraska',
+  'nevada',
+  'new hampshire',
+  'new jersey',
+  'new mexico',
+  'new york',
+  'north carolina',
+  'north dakota',
+  'ohio',
+  'oklahoma',
+  'oregon',
+  'pennsylvania',
+  'rhode island',
+  'south carolina',
+  'south dakota',
+  'tennessee',
+  'texas',
+  'utah',
+  'vermont',
+  'virginia',
+  'washington',
+  'west virginia',
+  'wisconsin',
+  'wyoming',
+  'district of columbia',
+  'bay area',
+  'silicon valley',
+  'nyc',
+  'san francisco',
+  'new york city',
+  'los angeles',
+  'seattle',
+  'boston',
+  'austin',
+  'chicago',
+  'denver',
+]);
+
+/** "Austin, TX", "Texas", "San Francisco" -> true: a place in the United States. */
+export function isUsPlace(input: string): boolean {
+  const raw = input.trim();
+  const m = raw.match(/^([A-Za-z .'-]+),\s*([A-Z]{2})$/);
+  if (m && US_STATE_CODES.has(m[2])) return true;
+  const s = strip(raw);
+  if (toCountryCode(raw)) return false; // "Georgia" is the country
+  return US_STATE_NAMES.has(s) || US_STATE_NAMES.has(s.replace(/,.*$/, ''));
+}
+
 /** Canonical region label for a board's wording, or null when it is not a region. */
 export function toRegion(input: string): string | null {
   const s = strip(input).replace(/ only$/, '');
@@ -230,6 +312,8 @@ export function parseLocations(items: string[]): ParsedLocations {
       .replace(/\(.*?\)/g, '')
       .trim();
     if (!whole) return [];
+    if (isUsPlace(whole.replace(/^remote[:\s-]*/i, '')))
+      return ['United States'];
     const w = strip(whole).replace(/^remote /, '');
     if (WORLDWIDE.test(w) || toRegion(w) || toCountryCode(w)) return [whole];
     return whole

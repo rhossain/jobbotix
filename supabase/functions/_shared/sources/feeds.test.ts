@@ -190,3 +190,40 @@ Deno.test(
     );
   },
 );
+
+Deno.test('HN: remote country lists, "anywhere", and US cities', () => {
+  const multi = parseHnComment(
+    comment(
+      20,
+      'Oscilar | Sr/Staff Software Engineers | REMOTE (US/Canada/Brazil/Poland/UK)<p>x',
+    ),
+  )!;
+  assertEquals(
+    [multi.remote_policy, multi.hiring_countries],
+    ['region_locked', ['US', 'CA', 'BR', 'PL', 'GB']],
+  );
+  const anywhere = parseHnComment(
+    comment(
+      21,
+      'Search Atlas | Product Engineer | REMOTE (anywhere, EST hours)<p>x',
+    ),
+  )!;
+  assertEquals(anywhere.remote_policy, 'worldwide');
+  const eu = parseHnComment(
+    comment(
+      22,
+      'Sortrace | Frontend Engineer | REMOTE (Europe), hybrid Norrköping<p>x',
+    ),
+  )!;
+  assertEquals(
+    [eu.remote_policy, eu.hiring_regions],
+    ['region_locked', ['europe']],
+  );
+  const la = parseHnComment(
+    comment(23, 'Zefr | Site Reliability Engineer | Los Angeles, CA<p>x'),
+  )!;
+  assertEquals(
+    [la.remote_policy, la.hiring_countries, la.source_country],
+    ['onsite', ['US'], 'US'],
+  );
+});
