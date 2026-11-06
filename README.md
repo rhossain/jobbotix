@@ -70,18 +70,21 @@ release (CI runs lint, tests, the database tests and the Deno checks).
    live in `apps/web/src/environments/environment.production.ts` (committed:
    the anon key is public by design). The service-role key never goes anywhere near the app.
 2. `npx supabase login`, `npx supabase link --project-ref <ref>`, then
-   `npx supabase db push` (migrations 0001–0013, with RLS, cron jobs and RPCs).
+   `npx supabase db push` (migrations 0001–0016, with RLS, cron jobs and RPCs).
 3. Enable the `pg_cron`, `pg_net` and `vault` extensions in Database →
    Extensions if `db push` did not.
 4. Deploy the functions: `npx supabase functions deploy` (all of
    `ingest-roles list-roles extract-role send-digest tailor-resume
-set-anthropic-key draft-letter answer-screening prep-role`).
+set-anthropic-key draft-letter answer-screening prep-role fetch-sources
+match-postings`).
 5. Secrets (Project Settings → Edge Functions): `RESEND_API_KEY`,
    `DIGEST_CRON_SECRET` (any long random string), `APP_URL`
    (`https://app.jobbotix.com`), `DIGEST_FROM` (`Jobbotix <digest@jobbotix.com>`).
 6. Vault (Database → Vault): `project_url` = the project URL, and
    `digest_cron_secret` = the same value as `DIGEST_CRON_SECRET`; the hourly
-   digest cron reads both.
+   digest cron reads both, and so do the `fetch-sources` (every 6 hours) and
+   `match-postings` (hourly) crons. `CRON_SECRET` / `cron_secret` may replace
+   the digest names; the functions accept either.
 7. Resend: add jobbotix.com with the SPF and DKIM records it shows.
 8. Sign up first: the first account becomes the admin. Sign-up is invite-only
    until you flip it on `/admin`.
@@ -110,7 +113,9 @@ your account once.
 
 | Need                                          | Where                                                                              | Needs a key? |
 | --------------------------------------------- | ---------------------------------------------------------------------------------- | ------------ |
-| Find, score, draft (daily)                    | Your Claude scheduled task → ingest API                                            | No           |
+| Find postings (every 6 hours)                 | pg_cron → fetch-sources → each source adapter → shared postings pool               | No           |
+| Match and score for each user (hourly)        | pg_cron → match-postings: profile rules, weights; your Anthropic key re-scores top | Optional     |
+| Find, score, draft (legacy, daily)            | Your Claude scheduled task → ingest API                                            | No           |
 | Tailored resume, letter, Q&A, prep in the app | Edge Functions with **your** Anthropic key from Vault; local templates without one | Optional     |
 | Digest email                                  | pg_cron → send-digest → Resend                                                     | Resend key   |
 

@@ -196,7 +196,7 @@ begin
       dedupe_key, company, title, url, location, remote_policy, hiring_countries,
       hiring_regions, timezones, source_country, employment_type, seniority,
       salary_min, salary_max, salary_currency, salary_text, tags, description,
-      company_logo, ats_kind, ats_slug, posted_at, expires_at)
+      company_logo, ats_kind, ats_slug, posted_at, expires_at, first_seen_at, last_seen_at)
     values (
       r.dedupe_key, left(r.company, 200), left(r.title, 200), left(r.url, 1000),
       left(coalesce(r.location, ''), 300), coalesce(r.remote_policy, 'unknown'),
@@ -206,7 +206,9 @@ begin
       r.salary_min, r.salary_max, left(coalesce(r.salary_currency, ''), 8),
       left(coalesce(r.salary_text, ''), 100), coalesce(r.tags[1:40], '{}'),
       left(coalesce(r.description, ''), 50000), left(coalesce(r.company_logo, ''), 1000),
-      r.ats_kind, r.ats_slug, r.posted_at, r.expires_at)
+      r.ats_kind, r.ats_slug, r.posted_at, r.expires_at,
+      -- clock time, not transaction time: match-postings pages on first_seen_at
+      clock_timestamp(), clock_timestamp())
     on conflict (dedupe_key) do update set
       last_seen_at = now(),
       description = case when length(excluded.description) > length(p.description)
@@ -275,6 +277,7 @@ revoke execute on function public.purge_stale_postings() from public, anon, auth
 insert into public.settings (key, value) values
   ('sourcing', '{
     "max_new_per_user_per_run": 40,
+    "min_file_score": 30,
     "ai_scored_per_user_per_run": 10,
     "ai_min_heuristic_score": 40,
     "triage_model": "claude-haiku-4-5",

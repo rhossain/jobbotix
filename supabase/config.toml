@@ -434,3 +434,6 @@ verify_jwt = false
 
 [functions.fetch-sources]
 verify_jwt = false
+
+[functions.match-postings]
+verify_jwt = false
