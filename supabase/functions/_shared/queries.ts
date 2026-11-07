@@ -27,6 +27,11 @@ const FILLER = new Set([
   'consultant',
   'expert',
   'remote',
+  // Describe a lean, not a word a title would carry: "Frontend-leaning Full-stack".
+  'leaning',
+  'focused',
+  'oriented',
+  'heavy',
   'and',
   'or',
   'the',
@@ -62,8 +67,9 @@ export function stackTerm(stack: string): string | null {
     /^(html5?|css3?|scss|sass|less|bootstrap|git|rest|json|jquery|tailwind( css)?)$/.test(
       s,
     )
-  )
+  ) {
     return null;
+  }
   return s;
 }
 

@@ -4,6 +4,11 @@ import { buildQueries, roleKeywords, stackTerm } from './queries.ts';
 Deno.test('roleKeywords keeps what the job is, not its level', () => {
   assertEquals(roleKeywords('Senior Angular Developer'), ['angular']);
   assertEquals(roleKeywords('Senior Front-End Engineer'), ['frontend']);
+  assertEquals(roleKeywords('Frontend-leaning Full-stack'), [
+    'frontend',
+    'fullstack',
+  ]);
+  assertEquals(roleKeywords('Frontend-focused Developer'), ['frontend']);
   assertEquals(roleKeywords('Lead Full Stack Engineer (Angular)'), [
     'fullstack',
     'angular',
