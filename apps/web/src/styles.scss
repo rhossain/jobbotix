@@ -28,6 +28,10 @@
     line-height: 1.55;
     font-optical-sizing: auto;
     font-variant-numeric: tabular-nums;
+    // Scraped text brings unbroken words (compound company names, URLs). Break
+    // one only when it cannot fit its line, so it never pushes a phone page
+    // sideways; ordinary text is unaffected.
+    overflow-wrap: break-word;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
@@ -404,9 +408,12 @@
   }
 
   // ---------- Tags ----------
+  // One line, never wider than its row: a long scraped location or salary
+  // ends in an ellipsis (role detail lists it in full) instead of pushing
+  // the page sideways on a phone.
   .jb-tag {
-    display: inline-flex;
-    align-items: center;
+    display: inline-block;
+    max-width: 100%;
     min-height: 1.5rem;
     padding: 0.1rem 0.55rem;
     border-radius: 999px;
@@ -414,7 +421,11 @@
     color: var(--ink-muted);
     font-size: 0.75rem;
     font-weight: 500;
+    line-height: 1.3rem;
+    vertical-align: middle;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .jb-tag-ai {

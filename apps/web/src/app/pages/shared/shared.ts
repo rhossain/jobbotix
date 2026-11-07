@@ -88,7 +88,7 @@ import { EmptyState, Icon, MatchRing, Skeleton } from '../../ui';
             <section class="jb-card p-5">
               <h2 class="jb-section-title">Why it fits</h2>
               <ul
-                class="mt-3 list-disc space-y-1.5 pl-5 text-sm marker:text-brand"
+                class="mt-3 list-disc space-y-1.5 pl-5 text-sm wrap-anywhere marker:text-brand"
               >
                 @for (x of r.reasons; track x) {
                   <li>{{ x }}</li>
@@ -99,7 +99,7 @@ import { EmptyState, Icon, MatchRing, Skeleton } from '../../ui';
               <h2 class="jb-section-title">Watch out</h2>
               @if (r.gaps.length) {
                 <ul
-                  class="mt-3 list-disc space-y-1.5 pl-5 text-sm marker:text-brand"
+                  class="mt-3 list-disc space-y-1.5 pl-5 text-sm wrap-anywhere marker:text-brand"
                 >
                   @for (x of r.gaps; track x) {
                     <li>{{ x }}</li>

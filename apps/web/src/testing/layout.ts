@@ -11,6 +11,9 @@ import { App } from '../app/app';
 import { demoDataProviders } from '../app/app.config';
 import { appRoutes } from '../app/app.routes';
 import { Auth } from '../app/core/auth';
+import { MemoryRolesRepo } from '../app/core/data/memory-repos';
+import { DEMO_USER_ID } from '../app/core/data/sample-data';
+import type { RoleEventRow, RoleRow } from '@jobbotix/shared-types';
 
 /**
  * Helpers for the layout specs (*.layout.spec.ts). Those run in a real
@@ -59,25 +62,42 @@ export function expectedShell(width: number): 'phone' | 'rail' | 'full' {
 
 const DEMO_KEY = 'jobbotix.demo.v1';
 
-/** Clears the demo data and any saved UI state so each render starts clean. */
-export function resetStorage() {
+/**
+ * Clears the demo data and any saved UI state so each render starts clean.
+ * The first-run tour is marked as seen unless `tour` is true: it opens on
+ * Today after 700ms and would otherwise land on top of whatever is measured.
+ */
+export function resetStorage({ tour = false }: { tour?: boolean } = {}) {
   try {
     localStorage.clear();
     sessionStorage.clear();
+    if (!tour) localStorage.setItem(`jb-tour-seen:${DEMO_USER_ID}`, '1');
   } catch {
     /* storage blocked: the app falls back to sample data anyway */
   }
 }
 
-/** Lets a test change the demo data before the app reads it. */
-export function seedDemo(mutate: (state: Record<string, unknown>) => void) {
-  // Boot once to get the default state written, then edit it in place.
+/** The demo data as it sits in storage (see core/data/memory-repos.ts). */
+export interface DemoData {
+  roles: RoleRow[];
+  events: RoleEventRow[];
+  [key: string]: unknown;
+}
+
+/**
+ * Lets a test change the demo data before the app boots: the repo writes its
+ * full default state once, the test edits it, and the next render reads it.
+ */
+export async function withDemoData(mutate: (data: DemoData) => void) {
+  TestBed.configureTestingModule({ providers: [...demoDataProviders] });
+  // Any change persists the whole state; this one touches no role.
+  await TestBed.inject(MemoryRolesRepo).setNotes('no-such-role', '');
+  TestBed.resetTestingModule();
   const raw = localStorage.getItem(DEMO_KEY);
-  if (!raw)
-    throw new Error('seedDemo: no demo state yet; render the app first');
-  const state = JSON.parse(raw) as Record<string, unknown>;
-  mutate(state);
-  localStorage.setItem(DEMO_KEY, JSON.stringify(state));
+  if (!raw) throw new Error('withDemoData: the demo state was not written');
+  const data = JSON.parse(raw) as DemoData;
+  mutate(data);
+  localStorage.setItem(DEMO_KEY, JSON.stringify(data));
 }
 
 export interface RenderOptions {
@@ -100,6 +120,15 @@ async function settleFixture(fixture: ComponentFixture<App>) {
   }
   await document.fonts?.ready;
   await new Promise((r) => requestAnimationFrame(() => r(null)));
+  // Let open/enter transitions finish so panels are measured where they rest
+  // (infinite ones, like a loading pulse, are left running).
+  const finite = document
+    .getAnimations()
+    .filter((a) => a.effect?.getComputedTiming().endTime !== Infinity);
+  await Promise.race([
+    Promise.allSettled(finite.map((a) => a.finished)),
+    new Promise((r) => setTimeout(r, 1500)),
+  ]);
   await new Promise((r) => requestAnimationFrame(() => r(null)));
 }
 
@@ -131,6 +160,28 @@ export async function renderApp(
   await settleFixture(fixture);
   window.scrollTo(0, 0);
   return { fixture, router, settle: () => settleFixture(fixture) };
+}
+
+/**
+ * Waits until an element matching `selector` is on screen. Overlays render in
+ * @defer blocks and open their <dialog> a tick later, so a fixed number of
+ * change-detection passes is not enough to catch them reliably.
+ */
+export async function waitForRendered(
+  selector: string,
+  settle: () => Promise<void>,
+  timeoutMs = 3000,
+): Promise<Element> {
+  const until = Date.now() + timeoutMs;
+  for (;;) {
+    const el = [...document.querySelectorAll(selector)].find(isRendered);
+    if (el) {
+      await settle(); // and let its open transition finish
+      return el;
+    }
+    if (Date.now() > until) throw new Error(`${selector} never appeared`);
+    await settle();
+  }
 }
 
 /* ---------------------------------------------------------------- probes */
@@ -232,11 +283,27 @@ export function horizontalOverflow(root: Element = document.body): string[] {
   const vh = window.innerHeight;
   const out: string[] = [];
   const seen = new Set<Element>();
+  const spills: { el: Element; right: number }[] = [];
   for (const el of root.querySelectorAll('*')) {
     if (el.closest('svg') && el.tagName.toLowerCase() !== 'svg') continue;
     if (!isRendered(el)) continue;
     const r = el.getBoundingClientRect();
-    if (r.right <= vw + 1 && r.left >= -1) continue;
+    if (r.right <= vw + 1 && r.left >= -1) {
+      // The box fits, but its text may spill out of it (a long word or URL
+      // in a box that neither wraps nor clips it).
+      const html = el as HTMLElement;
+      const spill = html.scrollWidth - html.clientWidth;
+      if (
+        spill > 1 &&
+        html.clientWidth > 0 &&
+        getComputedStyle(el).overflowX === 'visible' &&
+        r.left + html.scrollWidth > vw + 1 &&
+        !clippedByAncestor(el, vw)
+      ) {
+        spills.push({ el, right: r.left + html.scrollWidth });
+      }
+      continue;
+    }
     if (parkedOffscreen(el, r, vw, vh)) continue;
     if (isVisuallyHidden(el)) continue;
     if (clippedByAncestor(el, vw)) continue;
@@ -245,6 +312,15 @@ export function horizontalOverflow(root: Element = document.body): string[] {
     seen.add(el);
     out.push(
       `${describeEl(el)} spans ${Math.round(r.left)}–${Math.round(r.right)}px in a ${vw}px viewport`,
+    );
+  }
+  // Spilled content: every ancestor of the culprit spills too, so name the
+  // innermost box, skipping any already inside a reported offender.
+  for (const s of spills) {
+    if (spills.some((o) => o !== s && s.el.contains(o.el))) continue;
+    if ([...seen].some((o) => o.contains(s.el) || s.el.contains(o))) continue;
+    out.push(
+      `${describeEl(s.el)} fits, but its content spills to ${Math.round(s.right)}px in a ${vw}px viewport`,
     );
   }
   return out;

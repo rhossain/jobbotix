@@ -161,13 +161,15 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
                           it fits
                         </h2>
                         @if (r.reasons.length) {
-                          <ul class="mt-3 flex flex-col gap-2.5 text-sm">
+                          <ul
+                            class="mt-3 flex flex-col gap-2.5 text-sm wrap-anywhere"
+                          >
                             @for (x of r.reasons; track $index) {
                               <li class="flex gap-2.5">
                                 <span
                                   class="mt-2 size-1.5 shrink-0 rounded-full bg-good"
                                 ></span>
-                                <span>{{ x }}</span>
+                                <span class="min-w-0">{{ x }}</span>
                               </li>
                             }
                           </ul>
@@ -188,13 +190,15 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
                           Watch out
                         </h2>
                         @if (r.gaps.length) {
-                          <ul class="mt-3 flex flex-col gap-2.5 text-sm">
+                          <ul
+                            class="mt-3 flex flex-col gap-2.5 text-sm wrap-anywhere"
+                          >
                             @for (x of r.gaps; track $index) {
                               <li class="flex gap-2.5">
                                 <span
                                   class="mt-2 size-1.5 shrink-0 rounded-full bg-warn"
                                 ></span>
-                                <span>{{ x }}</span>
+                                <span class="min-w-0">{{ x }}</span>
                               </li>
                             }
                           </ul>
@@ -604,7 +608,7 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
                 <div
                   class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm"
                 >
-                  <span class="text-ink-muted">
+                  <span class="min-w-0 text-ink-muted wrap-anywhere">
                     {{ c.name || r.company }} hires on {{ atsLabel[c.kind] }}
                   </span>
                   <button

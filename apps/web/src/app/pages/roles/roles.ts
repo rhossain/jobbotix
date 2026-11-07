@@ -306,7 +306,7 @@ const DEFAULT_FILTERS: Filters = {
                         {{ r.company }}
                         @if (r.ai_match) {
                           <span
-                            class="jb-tag jb-tag-ai min-h-5 px-2 text-[0.6875rem]"
+                            class="jb-tag jb-tag-ai min-h-5 px-2 text-[0.6875rem] leading-[1.05rem]"
                             >AI</span
                           >
                         }
