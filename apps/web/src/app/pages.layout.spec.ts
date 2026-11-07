@@ -1,5 +1,6 @@
 import {
   VIEWPORTS,
+  clippedContent,
   contentBehindTabBar,
   horizontalOverflow,
   pageScrollsSideways,
@@ -8,6 +9,7 @@ import {
   resetStorage,
   smallTargets,
   tinyText,
+  zoomingInputs,
   type ViewportName,
 } from '../testing/layout';
 
@@ -72,6 +74,17 @@ describe.each([...SIGNED_IN, ...PUBLIC])('$name ($url)', (pageCase) => {
 
       const tiny = tinyText();
       expect(tiny, report('Text below 11px', tiny)).toEqual([]);
+
+      const clipped = clippedContent();
+      expect(clipped, report('Cut off by a clipping box', clipped)).toEqual([]);
+
+      if (VIEWPORTS[vp].touch) {
+        const zooming = zoomingInputs();
+        expect(
+          zooming,
+          report('Text fields under 16px (iOS zooms in on focus)', zooming),
+        ).toEqual([]);
+      }
     },
   );
 

@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { Auth } from './core/auth';
 import { SharesRepo } from './core/data/repos';
 import {
+  clippedContent,
   horizontalOverflow,
   pageScrollsSideways,
   renderApp,
@@ -62,6 +63,11 @@ function expectFits(where: string) {
   expect(
     overflow,
     `${where}\n` + report('Elements past the edge', overflow),
+  ).toEqual([]);
+  const clipped = clippedContent();
+  expect(
+    clipped,
+    `${where}\n` + report('Cut off by a clipping box', clipped),
   ).toEqual([]);
 }
 

@@ -797,6 +797,27 @@
   }
 }
 
+// iOS Safari zooms the whole page into any form field under 16px as soon as
+// it is focused, and the layout is left off-screen. On touch screens every
+// field gets at least 16px, whatever a size utility (text-sm) or a compact
+// status pill asks for. Unlayered on purpose: it has to beat the utilities.
+@media (pointer: coarse) {
+  input:not(
+    [type='checkbox'],
+    [type='radio'],
+    [type='range'],
+    [type='button'],
+    [type='submit'],
+    [type='reset'],
+    [type='file'],
+    [type='color']
+  ),
+  select,
+  textarea {
+    font-size: max(1rem, 16px);
+  }
+}
+
 // The prep sheet prints on its own (PrepPanel.print sets the class).
 @media print {
   body.jb-print-prep {

@@ -452,6 +452,57 @@ export function smallTargets(
   return out;
 }
 
+/**
+ * Tables and controls cut off by an `overflow: hidden` (or clip) ancestor.
+ * Unlike overflow, clipping never widens the page, so it hides silently: a
+ * column or a button that is simply not there on a narrow screen.
+ */
+export function clippedContent(root: Element = document.body): string[] {
+  const out: string[] = [];
+  for (const el of root.querySelectorAll(`table, ${INTERACTIVE}`)) {
+    if (!isRendered(el) || isVisuallyHidden(el)) continue;
+    if (el.closest('[inert], [aria-hidden="true"]')) continue;
+    const r = el.getBoundingClientRect();
+    for (
+      let n = el.parentElement;
+      n && n !== document.body;
+      n = n.parentElement
+    ) {
+      const ox = getComputedStyle(n).overflowX;
+      if (ox === 'visible') continue;
+      if (ox === 'hidden' || ox === 'clip') {
+        const c = n.getBoundingClientRect();
+        // A box clipped to show an ellipsis is deliberate; anything else
+        // losing more than a couple of pixels off either side is not.
+        if (r.right > c.right + 2 || r.left < c.left - 2) {
+          out.push(
+            `${describeEl(el)} is cut off: ${Math.round(r.left)}–${Math.round(r.right)}px inside a clip at ${Math.round(c.left)}–${Math.round(c.right)}px (${describeEl(n)})`,
+          );
+        }
+      }
+      break; // auto/scroll: the user can scroll to it
+    }
+  }
+  return out;
+}
+
+/**
+ * Text fields under 16px on a touch screen: iOS Safari zooms the whole page
+ * in when one is focused, and the layout then sits off-screen.
+ */
+export function zoomingInputs(root: Element = document.body): string[] {
+  const out: string[] = [];
+  const fields = root.querySelectorAll(
+    'input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="reset"]):not([type="file"]):not([type="color"]):not([type="hidden"]), select, textarea, [contenteditable="true"]',
+  );
+  for (const el of fields) {
+    if (!isRendered(el) || isVisuallyHidden(el)) continue;
+    const px = parseFloat(getComputedStyle(el).fontSize);
+    if (px < 16) out.push(`${describeEl(el)} is ${px}px`);
+  }
+  return out;
+}
+
 /** Visible text set below `min` px, which phones render too small to read. */
 export function tinyText(min = 11, root: Element = document.body): string[] {
   const out: string[] = [];

@@ -259,8 +259,9 @@ const DEFAULT_FILTERS: Filters = {
             }
           </div>
         } @else {
-          <!-- Tablets and up: table -->
-          <div class="jb-card overflow-hidden">
+          <!-- Tablets and up: table. Scrolls rather than clipping the Status
+               column when a long title or company makes it too wide. -->
+          <div class="jb-card overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
                 <tr
@@ -293,7 +294,7 @@ const DEFAULT_FILTERS: Filters = {
                     <td class="py-3 pr-2 pl-5">
                       <jb-match-ring [score]="r.score" size="xs" />
                     </td>
-                    <td class="min-w-0 py-3 pr-4">
+                    <td class="min-w-0 py-3 pr-4 wrap-anywhere">
                       <a
                         [routerLink]="['/roles', r.id]"
                         class="font-semibold text-ink no-underline hover:underline"
