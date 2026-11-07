@@ -261,34 +261,36 @@ const WEEKS = 8;
               fills in.
             </p>
           } @else {
-            <table class="mt-4 w-full text-sm">
-              <thead>
-                <tr
-                  class="border-b border-line text-left text-xs text-ink-muted"
-                >
-                  <th class="py-2 pr-4 font-medium">Status</th>
-                  <th class="py-2 pr-4 text-right font-medium">
-                    Mean days before moving on
-                  </th>
-                  <th class="py-2 text-right font-medium">Roles</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (d of i.dwell; track d.status) {
-                  <tr class="border-b border-line last:border-b-0">
-                    <td class="py-2.5 pr-4 text-ink">
-                      {{ d.status | statusLabel }}
-                    </td>
-                    <td class="py-2.5 pr-4 text-right text-ink tabular-nums">
-                      {{ d.meanDays }}
-                    </td>
-                    <td class="py-2.5 text-right text-ink-muted tabular-nums">
-                      {{ d.samples }}
-                    </td>
+            <div class="mt-4 overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr
+                    class="border-b border-line text-left text-xs text-ink-muted"
+                  >
+                    <th class="py-2 pr-4 font-medium">Status</th>
+                    <th class="py-2 pr-4 text-right font-medium">
+                      Mean days before moving on
+                    </th>
+                    <th class="py-2 text-right font-medium">Roles</th>
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  @for (d of i.dwell; track d.status) {
+                    <tr class="border-b border-line last:border-b-0">
+                      <td class="py-2.5 pr-4 text-ink">
+                        {{ d.status | statusLabel }}
+                      </td>
+                      <td class="py-2.5 pr-4 text-right text-ink tabular-nums">
+                        {{ d.meanDays }}
+                      </td>
+                      <td class="py-2.5 text-right text-ink-muted tabular-nums">
+                        {{ d.samples }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
             @if (shortlistDwell(); as sd) {
               @if (sd > 3) {
                 <p

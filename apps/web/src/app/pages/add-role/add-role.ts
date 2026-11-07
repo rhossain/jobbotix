@@ -85,7 +85,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
             id="add-text"
             rows="6"
             formControlName="text"
-            class="max-h-[60vh]"
+            class="max-h-[60dvh]"
             placeholder="The full posting text"
           ></textarea>
         </jb-field>
