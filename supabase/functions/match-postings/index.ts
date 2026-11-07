@@ -11,6 +11,7 @@
 // and files the best as new roles (score, reasons, gaps, a link to the pool).
 // One "run" event per user summarises it for Today and the digest.
 
+import { alertWorthy, buildAlert, type AlertRole } from '../_shared/alert.ts';
 import { json, requireCronSecret, serviceClient } from '../_shared/auth.ts';
 import { normaliseUrl, pairKey } from '../_shared/dedupe.ts';
 import { fnv1a } from '../_shared/ingest.ts';
@@ -31,6 +32,9 @@ import { readVaultSecret } from '../_shared/vault.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 const ANTHROPIC_VERSION = '2023-06-01';
+const RESEND_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
+const FROM = Deno.env.get('DIGEST_FROM') ?? 'Jobbotix <digest@jobbotix.com>';
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.jobbotix.com';
 const TIME_BUDGET_MS = 110_000;
 
 interface Sourcing {
@@ -64,9 +68,14 @@ type ProfileRow = MatchProfile & {
   min_seniority: string;
   scoring_weights: unknown;
   last_matched_at: string | null;
-  profiles:
-    | { anthropic_key_ref: string | null }
-    | { anthropic_key_ref: string | null }[];
+  alert_min_score: number | null;
+  profiles: ProfileBits | ProfileBits[];
+};
+
+type ProfileBits = {
+  anthropic_key_ref: string | null;
+  email: string;
+  name: string;
 };
 
 interface UserSummary {
@@ -80,6 +89,8 @@ interface UserSummary {
   /** Model calls that failed, and the first reason (never the key). */
   aiFailed: number;
   aiError?: string;
+  /** Roles in the instant-alert email this run. */
+  alerted?: number;
   errors: string[];
 }
 
@@ -114,7 +125,7 @@ Deno.serve(async (req) => {
   let q = admin
     .from('search_profiles')
     .select(
-      'user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, profiles!inner(anthropic_key_ref)',
+      'user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, alert_min_score, profiles!inner(anthropic_key_ref, email, name)',
     )
     .eq('active', true);
   if (body.userId) q = q.eq('user_id', body.userId);
@@ -324,6 +335,7 @@ async function matchForUser(
     candidates.sort((a, b) => b.scored.score - a.scored.score);
   }
 
+  const filed: AlertRole[] = [];
   const toFile = candidates
     .filter((c) => c.scored.score >= cfg.min_file_score)
     .slice(0, cfg.max_new_per_user_per_run);
@@ -370,6 +382,14 @@ async function matchForUser(
       continue;
     }
     summary.added++;
+    filed.push({
+      id: inserted.id,
+      company: post.company,
+      title: post.title,
+      score: scored.score,
+      source: sourceName.get(c.source) ?? c.source,
+      location: post.location,
+    });
     await admin.from('role_events').insert({
       user_id: p.user_id,
       role_id: inserted.id,
@@ -390,6 +410,33 @@ async function matchForUser(
     else summary.excluded = excludedRows.length;
   }
 
+  // Instant alert for roles at or above the user's threshold.
+  const worthy = alertWorthy(filed, p.alert_min_score);
+  const me = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
+  if (worthy.length && RESEND_KEY && me?.email) {
+    const email = buildAlert({
+      name: me.name ?? '',
+      appUrl: APP_URL,
+      roles: worthy,
+    });
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${RESEND_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        from: FROM,
+        to: [me.email],
+        subject: email.subject,
+        text: email.text,
+        html: email.html,
+      }),
+    }).catch((e: Error) => ({ ok: false, statusText: e.message }) as Response);
+    if (res.ok) summary.alerted = worthy.length;
+    else summary.errors.push(`alert email: ${res.statusText}`);
+  }
+
   // A run that saw nothing new (all already tracked) is not worth reporting.
   if (summary.considered > 0)
     await admin.from('role_events').insert({
@@ -406,6 +453,7 @@ async function matchForUser(
         aiFailed: summary.aiFailed,
         ...(summary.aiError ? { aiError: summary.aiError } : {}),
         needsCountry: summary.needsCountry,
+        ...(summary.alerted ? { alerted: summary.alerted } : {}),
       },
     });
 
