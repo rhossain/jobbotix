@@ -253,3 +253,14 @@ Deno.test('keys never reach the run log', async () => {
   );
   assert(r.warnings.length === 1 && !r.warnings[0].includes('sekret'));
 });
+
+Deno.test('Jooble hosts follow its own country list', async () => {
+  const { joobleHost } = await import('./aggregators.ts');
+  assertEquals(['US', 'GB', 'JP', 'AE', 'IN'].map(joobleHost), [
+    'jooble.org',
+    'uk.jooble.org',
+    'ja.jooble.org',
+    'ae.jooble.org',
+    'in.jooble.org',
+  ]);
+});

@@ -225,10 +225,14 @@ export function parseJoobleJob(j: Json, country: string): DraftPosting | null {
 }
 
 /** Jooble's site for a country: jooble.org is the US, uk.jooble.org Britain. */
+// Jooble's sites mostly use the country code; these two do not (checked on
+// jooble.org's country list, 7 Nov 2026: 61 sites, no Bangladesh).
+const JOOBLE_SUBDOMAIN: Record<string, string> = { GB: 'uk', JP: 'ja' };
+
 export const joobleHost = (cc: string) =>
   cc === 'US'
     ? 'jooble.org'
-    : `${cc === 'GB' ? 'uk' : cc.toLowerCase()}.jooble.org`;
+    : `${JOOBLE_SUBDOMAIN[cc] ?? cc.toLowerCase()}.jooble.org`;
 
 /** "BD=key1, AE=key2" -> {BD: key1, AE: key2}; a bare JOOBLE_API_KEY is the US site's. */
 export function joobleKeys(ctx: AdapterContext): Map<string, string> {
