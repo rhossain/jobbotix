@@ -6,6 +6,7 @@ import {
 import {
   adzuna,
   jooble,
+  joobleKeys,
   parseAdzunaJob,
   parseJoobleJob,
   parseReedJob,
@@ -31,7 +32,7 @@ const ctx = (
     ({
       ADZUNA_APP_ID: 'id1',
       ADZUNA_APP_KEY: 'sekret',
-      JOOBLE_API_KEY: 'jk',
+      JOOBLE_KEYS: 'BD=jk-bd, uk=jk-uk',
       REED_API_KEY: 'rk',
     })[n],
   ...over,
@@ -118,13 +119,13 @@ Deno.test(
 );
 
 Deno.test(
-  'Jooble: POSTs keywords and country, budget spread across countries',
+  'Jooble: one key per country site; only countries with a key',
   async () => {
-    const sent: unknown[] = [];
+    const sent: { url: string; body: unknown }[] = [];
     const r = await jooble.run(
       ctx(
-        (_u, init) => {
-          sent.push(JSON.parse(String(init?.body)));
+        (u, init) => {
+          sent.push({ url: String(u), body: JSON.parse(String(init?.body)) });
           return Promise.resolve(
             new Response(
               JSON.stringify({
@@ -135,7 +136,7 @@ Deno.test(
                     location: 'Dhaka',
                     snippet: 'Remote friendly',
                     salary: '',
-                    link: 'https://jooble.org/desc/1',
+                    link: 'https://bd.jooble.org/desc/1',
                     company: 'Shohoz',
                     updated: recent,
                     type: 'Full-time',
@@ -148,11 +149,16 @@ Deno.test(
         { maxRequests: 3 },
       ),
     );
-    assertEquals(sent, [
-      { keywords: 'angular', location: 'Bangladesh', page: '1' },
-      { keywords: 'angular', location: 'United Kingdom', page: '1' },
-      { keywords: 'angular', location: 'United Arab Emirates', page: '1' },
-    ]);
+    // countries BD, GB, AE: AE has no key, so BD and GB (uk.jooble.org) only
+    assertEquals(
+      sent.map((s) => s.url),
+      [
+        'https://bd.jooble.org/api/jk-bd',
+        'https://uk.jooble.org/api/jk-uk',
+        'https://bd.jooble.org/api/jk-bd',
+      ],
+    );
+    assertEquals(sent[0].body, { keywords: 'angular', page: '1' });
     assertEquals(r.postings.length, 1);
     const d = parseJoobleJob(
       {
@@ -167,6 +173,23 @@ Deno.test(
     assertEquals(
       [d.remote_policy, d.source_country, d.location],
       ['onsite', 'BD', 'Dhaka'],
+    );
+
+    const none = await jooble.run(ctx(fetch, { countries: ['AE'] }));
+    assertEquals(none.requests, 0);
+    await rejects(
+      jooble.run(ctx(fetch, { secret: () => undefined })),
+      /JOOBLE_KEYS not set/,
+    );
+    const legacy = joobleKeys(
+      ctx(fetch, {
+        secret: (n) => (n === 'JOOBLE_API_KEY' ? 'us-key' : undefined),
+      }),
+    );
+    assertEquals([...legacy.entries()], [['US', 'us-key']]);
+    assertEquals(
+      redact('https://bd.jooble.org/api/jk-bd'),
+      'https://bd.jooble.org/api/***',
     );
   },
 );

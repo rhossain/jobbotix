@@ -6,7 +6,8 @@
 //
 //   adzuna   GET https://api.adzuna.com/v1/api/jobs/<cc>/search/1?app_id&app_key&what   ADZUNA_APP_ID, ADZUNA_APP_KEY
 //            19 countries; free tier about 1,000 calls a month
-//   jooble   POST https://jooble.org/api/<key> {keywords, location}                        JOOBLE_API_KEY
+//   jooble   POST https://<cc>.jooble.org/api/<key> {keywords}                            JOOBLE_KEYS
+//            one key per country site ("BD=key1,AE=key2"); a key only sees its country
 //            60+ countries (Bangladesh included); per-key limits
 //   reed     GET https://www.reed.co.uk/api/1.0/search?keywords (Basic auth)               REED_API_KEY
 //            United Kingdom only; runs only when a user can work in GB
@@ -223,23 +224,52 @@ export function parseJoobleJob(j: Json, country: string): DraftPosting | null {
   });
 }
 
+/** Jooble's site for a country: jooble.org is the US, uk.jooble.org Britain. */
+export const joobleHost = (cc: string) =>
+  cc === 'US'
+    ? 'jooble.org'
+    : `${cc === 'GB' ? 'uk' : cc.toLowerCase()}.jooble.org`;
+
+/** "BD=key1, AE=key2" -> {BD: key1, AE: key2}; a bare JOOBLE_API_KEY is the US site's. */
+export function joobleKeys(ctx: AdapterContext): Map<string, string> {
+  const keys = new Map<string, string>();
+  for (const part of (ctx.secret?.('JOOBLE_KEYS') ?? '').split(/[,;\s]+/)) {
+    const m = part.match(/^([A-Za-z]{2})[=:](.+)$/);
+    if (m)
+      keys.set(
+        m[1].toUpperCase() === 'UK' ? 'GB' : m[1].toUpperCase(),
+        m[2].trim(),
+      );
+  }
+  const single = ctx.secret?.('JOOBLE_API_KEY');
+  if (single && !keys.has('US')) keys.set('US', single);
+  return keys;
+}
+
 export const jooble: SourceAdapter = {
   id: 'jooble',
   async run(ctx: AdapterContext) {
-    const [key] = needKey(ctx, 'JOOBLE_API_KEY');
+    const keys = joobleKeys(ctx);
+    if (!keys.size)
+      throw new Error(
+        'JOOBLE_KEYS not set as an Edge Function secret (format: BD=key,AE=key)',
+      );
+    // Only the users' countries that have a key; each key sees only its own site.
+    const countries = (ctx.countries ?? []).filter((c) => keys.has(c));
+    if (!countries.length)
+      return {
+        postings: [],
+        requests: 0,
+        warnings: [
+          `No Jooble key for the users' countries (keys for: ${[...keys.keys()].join(', ')})`,
+        ],
+      };
     const f = fetcher(ctx, 1200);
     const out: (DraftPosting | null)[] = [];
-    for (const [c, q] of plan(
-      ctx.countries ?? [],
-      ctx.queries,
-      ctx.maxRequests,
-    )) {
+    for (const [c, q] of plan(countries, ctx.queries, ctx.maxRequests)) {
       const body = (await f.json(
-        `https://jooble.org/api/${encodeURIComponent(key)}`,
-        {
-          method: 'POST',
-          body: { keywords: q, location: countryName(c), page: '1' },
-        },
+        `https://${joobleHost(c)}/api/${encodeURIComponent(keys.get(c)!)}`,
+        { method: 'POST', body: { keywords: q, page: '1' } },
       )) as { jobs?: Json[] } | null;
       out.push(...(body?.jobs ?? []).map((j) => parseJoobleJob(j, c)));
     }
