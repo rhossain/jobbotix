@@ -21,10 +21,11 @@ import {
           @case ('card') {
             <div class="jb-card flex gap-4 p-4 md:p-5" aria-hidden="true">
               <span class="bone size-11 shrink-0 rounded-full"></span>
-              <div class="flex flex-1 flex-col gap-2.5 pt-1">
+              <div class="flex min-w-0 flex-1 flex-col gap-2.5 pt-1">
                 <span class="bone h-4 w-3/5"></span>
                 <span class="bone h-3 w-2/5"></span>
-                <div class="mt-1 flex gap-2">
+                <!-- Wraps out of sight rather than widening a narrow screen. -->
+                <div class="mt-1 flex h-5 flex-wrap gap-2 overflow-hidden">
                   <span class="bone h-5 w-20 rounded-full"></span>
                   <span class="bone h-5 w-16 rounded-full"></span>
                   <span class="bone h-5 w-24 rounded-full"></span>

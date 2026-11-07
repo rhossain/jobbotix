@@ -23,6 +23,9 @@ jobs:
 
       - run: npm ci
 
+      # The layout tests (web:test-layout) measure pages in a real browser.
+      - run: npx playwright install --with-deps chromium
+
       - run: npx nx format:check --base=origin/main --head=HEAD
         if: github.event_name == 'pull_request'
 

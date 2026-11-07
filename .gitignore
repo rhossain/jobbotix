@@ -56,3 +56,6 @@ vitest.config.*.timestamp*
 .nx/migrate-runs
 __screenshots__/
 
+
+# Vitest browser-mode failure screenshots
+.vitest/

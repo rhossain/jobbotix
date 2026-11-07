@@ -63,26 +63,32 @@ import {
 } from './core/data/supabase-repos';
 import { DemoAuth } from './core/demo-auth';
 
+/**
+ * Demo mode: in-memory data and a signed-in demo user, no backend. Exported
+ * so the layout tests boot the real app on the same data.
+ */
+export const demoDataProviders: Provider[] = [
+  { provide: Auth, useClass: DemoAuth },
+  MemoryRolesRepo,
+  { provide: RolesRepo, useExisting: MemoryRolesRepo },
+  { provide: SearchProfileRepo, useClass: MemorySearchProfileRepo },
+  { provide: SavedViewsRepo, useClass: MemorySavedViewsRepo },
+  { provide: ResumesRepo, useClass: MemoryResumesRepo },
+  { provide: VariantsRepo, useClass: MemoryVariantsRepo },
+  { provide: SettingsRepo, useClass: MemorySettingsRepo },
+  { provide: LettersRepo, useClass: MemoryLettersRepo },
+  { provide: ScreeningRepo, useClass: MemoryScreeningRepo },
+  { provide: PrepRepo, useClass: MemoryPrepRepo },
+  { provide: AdminRepo, useClass: MemoryAdminRepo },
+  { provide: SharesRepo, useClass: MemorySharesRepo },
+  { provide: MarketRepo, useClass: MemoryMarketRepo },
+  { provide: SourcesRepo, useClass: MemorySourcesRepo },
+  { provide: WatchlistRepo, useClass: MemoryWatchlistRepo },
+];
+
 /** Demo mode swaps the backend for in-memory data and a signed-in demo user. */
 const dataProviders: Provider[] = environment.demo
-  ? [
-      { provide: Auth, useClass: DemoAuth },
-      MemoryRolesRepo,
-      { provide: RolesRepo, useExisting: MemoryRolesRepo },
-      { provide: SearchProfileRepo, useClass: MemorySearchProfileRepo },
-      { provide: SavedViewsRepo, useClass: MemorySavedViewsRepo },
-      { provide: ResumesRepo, useClass: MemoryResumesRepo },
-      { provide: VariantsRepo, useClass: MemoryVariantsRepo },
-      { provide: SettingsRepo, useClass: MemorySettingsRepo },
-      { provide: LettersRepo, useClass: MemoryLettersRepo },
-      { provide: ScreeningRepo, useClass: MemoryScreeningRepo },
-      { provide: PrepRepo, useClass: MemoryPrepRepo },
-      { provide: AdminRepo, useClass: MemoryAdminRepo },
-      { provide: SharesRepo, useClass: MemorySharesRepo },
-      { provide: MarketRepo, useClass: MemoryMarketRepo },
-      { provide: SourcesRepo, useClass: MemorySourcesRepo },
-      { provide: WatchlistRepo, useClass: MemoryWatchlistRepo },
-    ]
+  ? demoDataProviders
   : [
       { provide: RolesRepo, useClass: SupabaseRolesRepo },
       { provide: SearchProfileRepo, useClass: SupabaseSearchProfileRepo },

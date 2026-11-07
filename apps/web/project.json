@@ -111,11 +111,30 @@
     "test": {
       "executor": "@angular/build:unit-test",
       "options": {
-        "watch": false
+        "watch": false,
+        "exclude": [
+          "**/*.layout.spec.ts"
+        ]
       },
       "dependsOn": [
-        "test-design"
+        "test-design",
+        "test-layout"
       ]
+    },
+    "test-layout": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "web:build:development",
+        "watch": false,
+        "include": [
+          "**/*.layout.spec.ts"
+        ],
+        "browsers": [
+          "chromium"
+        ],
+        "headless": true,
+        "browserViewport": "1280x800"
+      }
     },
     "serve-static": {
       "continuous": true,

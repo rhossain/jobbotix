@@ -20,7 +20,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
       />
     </svg>
     @if (wordmark()) {
-      <span class="text-[1.0625rem] font-semibold tracking-tight text-ink"
+      <span
+        class="text-[1.0625rem] font-semibold tracking-tight text-ink"
+        [class]="wordmark() === 'auto' ? 'max-[360px]:hidden' : ''"
         >Jobbotix</span
       >
     }
@@ -28,5 +30,6 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 })
 export class Logo {
   readonly size = input(28);
-  readonly wordmark = input(true);
+  /** 'auto' drops the wordmark on screens under 360px, where space runs out. */
+  readonly wordmark = input<boolean | 'auto'>(true);
 }
