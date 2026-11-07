@@ -1,7 +1,9 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   type MarketSignals,
+  careersSystem,
   summariseRuns,
+  type AtsKind,
   localAnswer,
   localPrep,
   normalisePrep,
@@ -51,6 +53,8 @@ import {
   SharesRepo,
   MarketRepo,
   SourcesRepo,
+  WatchlistRepo,
+  type FollowedCompany,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -59,6 +63,7 @@ import {
   sampleRoles,
   sampleScreeningAnswers,
   sampleSearchProfile,
+  sampleFollows,
   sampleSources,
 } from './sample-data';
 
@@ -1084,5 +1089,56 @@ export class MemorySourcesRepo extends SourcesRepo {
   /** Demo: the real catalogue's shape, with made-up health. */
   async list(): Promise<SourceCatalogRow[]> {
     return sampleSources();
+  }
+}
+
+@Injectable()
+export class MemoryWatchlistRepo extends WatchlistRepo {
+  private list: FollowedCompany[] = sampleFollows();
+
+  async followed() {
+    return [...this.list];
+  }
+
+  async follow(kind: AtsKind, slug: string, name: string) {
+    if (
+      this.list.some(
+        (f) => f.company.ats_kind === kind && f.company.ats_slug === slug,
+      )
+    )
+      return;
+    this.list = [
+      {
+        company: {
+          id: `demo-${kind}-${slug}`,
+          ats_kind: kind,
+          ats_slug: slug,
+          name,
+          first_seen_at: new Date().toISOString(),
+          last_polled_at: null,
+          last_error: null,
+          open_roles: 0,
+        },
+        followedAt: new Date().toISOString(),
+      },
+      ...this.list,
+    ];
+  }
+
+  async unfollow(companyId: string) {
+    this.list = this.list.filter((f) => f.company.id !== companyId);
+  }
+
+  async companyFor(role: RoleRow) {
+    // Demo links point at example.com, so pretend every demo company hires
+    // on Greenhouse to show the follow control.
+    const found = careersSystem(role.url) ?? {
+      kind: 'greenhouse' as const,
+      slug: role.company
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, ''),
+    };
+    return found.slug ? { ...found, name: role.company } : null;
   }
 }

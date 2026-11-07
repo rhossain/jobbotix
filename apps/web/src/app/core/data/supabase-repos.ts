@@ -1,5 +1,11 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { summariseRuns } from '@jobbotix/shared-types';
+import {
+  ATS_LABEL,
+  careersSystem,
+  summariseRuns,
+  type AtsKind,
+  type CompanyRow,
+} from '@jobbotix/shared-types';
 import type {
   MarketSignals,
   PrepSheet,
@@ -43,6 +49,8 @@ import {
   SharesRepo,
   MarketRepo,
   SourcesRepo,
+  WatchlistRepo,
+  type FollowedCompany,
   type AdminTotals,
   type AdminUser,
 } from './repos';
@@ -804,5 +812,61 @@ export class SupabaseSourcesRepo extends SourcesRepo {
       .order('name');
     if (error) throw new Error(error.message);
     return data ?? [];
+  }
+}
+
+@Injectable()
+export class SupabaseWatchlistRepo extends WatchlistRepo {
+  private readonly supabase = injectSupabase();
+
+  async followed(): Promise<FollowedCompany[]> {
+    const { data, error } = await this.supabase
+      .from('company_follows')
+      .select('created_at, companies(*)')
+      .order('created_at', { ascending: false });
+    if (error) throw new Error(error.message);
+    return (
+      (data ?? []) as unknown as {
+        created_at: string;
+        companies: CompanyRow | CompanyRow[] | null;
+      }[]
+    )
+      .map((r) => ({
+        company: Array.isArray(r.companies) ? r.companies[0] : r.companies,
+        followedAt: r.created_at,
+      }))
+      .filter((f): f is FollowedCompany => !!f.company);
+  }
+
+  async follow(kind: AtsKind, slug: string, name: string) {
+    const { error } = await this.supabase.rpc('follow_company', {
+      p_kind: kind,
+      p_slug: slug,
+      p_name: name,
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  async unfollow(companyId: string) {
+    const { error } = await this.supabase
+      .from('company_follows')
+      .delete()
+      .eq('company_id', companyId);
+    if (error) throw new Error(error.message);
+  }
+
+  async companyFor(role: RoleRow) {
+    if (role.posting_id) {
+      const { data } = await this.supabase
+        .from('postings')
+        .select('ats_kind, ats_slug, company')
+        .eq('id', role.posting_id)
+        .maybeSingle();
+      const kind = data?.ats_kind as AtsKind | null;
+      if (data && kind && kind in ATS_LABEL && data.ats_slug)
+        return { kind, slug: data.ats_slug, name: data.company };
+    }
+    const found = careersSystem(role.url);
+    return found ? { ...found, name: role.company } : null;
   }
 }

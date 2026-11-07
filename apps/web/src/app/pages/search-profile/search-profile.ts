@@ -273,6 +273,23 @@ const splitLines = (s: string) =>
               The run itself still records every role; this only shapes the
               email.
             </p>
+            <label class="mt-2 flex flex-wrap items-center gap-2">
+              Email me right away when a new role scores at least
+              <input
+                id="sp-alert-min"
+                type="number"
+                min="0"
+                max="100"
+                step="5"
+                formControlName="alertMinScore"
+                class="jb-input jb-input-inline w-24"
+                placeholder="Off"
+              />
+            </label>
+            <p class="text-ink-muted">
+              Leave it empty for no instant alerts. Checked every hour, as new
+              roles are filed.
+            </p>
           </fieldset>
 
           <fieldset
@@ -456,6 +473,7 @@ export class SearchProfile {
     digestTime: new FormControl('06:45', { nonNullable: true }),
     digestEnabled: new FormControl(true, { nonNullable: true }),
     digestMinScore: new FormControl(0, { nonNullable: true }),
+    alertMinScore: new FormControl<number | null>(null),
     weights: new FormGroup(
       Object.fromEntries(
         (Object.keys(DEFAULT_SCORING_WEIGHTS) as (keyof ScoringWeights)[]).map(
@@ -545,6 +563,7 @@ export class SearchProfile {
       digestTime: p.digest_time.slice(0, 5),
       digestEnabled: p.digest_enabled !== false,
       digestMinScore: p.digest_min_score ?? 0,
+      alertMinScore: p.alert_min_score ?? null,
       weights: resolveScoringWeights(p.scoring_weights),
     });
   }
@@ -597,6 +616,10 @@ export class SearchProfile {
         home_country: v.homeCountry || null,
         allowed_countries: allowed.codes.filter((c) => c !== v.homeCountry),
         remote_only: v.hybrid,
+        alert_min_score:
+          v.alertMinScore === null || String(v.alertMinScore) === ''
+            ? null
+            : Math.min(100, Math.max(0, Number(v.alertMinScore) || 0)),
       });
       this.form.markAsPristine();
       this.savedAt.set(Date.now());

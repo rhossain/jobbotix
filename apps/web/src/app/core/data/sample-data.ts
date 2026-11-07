@@ -6,6 +6,7 @@ import type {
   ScreeningAnswerRow,
   SearchProfileRow,
   SourceCatalogRow,
+  CompanyRow,
 } from '@jobbotix/shared-types';
 
 /**
@@ -465,6 +466,7 @@ export function sampleSearchProfile(): SearchProfileRow {
     allowed_countries: [],
     remote_only: true,
     last_matched_at: null,
+    alert_min_score: null,
     active: true,
     created_at: daysAgo(30),
     updated_at: daysAgo(3),
@@ -734,5 +736,39 @@ export function sampleSources(): SourceCatalogRow[] {
       'Jobs from Reed (reed.co.uk).',
       'GB',
     ),
+  ];
+}
+
+/** Two demo follows, with made-up poll results. */
+export function sampleFollows(): {
+  company: CompanyRow;
+  followedAt: string;
+}[] {
+  const ago = (h: number) => new Date(Date.now() - h * 3_600_000).toISOString();
+  const company = (
+    id: string,
+    ats_kind: CompanyRow['ats_kind'],
+    ats_slug: string,
+    name: string,
+    open_roles: number,
+  ): CompanyRow => ({
+    id,
+    ats_kind,
+    ats_slug,
+    name,
+    first_seen_at: ago(72),
+    last_polled_at: ago(1),
+    last_error: null,
+    open_roles,
+  });
+  return [
+    {
+      company: company('demo-1', 'ashby', 'northwind', 'Northwind Labs', 14),
+      followedAt: ago(30),
+    },
+    {
+      company: company('demo-2', 'greenhouse', 'tidepool', 'Tidepool', 37),
+      followedAt: ago(52),
+    },
   ];
 }

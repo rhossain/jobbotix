@@ -107,6 +107,8 @@ export type SearchProfileRow = Timestamps & {
   allowed_countries: string[];
   remote_only: boolean;
   last_matched_at: string | null;
+  /** Email right away when a new role scores at least this; null = off. */
+  alert_min_score: number | null;
 };
 
 export type RoleRow = Timestamps & {
@@ -199,6 +201,25 @@ export type PostingRow = {
   expires_at: string | null;
   first_seen_at: string;
   last_seen_at: string;
+};
+
+export type AtsKind = 'greenhouse' | 'lever' | 'ashby' | 'workable';
+
+export type CompanyRow = {
+  id: string;
+  ats_kind: AtsKind;
+  ats_slug: string;
+  name: string;
+  first_seen_at: string;
+  last_polled_at: string | null;
+  last_error: string | null;
+  open_roles: number;
+};
+
+export type CompanyFollowRow = {
+  user_id: string;
+  company_id: string;
+  created_at: string;
 };
 
 export type PostingSourceRow = {
@@ -382,6 +403,7 @@ export type Database = {
           | 'allowed_countries'
           | 'remote_only'
           | 'last_matched_at'
+          | 'alert_min_score'
           | 'created_at'
           | 'updated_at'
         >
@@ -507,6 +529,8 @@ export type Database = {
       source_runs: Table<SourceRunRow, Partial<SourceRunRow>>;
       postings: Table<PostingRow, Partial<PostingRow>>;
       posting_sources: Table<PostingSourceRow, Partial<PostingSourceRow>>;
+      companies: Table<CompanyRow, Partial<CompanyRow>>;
+      company_follows: Table<CompanyFollowRow, Partial<CompanyFollowRow>>;
       ai_usage: Table<
         AiUsageRow,
         Insertable<
@@ -541,6 +565,10 @@ export type Database = {
       signup_is_open: { Args: Record<string, never>; Returns: boolean };
       shared_view: { Args: { p_token: string }; Returns: Json };
       market_signals: { Args: Record<string, never>; Returns: Json };
+      follow_company: {
+        Args: { p_kind: string; p_slug: string; p_name?: string };
+        Returns: string;
+      };
       admin_set_open_signup: { Args: { p_open: boolean }; Returns: undefined };
       create_ingest_key: { Args: { p_label?: string }; Returns: string };
       resolve_ingest_key: { Args: { p_key: string }; Returns: string | null };

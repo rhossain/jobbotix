@@ -10,13 +10,20 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
+  ATS_LABEL,
   ROLE_STATUS_LABELS,
+  type AtsKind,
   type RoleEventRow,
   type RoleRow,
   type PostingSeenOn,
   type ScreeningAnswerRow,
 } from '@jobbotix/shared-types';
-import { LettersRepo, RolesRepo, ScreeningRepo } from '../../core/data/repos';
+import {
+  LettersRepo,
+  RolesRepo,
+  ScreeningRepo,
+  WatchlistRepo,
+} from '../../core/data/repos';
 import { ModelPicker } from '../../shared/model-picker';
 import { ShareButton } from '../../shared/share-button';
 import { RelativeDayPipe, TypeLabelPipe } from '../../shared/format';
@@ -593,6 +600,26 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
                   }
                 </dd>
               </dl>
+              @if (careers(); as c) {
+                <div
+                  class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm"
+                >
+                  <span class="text-ink-muted">
+                    {{ c.name || r.company }} hires on {{ atsLabel[c.kind] }}
+                  </span>
+                  <button
+                    type="button"
+                    jbButton
+                    size="sm"
+                    [busy]="followBusy()"
+                    [disabled]="followBusy()"
+                    [attr.aria-pressed]="followingId() ? 'true' : 'false'"
+                    (click)="toggleFollow(r)"
+                  >
+                    {{ followingId() ? 'Following' : 'Follow company' }}
+                  </button>
+                </div>
+              }
             </section>
           </aside>
         </div>
@@ -677,6 +704,17 @@ export class RoleDetail {
   readonly events = signal<RoleEventRow[]>([]);
   readonly answers = signal<ScreeningAnswerRow[]>([]);
   readonly seenOn = signal<PostingSeenOn[]>([]);
+  private readonly watchlist = inject(WatchlistRepo);
+  readonly atsLabel = ATS_LABEL;
+  /** The careers system behind this role, when Jobbotix can poll it. */
+  readonly careers = signal<{
+    kind: AtsKind;
+    slug: string;
+    name: string;
+  } | null>(null);
+  /** The followed company's id, when the user follows it. */
+  readonly followingId = signal<string | null>(null);
+  readonly followBusy = signal(false);
   readonly editingLetter = signal(false);
   readonly letterDraft = signal('');
   readonly letterModel = signal('');
@@ -735,6 +773,51 @@ export class RoleDetail {
         }),
     );
   });
+
+  private readonly loadCareers = effect(() => {
+    const r = this.role();
+    if (!r) return;
+    untracked(() => void this.refreshFollow(r));
+  });
+
+  private async refreshFollow(r: RoleRow) {
+    const [c, follows] = await Promise.all([
+      this.watchlist.companyFor(r),
+      this.watchlist.followed(),
+    ]);
+    if (this.role()?.id !== r.id) return;
+    this.careers.set(c);
+    const hit = c
+      ? follows.find(
+          (f) => f.company.ats_kind === c.kind && f.company.ats_slug === c.slug,
+        )
+      : undefined;
+    this.followingId.set(hit?.company.id ?? null);
+  }
+
+  async toggleFollow(r: RoleRow) {
+    const c = this.careers();
+    if (!c || this.followBusy()) return;
+    this.followBusy.set(true);
+    const name = c.name || r.company;
+    try {
+      const id = this.followingId();
+      if (id) {
+        await this.watchlist.unfollow(id);
+        this.toast.show(`Stopped following ${name}`);
+      } else {
+        await this.watchlist.follow(c.kind, c.slug, name);
+        this.toast.success(
+          `Following ${name}. Its new roles are checked every hour.`,
+        );
+      }
+      await this.refreshFollow(r);
+    } catch (e) {
+      this.toast.error(`Could not update the follow: ${(e as Error).message}`);
+    } finally {
+      this.followBusy.set(false);
+    }
+  }
 
   describe(e: RoleEventRow): string {
     const p = (e.payload ?? {}) as Record<string, unknown>;

@@ -6,10 +6,21 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { countryName, type SourceCatalogRow } from '@jobbotix/shared-types';
-import { SearchProfileRepo, SourcesRepo } from '../../core/data/repos';
+import {
+  ATS_LABEL,
+  careersSystem,
+  countryName,
+  type SourceCatalogRow,
+} from '@jobbotix/shared-types';
+import {
+  type FollowedCompany,
+  SearchProfileRepo,
+  SourcesRepo,
+  WatchlistRepo,
+} from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
-import { EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
+import { Toast } from '../../shared/toast';
+import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
 
 type Health = 'ok' | 'failing' | 'needs-key' | 'off' | 'waiting';
 
@@ -28,6 +39,7 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
 @Component({
   selector: 'jb-sources',
   imports: [
+    Button,
     EmptyState,
     Icon,
     PageHeader,
@@ -41,6 +53,84 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
       title="Sources"
       lead="Where Jobbotix looks for roles. Active sources are read four times a day, and every role links back to the board it came from."
     />
+
+    <section class="jb-card mt-8 p-5 text-sm" aria-labelledby="follow-h">
+      <h2 id="follow-h" class="font-semibold text-ink">Companies you follow</h2>
+      <p class="mt-1 text-ink-muted">
+        Jobbotix checks their careers pages every hour, so their roles reach you
+        before the boards pick them up. Follow from a role page, or paste a
+        careers link from Greenhouse, Lever, Ashby or Workable.
+      </p>
+      <form
+        class="mt-3 flex flex-col gap-2 sm:flex-row"
+        (submit)="$event.preventDefault(); addByLink()"
+      >
+        <label class="sr-only" for="follow-link">Careers page link</label>
+        <input
+          id="follow-link"
+          class="jb-input min-w-0 flex-1"
+          type="url"
+          inputmode="url"
+          placeholder="https://jobs.lever.co/company"
+          [value]="link()"
+          (input)="link.set($any($event.target).value); linkError.set('')"
+        />
+        <button
+          type="submit"
+          jbButton
+          [busy]="adding()"
+          [disabled]="adding() || !link().trim()"
+        >
+          Follow
+        </button>
+      </form>
+      @if (linkError()) {
+        <p class="mt-2 text-bad" role="alert">{{ linkError() }}</p>
+      }
+      @if (follows() === null) {
+        <jb-skeleton class="mt-3 block" shape="line" [count]="2" />
+      } @else if (follows()!.length) {
+        <ul class="mt-4 flex flex-col divide-y divide-line">
+          @for (f of follows(); track f.company.id) {
+            <li
+              class="flex flex-wrap items-center justify-between gap-2 py-2.5"
+            >
+              <div class="min-w-0">
+                <p class="font-medium text-ink">
+                  {{ f.company.name || f.company.ats_slug }}
+                </p>
+                <p class="text-xs text-ink-muted">
+                  {{ atsLabel[f.company.ats_kind] }}
+                  @if (f.company.last_polled_at) {
+                    · {{ f.company.open_roles }} open
+                    {{ f.company.open_roles === 1 ? 'role' : 'roles' }} ·
+                    checked {{ f.company.last_polled_at | relativeDay }}
+                  } @else {
+                    · first check within the hour
+                  }
+                </p>
+                @if (f.company.last_error) {
+                  <p class="mt-0.5 break-words text-xs text-bad">
+                    {{ f.company.last_error }}
+                  </p>
+                }
+              </div>
+              <button
+                type="button"
+                jbButton="ghost"
+                size="sm"
+                [disabled]="removing() === f.company.id"
+                (click)="unfollow(f)"
+              >
+                Unfollow
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="mt-3 text-ink-faint">You don't follow any companies yet.</p>
+      }
+    </section>
 
     <div class="mt-8 flex flex-col gap-6">
       @if (error()) {
@@ -147,6 +237,15 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
 export class SourcesPage {
   private readonly repo = inject(SourcesRepo);
   private readonly profiles = inject(SearchProfileRepo);
+  private readonly watchlist = inject(WatchlistRepo);
+  private readonly toast = inject(Toast);
+
+  readonly atsLabel = ATS_LABEL;
+  readonly follows = signal<FollowedCompany[] | null>(null);
+  readonly link = signal('');
+  readonly linkError = signal('');
+  readonly adding = signal(false);
+  readonly removing = signal<string | null>(null);
 
   readonly kindLabel = KIND_LABEL;
   readonly sources = signal<SourceCatalogRow[] | null>(null);
@@ -172,6 +271,61 @@ export class SourcesPage {
       .catch((e: Error) =>
         this.error.set(e.message || 'Could not load the sources'),
       );
+    void this.loadFollows();
+  }
+
+  private async loadFollows() {
+    try {
+      this.follows.set(await this.watchlist.followed());
+    } catch (e) {
+      this.follows.set([]);
+      this.linkError.set(
+        `Could not load the companies you follow: ${(e as Error).message}`,
+      );
+    }
+  }
+
+  async addByLink() {
+    const found = careersSystem(this.link());
+    if (!found) {
+      this.linkError.set(
+        'That link is not a Greenhouse, Lever, Ashby or Workable careers page.',
+      );
+      return;
+    }
+    this.adding.set(true);
+    try {
+      const name = found.slug
+        .split(/[-_.]+/)
+        .filter(Boolean)
+        .map((w) => w[0]!.toUpperCase() + w.slice(1))
+        .join(' ');
+      await this.watchlist.follow(found.kind, found.slug, name);
+      this.link.set('');
+      this.toast.success(`Following ${name} on ${ATS_LABEL[found.kind]}`);
+      await this.loadFollows();
+    } catch (e) {
+      this.linkError.set(`Could not follow it: ${(e as Error).message}`);
+    } finally {
+      this.adding.set(false);
+    }
+  }
+
+  async unfollow(f: FollowedCompany) {
+    this.removing.set(f.company.id);
+    try {
+      await this.watchlist.unfollow(f.company.id);
+      this.follows.update((l) =>
+        (l ?? []).filter((x) => x.company.id !== f.company.id),
+      );
+      this.toast.show(
+        `Stopped following ${f.company.name || f.company.ats_slug}`,
+      );
+    } catch (e) {
+      this.toast.error(`Could not unfollow: ${(e as Error).message}`);
+    } finally {
+      this.removing.set(null);
+    }
   }
 
   coverage(s: SourceCatalogRow): string {

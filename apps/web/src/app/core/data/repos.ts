@@ -25,6 +25,8 @@ import type {
   ScreeningAnswerRow,
   SearchProfileRow,
   SourceCatalogRow,
+  AtsKind,
+  CompanyRow,
 } from '@jobbotix/shared-types';
 
 /**
@@ -209,6 +211,23 @@ export abstract class SharesRepo {
 
 export abstract class MarketRepo {
   abstract signals(): Promise<MarketSignals>;
+}
+
+/** A company the user follows, with what the last poll found. */
+export interface FollowedCompany {
+  company: CompanyRow;
+  followedAt: string;
+}
+
+/** Companies whose own careers pages Jobbotix checks every hour for the user. */
+export abstract class WatchlistRepo {
+  abstract followed(): Promise<FollowedCompany[]>;
+  abstract follow(kind: AtsKind, slug: string, name: string): Promise<void>;
+  abstract unfollow(companyId: string): Promise<void>;
+  /** The careers system behind a role, from its pooled posting or its link. */
+  abstract companyFor(
+    role: RoleRow,
+  ): Promise<{ kind: AtsKind; slug: string; name: string } | null>;
 }
 
 /** The boards and feeds Jobbotix reads, with their health. */
