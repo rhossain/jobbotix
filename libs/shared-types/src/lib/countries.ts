@@ -9,7 +9,12 @@ export interface CountryOption {
   name: string;
 }
 
-const NOT_COUNTRIES = new Set(['EU', 'EZ', 'UN', 'QO', 'XA', 'XB', 'ZZ']);
+// Pseudo-regions, and territories nobody lists as where they live or work
+// (Antarctica, Ascension, Clipperton, Diego Garcia, Ceuta & Melilla, Canary
+// Islands, Tristan da Cunha, Sark, Bouvet, Heard & McDonald, US Outlying).
+const NOT_COUNTRIES = new Set(
+  'EU EZ UN QO XA XB ZZ AQ AC CP DG EA IC TA CQ BV HM UM'.split(' '),
+);
 const ALIASES: Record<string, string> = {
   usa: 'US',
   us: 'US',

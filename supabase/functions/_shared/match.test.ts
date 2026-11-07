@@ -108,7 +108,7 @@ Deno.test(
       m({ remote_policy: 'region_locked', hiring_countries: ['DE', 'PL'] }),
       {
         kind: 'excluded',
-        reason: 'Limited to DE, PL',
+        reason: 'Limited to Germany, Poland',
       },
     );
     assertEquals(

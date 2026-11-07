@@ -188,7 +188,7 @@ export function matchPosting(
     countries.some((c) => allowed.has(c)) ||
     regions.some((r) => [...allowed].some((c) => regionIncludes(r, c)));
   const placeList = [
-    ...post.hiring_countries,
+    ...post.hiring_countries.map(countryLabel),
     ...post.hiring_regions.map(titleCase),
   ];
   const place = placeList.length
@@ -272,4 +272,14 @@ function titleCase(s: string): string {
     .replace(/\bEmea\b/, 'EMEA')
     .replace(/\bApac\b/, 'APAC')
     .replace(/\bLatam\b/, 'LATAM');
+}
+
+const REGION_NAMES = new Intl.DisplayNames(['en'], { type: 'region' });
+/** "US" -> "United States": exclusion reasons are read by people. */
+function countryLabel(code: string): string {
+  try {
+    return REGION_NAMES.of(code) ?? code;
+  } catch {
+    return code;
+  }
 }

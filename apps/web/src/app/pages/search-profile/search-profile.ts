@@ -48,7 +48,7 @@ const splitLines = (s: string) =>
   template: `
     <jb-page-header
       title="Search profile"
-      lead="What the daily run looks for. Save, then copy the prompt into your scheduled task."
+      lead="What Jobbotix looks for. New postings from every source are matched against this profile each hour; saving a change re-checks the last three days."
     />
     <section class="mt-8 flex flex-col gap-6">
       @if (!repo.loaded()) {

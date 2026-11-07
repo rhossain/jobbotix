@@ -130,9 +130,9 @@ import {
       >
         <h2 class="jb-section-title">AI</h2>
         <p class="text-sm text-ink-muted">
-          Your daily search already produces scores, letters and answers through
-          your Claude scheduled task at no cost here. Add your own Anthropic API
-          key only if you want to regenerate inside the app; calls are billed to
+          Jobbotix scores every new role on keywords at no cost. With your own
+          Anthropic API key it also re-scores the strongest matches each run and
+          drafts letters, answers and prep inside the app; calls are billed to
           your key.
         </p>
         @if (hasKey()) {
