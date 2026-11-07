@@ -57,6 +57,23 @@ export interface AdapterContext {
   countries?: string[];
   /** Function secrets an adapter may need (API keys); injected for tests. */
   secret?: (name: string) => string | undefined;
+  /** For the company-careers source: which companies to poll this run. */
+  companies?: CompanyTarget[];
+}
+
+export interface CompanyTarget {
+  id: string;
+  kind: 'greenhouse' | 'lever' | 'ashby' | 'workable';
+  slug: string;
+  name: string;
+}
+
+/** One polled company's outcome, written back to the companies table. */
+export interface CompanyResult {
+  id: string;
+  error?: string;
+  open_roles?: number;
+  name?: string;
 }
 
 export interface AdapterResult {
@@ -64,6 +81,7 @@ export interface AdapterResult {
   requests: number;
   /** Non-fatal problems (one page failed); a thrown error fails the run. */
   warnings: string[];
+  companies?: CompanyResult[];
 }
 
 export interface SourceAdapter {

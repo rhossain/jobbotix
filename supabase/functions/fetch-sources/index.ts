@@ -12,7 +12,7 @@ import { json, requireCronSecret, serviceClient } from '../_shared/auth.ts';
 import { buildQueries } from '../_shared/queries.ts';
 import { finishPosting } from '../_shared/sources/normalise.ts';
 import { ADAPTERS } from '../_shared/sources/registry.ts';
-import type { PoolPosting } from '../_shared/sources/types.ts';
+import type { CompanyTarget, PoolPosting } from '../_shared/sources/types.ts';
 
 const DEFAULT_LOOKBACK_DAYS = 3;
 const CHUNK = 150;
@@ -32,7 +32,11 @@ Deno.serve(async (req) => {
   const denied = requireCronSecret(req);
   if (denied) return denied;
 
-  const body = (await req.json().catch(() => ({}))) as { sources?: string[] };
+  const body = (await req.json().catch(() => ({}))) as {
+    sources?: string[];
+    /** Company careers only: poll followed companies, not discovered ones. */
+    followedOnly?: boolean;
+  };
   const admin = serviceClient();
 
   let catalog = admin
@@ -101,6 +105,15 @@ Deno.serve(async (req) => {
         : floor;
       const since = new Date(Math.max(floor, last));
 
+      const companies =
+        s.id === 'ats'
+          ? await companyTargets(
+              admin,
+              s.max_requests_per_run,
+              body.followedOnly === true,
+            )
+          : undefined;
+
       const result = await adapter.run({
         queries,
         since,
@@ -109,7 +122,10 @@ Deno.serve(async (req) => {
         sleep: (ms) => new Promise((r) => setTimeout(r, ms)),
         countries,
         secret: (name) => Deno.env.get(name),
+        companies,
       });
+      if (result.companies?.length)
+        await admin.rpc('record_company_polls', { p: result.companies });
       run.requests = result.requests;
       run.warnings = result.warnings.slice(0, 10);
 
@@ -149,3 +165,53 @@ Deno.serve(async (req) => {
 
   return json(200, { queries, runs });
 });
+
+/**
+ * Companies to poll this run: every followed company first (oldest poll
+ * first), then, unless followedOnly, companies discovered in the pool, up to
+ * one request each within the source's budget.
+ */
+async function companyTargets(
+  admin: ReturnType<typeof serviceClient>,
+  budget: number,
+  followedOnly: boolean,
+): Promise<CompanyTarget[]> {
+  const cols = 'id, ats_kind, ats_slug, name';
+  const toTarget = (c: {
+    id: string;
+    ats_kind: CompanyTarget['kind'];
+    ats_slug: string;
+    name: string;
+  }): CompanyTarget => ({
+    id: c.id,
+    kind: c.ats_kind,
+    slug: c.ats_slug,
+    name: c.name,
+  });
+  const { data: follows } = await admin
+    .from('company_follows')
+    .select('company_id')
+    .limit(5000);
+  const followed = [...new Set((follows ?? []).map((f) => f.company_id))];
+  const out: CompanyTarget[] = [];
+  if (followed.length) {
+    const { data } = await admin
+      .from('companies')
+      .select(cols)
+      .in('id', followed)
+      .order('last_polled_at', { ascending: true, nullsFirst: true })
+      .limit(budget);
+    out.push(...(data ?? []).map(toTarget));
+  }
+  if (!followedOnly && out.length < budget) {
+    let q = admin
+      .from('companies')
+      .select(cols)
+      .order('last_polled_at', { ascending: true, nullsFirst: true })
+      .limit(budget - out.length);
+    if (followed.length) q = q.not('id', 'in', `(${followed.join(',')})`);
+    const { data } = await q;
+    out.push(...(data ?? []).map(toTarget));
+  }
+  return out;
+}

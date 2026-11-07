@@ -463,4 +463,57 @@ exception when insufficient_privilege then null;
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- Watchlist: pool apply links register companies; users follow through
+-- follow_company and see only their own follows; polls are service-only.
+do $$ begin
+  perform public.ingest_postings('himalayas', '[
+    {"dedupe_key":"w1","external_id":"w-1","company":"Gamma","title":"Senior Angular Engineer",
+     "url":"https://jobs.ashbyhq.com/gamma/1","ats_kind":"ashby","ats_slug":"gamma"}]'::jsonb);
+  if not exists (select 1 from public.companies where ats_kind = 'ashby' and ats_slug = 'gamma' and name = 'Gamma') then
+    raise exception 'FAIL: a pool posting did not register its company';
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+select public.follow_company('lever', 'Delta', 'Delta Inc');
+select public.follow_company('ashby', 'gamma', '');
+do $$ begin
+  if (select count(*) from public.company_follows) <> 2 then raise exception 'FAIL: user 2 should follow two companies'; end if;
+  if (select name from public.companies where ats_slug = 'delta') <> 'Delta Inc' then raise exception 'FAIL: follow did not register the company'; end if;
+  begin
+    perform public.follow_company('workday', 'x', '');
+    raise exception 'FAIL: unsupported ATS accepted';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.follow_company('lever', '../evil', '');
+    raise exception 'FAIL: bad slug accepted';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    insert into public.company_follows (user_id, company_id)
+    select '11111111-1111-1111-1111-111111111111', id from public.companies limit 1;
+    raise exception 'FAIL: a user inserted a follow directly';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.record_company_polls('[]'::jsonb);
+    raise exception 'FAIL: a user could record polls';
+  exception when insufficient_privilege then null;
+  end;
+end $$;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if (select count(*) from public.company_follows) <> 0 then raise exception 'FAIL: user 1 sees user 2 follows'; end if;
+  if (select count(*) from public.companies) < 2 then raise exception 'FAIL: companies should be readable'; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+do $$ begin
+  perform public.record_company_polls(jsonb_build_array(jsonb_build_object(
+    'id', (select id from public.companies where ats_slug = 'delta'), 'open_roles', 12)));
+  if (select open_roles from public.companies where ats_slug = 'delta') <> 12 then
+    raise exception 'FAIL: record_company_polls did not update the company';
+  end if;
+end $$;
+
 \echo RLS tests passed

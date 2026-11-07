@@ -2,6 +2,7 @@
 // adding its module here and its row in source_catalog (a migration).
 
 import { adzuna, jooble, reed } from './aggregators.ts';
+import { ats } from './ats.ts';
 import {
   arbeitnow,
   jobicy,
@@ -26,5 +27,6 @@ export const ADAPTERS: Record<string, SourceAdapter> = Object.fromEntries(
     adzuna,
     jooble,
     reed,
+    ats,
   ].map((a) => [a.id, a]),
 );
