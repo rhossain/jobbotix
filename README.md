@@ -70,13 +70,13 @@ release (CI runs lint, tests, the database tests and the Deno checks).
    live in `apps/web/src/environments/environment.production.ts` (committed:
    the anon key is public by design). The service-role key never goes anywhere near the app.
 2. `npx supabase login`, `npx supabase link --project-ref <ref>`, then
-   `npx supabase db push` (migrations 0001–0022, with RLS, cron jobs and RPCs).
+   `npx supabase db push` (migrations 0001–0023, with RLS, cron jobs and RPCs).
 3. Enable the `pg_cron`, `pg_net` and `vault` extensions in Database →
    Extensions if `db push` did not.
 4. Deploy the functions: `npx supabase functions deploy` (all of
    `ingest-roles list-roles extract-role send-digest tailor-resume
-set-anthropic-key draft-letter answer-screening prep-role fetch-sources
-match-postings`).
+set-anthropic-key draft-letter answer-screening prep-role parse-resume
+fetch-sources match-postings`).
 5. Secrets (Project Settings → Edge Functions): `RESEND_API_KEY`,
    `DIGEST_CRON_SECRET` (any long random string), `APP_URL`
    (`https://app.jobbotix.com`), `DIGEST_FROM` (`Jobbotix <digest@jobbotix.com>`).

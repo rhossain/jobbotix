@@ -4,3 +4,4 @@
  */
 export * from './lib/resume-import';
 export * from './lib/resume-text';
+export * from './lib/resume-ai';

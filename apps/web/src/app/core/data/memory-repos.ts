@@ -488,6 +488,19 @@ export class MemoryResumesRepo extends ResumesRepo {
       s.resumes = s.resumes.filter((r) => r.id !== id);
     });
   }
+
+  async readWithAi(text: string) {
+    // No model in demo mode: answer with the built-in reader, loaded lazily.
+    const { parseResumeText } = await import('./local-resume-reader');
+    const { resume, warnings } = parseResumeText(text);
+    return {
+      resume,
+      warnings: [
+        'Demo mode has no model, so this is the built-in reader again.',
+        ...warnings,
+      ],
+    };
+  }
 }
 
 @Injectable()

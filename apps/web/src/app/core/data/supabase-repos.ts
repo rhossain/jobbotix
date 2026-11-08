@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   ATS_LABEL,
   careersSystem,
+  normaliseResume,
   summariseRuns,
   type AtsKind,
   type CompanyRow,
@@ -31,6 +32,7 @@ import type {
   RunSummary,
   SearchProfileRow,
 } from '@jobbotix/shared-types';
+import type { ResumeAiResult } from '@jobbotix/shared-types/resume-import';
 import { Auth } from '../auth';
 import { injectSupabase } from '../supabase';
 import {
@@ -396,6 +398,20 @@ export class SupabaseResumesRepo extends ResumesRepo {
       .eq('is_master', false);
     if (error) throw error;
     this._resumes.update((rs) => rs.filter((r) => r.id !== id));
+  }
+
+  async readWithAi(text: string, model?: string) {
+    const { data, error } = await this.supabase.functions.invoke<
+      Partial<ResumeAiResult> & { model?: string; error?: string }
+    >('parse-resume', { body: model ? { text, model } : { text } });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.resume)
+      throw new Error(data?.error ?? 'Could not read the resume');
+    return {
+      resume: normaliseResume(data.resume),
+      warnings: data.warnings ?? [],
+      model: data.model,
+    };
   }
 }
 

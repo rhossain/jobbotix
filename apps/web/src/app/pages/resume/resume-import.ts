@@ -2,9 +2,11 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   output,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
 import {
   htmlToResumeText,
@@ -14,6 +16,8 @@ import {
   type ResumeImport,
 } from '@jobbotix/shared-types/resume-import';
 
+import { ResumesRepo, SettingsRepo } from '../../core/data/repos';
+import { ModelPicker } from '../../shared/model-picker';
 import { Icon } from '../../ui';
 
 const MAX_BYTES = 10 * 1024 * 1024;
@@ -21,7 +25,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
 /** Reads a resume from pasted text, a .docx, a PDF or a text file and parses it. */
 @Component({
   selector: 'jb-resume-import',
-  imports: [Icon],
+  imports: [Icon, ModelPicker, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="jb-card flex flex-col gap-4 p-5 md:p-6">
@@ -29,9 +33,10 @@ const MAX_BYTES = 10 * 1024 * 1024;
         <div class="min-w-0 flex-1">
           <h2 class="jb-section-title">Import a resume</h2>
           <p class="mt-1 text-sm text-ink-muted">
-            Paste the text or pick a .docx, PDF or .txt. Nothing leaves your
-            browser: the file is read and parsed here, and you review the result
-            before it touches the master.
+            Paste the text or pick a .docx, PDF or .txt. The file is read and
+            parsed in your browser, and you review the result before it touches
+            the master. Reading with AI is optional and sends only the text,
+            with your own key.
           </p>
         </div>
         <button
@@ -117,6 +122,53 @@ const MAX_BYTES = 10 * 1024 * 1024;
           class="flex flex-col gap-3 border-t border-line pt-3"
           aria-live="polite"
         >
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="jb-chip text-xs">
+              @if (source() === 'ai') {
+                <jb-icon name="sparkles" [size]="14" /> Read by AI{{
+                  aiModel() ? ' · ' + aiModel() : ''
+                }}
+              } @else {
+                Built-in reader
+              }
+            </span>
+            @if (source() === 'ai') {
+              <button
+                type="button"
+                class="jb-btn jb-btn-ghost text-sm"
+                (click)="useLocal()"
+              >
+                Use the built-in result
+              </button>
+            } @else if (hasKey()) {
+              <jb-model-picker [(value)]="model" [quiet]="true" />
+              <button
+                type="button"
+                class="jb-btn text-sm"
+                [disabled]="aiBusy()"
+                [attr.aria-busy]="aiBusy() ? 'true' : null"
+                (click)="readWithAi()"
+              >
+                <jb-icon
+                  [name]="aiBusy() ? 'loader-circle' : 'sparkles'"
+                  [size]="16"
+                  [class.animate-spin]="aiBusy()"
+                />
+                {{ aiBusy() ? 'Reading…' : 'Read with AI' }}
+              </button>
+            } @else {
+              <span class="text-xs text-ink-muted"
+                >Unusual layout?
+                <a routerLink="/settings" class="text-brand-ink underline"
+                  >Add an AI key</a
+                >
+                to read it with a model.</span
+              >
+            }
+          </div>
+          @if (aiError()) {
+            <p class="text-sm text-bad" role="alert">{{ aiError() }}</p>
+          }
           <p class="text-sm">
             Found
             <b>{{ res.resume.contact.name || 'no name' }}</b>
@@ -227,6 +279,11 @@ const MAX_BYTES = 10 * 1024 * 1024;
   `,
 })
 export class ResumeImportPanel {
+  private readonly resumes = inject(ResumesRepo);
+  private readonly settings = inject(SettingsRepo);
+  readonly hasKey = computed(
+    () => !!this.settings.profile()?.anthropic_key_ref,
+  );
   readonly dragging = signal(false);
   readonly imported = output<{
     sections: ResumeSections;
@@ -239,6 +296,17 @@ export class ResumeImportPanel {
   readonly busy = signal(false);
   readonly error = signal('');
   readonly result = signal<ResumeImport | null>(null);
+  /** The built-in reader's result, kept so an AI read can be undone. */
+  private localResult: ResumeImport | null = null;
+  readonly source = signal<'local' | 'ai'>('local');
+  readonly model = signal('');
+  readonly aiModel = signal('');
+  readonly aiBusy = signal(false);
+  readonly aiError = signal('');
+
+  constructor() {
+    void this.settings.load();
+  }
   readonly hasResult = computed(() => this.result() !== null);
   readonly skillCount = computed(
     () =>
@@ -288,7 +356,35 @@ export class ResumeImportPanel {
     const t = this.text().trim();
     if (!t) return;
     this.error.set('');
-    this.result.set(parseResumeText(t));
+    this.aiError.set('');
+    this.localResult = parseResumeText(t);
+    this.source.set('local');
+    this.result.set(this.localResult);
+  }
+
+  async readWithAi() {
+    const t = this.text().trim();
+    if (!t || this.aiBusy()) return;
+    this.aiBusy.set(true);
+    this.aiError.set('');
+    try {
+      const res = await this.resumes.readWithAi(t, this.model() || undefined);
+      this.aiModel.set(res.model ?? '');
+      this.source.set('ai');
+      this.result.set({ resume: res.resume, warnings: res.warnings });
+    } catch (e) {
+      this.aiError.set(
+        (e as Error).message || 'Could not read it with AI; try again.',
+      );
+    } finally {
+      this.aiBusy.set(false);
+    }
+  }
+
+  useLocal() {
+    if (!this.localResult) return;
+    this.source.set('local');
+    this.result.set(this.localResult);
   }
 }
 

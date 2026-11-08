@@ -5,6 +5,7 @@ import type {
   SharedView,
   VariantDiff,
 } from '@jobbotix/shared-types';
+import type { ResumeAiResult } from '@jobbotix/shared-types/resume-import';
 import type {
   AiUsageRow,
   CoverLetterRow,
@@ -96,6 +97,15 @@ export abstract class ResumesRepo {
   /** Makes an older version the master again (no copy). */
   abstract restore(id: string): Promise<void>;
   abstract remove(id: string): Promise<void>;
+  /**
+   * Reads resume text with the user's own model key, for layouts the
+   * built-in reader gets wrong. Nothing is saved. Demo mode answers with
+   * the built-in reader.
+   */
+  abstract readWithAi(
+    text: string,
+    model?: string,
+  ): Promise<ResumeAiResult & { model?: string }>;
 }
 
 export abstract class VariantsRepo {

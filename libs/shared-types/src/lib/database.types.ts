@@ -28,7 +28,7 @@ export type EmploymentType = 'full_time' | 'contract';
 export type RoleEventKind =
   'status_change' | 'note' | 'generated' | 'reminder' | 'run' | 'ingested';
 export type AiJob =
-  'extract' | 'score' | 'tailor' | 'letter' | 'answer' | 'prep';
+  'extract' | 'score' | 'tailor' | 'letter' | 'answer' | 'prep' | 'import';
 export type VariantStatus = 'draft' | 'approved';
 export type RemotePolicy =
   'worldwide' | 'region_locked' | 'hybrid' | 'onsite' | 'unknown';
