@@ -45,7 +45,7 @@ describe('parseResumeText', () => {
     expect(r.contact.email).toBe('rshossain.bd@gmail.com');
     expect(r.contact.phone).toBe('+880 1711 000000');
     expect(r.contact.location).toBe('Dhaka, Bangladesh');
-    expect(r.contact.website).toBe('rshossain.me');
+    expect(r.contact.website).toBe('https://rshossain.me');
     expect(r.contact.links.map((l) => l.label)).toEqual(['LinkedIn', 'GitHub']);
   });
 

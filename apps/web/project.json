@@ -4,15 +4,11 @@
   "projectType": "application",
   "prefix": "jb",
   "sourceRoot": "apps/web/src",
-  "tags": [
-    "scope:web"
-  ],
+  "tags": ["scope:web"],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
-      "outputs": [
-        "{options.outputPath}"
-      ],
+      "outputs": ["{options.outputPath}"],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/apps/web",
@@ -26,7 +22,7 @@
           },
           {
             "glob": "pdf.worker.min.mjs",
-            "input": "node_modules/pdfjs-dist/build",
+            "input": "node_modules/pdfjs-dist/legacy/build",
             "output": "/"
           }
         ],
@@ -112,26 +108,17 @@
       "executor": "@angular/build:unit-test",
       "options": {
         "watch": false,
-        "exclude": [
-          "**/*.layout.spec.ts"
-        ]
+        "exclude": ["**/*.layout.spec.ts"]
       },
-      "dependsOn": [
-        "test-design",
-        "test-layout"
-      ]
+      "dependsOn": ["test-design", "test-layout"]
     },
     "test-layout": {
       "executor": "@angular/build:unit-test",
       "options": {
         "buildTarget": "web:build:development",
         "watch": false,
-        "include": [
-          "**/*.layout.spec.ts"
-        ],
-        "browsers": [
-          "chromium"
-        ],
+        "include": ["**/*.layout.spec.ts"],
+        "browsers": ["chromium"],
         "headless": true,
         "browserViewport": "1280x800"
       }
@@ -141,9 +128,7 @@
       "readyWhen": {
         "signal": true
       },
-      "dependsOn": [
-        "build"
-      ],
+      "dependsOn": ["build"],
       "executor": "@nx/web:file-server",
       "options": {
         "buildTarget": "web:build",
