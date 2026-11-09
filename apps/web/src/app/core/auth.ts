@@ -41,7 +41,7 @@ export class Auth {
     name: string;
     inviteCode: string;
   }) {
-    const { error } = await this.supabase.auth.signUp({
+    const { data, error } = await this.supabase.auth.signUp({
       email: input.email,
       password: input.password,
       options: {
@@ -55,14 +55,20 @@ export class Auth {
       },
     });
     if (error) throw new Error(friendly(error.message));
+    // Accounts that need no email confirmation come back signed in. Apply the
+    // session now so the caller's next navigation sees it (the auth listener
+    // fires too, but only after the profile loads, which is too late for guards).
+    if (data.session) await this.apply(data.session);
   }
 
   async signIn(email: string, password: string) {
-    const { error } = await this.supabase.auth.signInWithPassword({
+    const { data, error } = await this.supabase.auth.signInWithPassword({
       email,
       password,
     });
     if (error) throw new Error(friendly(error.message));
+    // Same as signUp: be signed in before the caller navigates.
+    await this.apply(data.session);
   }
 
   async signOut() {

@@ -101,7 +101,7 @@ export class Login {
     try {
       const { email, password } = this.form.getRawValue();
       await this.auth.signIn(email, password);
-      const next = this.route.snapshot.queryParamMap.get('next') || '/';
+      const next = this.route.snapshot.queryParamMap.get('next') || '/today';
       await this.router.navigateByUrl(next);
     } catch (e) {
       this.error.set((e as Error).message);

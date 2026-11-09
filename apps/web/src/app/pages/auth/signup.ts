@@ -160,7 +160,7 @@ export class Signup {
       }
       await this.auth.signUp(value);
       this.done.set(true);
-      if (this.auth.isSignedIn()) await this.router.navigateByUrl('/');
+      if (this.auth.isSignedIn()) await this.router.navigateByUrl('/today');
     } catch (e) {
       this.error.set((e as Error).message);
     } finally {

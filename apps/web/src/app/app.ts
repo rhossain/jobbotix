@@ -120,6 +120,17 @@ export class App {
       this.doc.body.classList.toggle('jb-has-tabbar', this.auth.isSignedIn());
     });
 
+    // Signed in while the landing page is showing (another tab signed in, or a
+    // session restored late): move on to Today instead of leaving the landing
+    // page inside the app shell. Login and sign-up navigate on their own (to
+    // their ?next= target), so they are left to it.
+    effect(() => {
+      const url = this.url();
+      if (url === '/' && this.auth.isSignedIn() && this.router.navigated) {
+        void this.router.navigateByUrl('/today', { replaceUrl: true });
+      }
+    });
+
     const sw = inject(SwUpdate, { optional: true });
     if (sw?.isEnabled) {
       sw.versionUpdates
