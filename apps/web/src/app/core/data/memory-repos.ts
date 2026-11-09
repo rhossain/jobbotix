@@ -68,6 +68,7 @@ import {
   sampleSearchProfile,
   sampleFollows,
   sampleSources,
+  sampleUsage,
 } from './sample-data';
 
 const STORAGE_KEY = 'jobbotix.demo.v1';
@@ -665,6 +666,15 @@ export class MemorySettingsRepo extends SettingsRepo {
   );
   readonly models = signal<ModelChoice[]>([...FALLBACK_MODELS]);
   readonly usage = computed(() => this.roles.snapshot().usage);
+
+  async loadUsage(days: number | null): Promise<AiUsageRow[]> {
+    void days;
+    // Demo calls of its own, plus a month of sample usage to show the page.
+    return [...this.roles.snapshot().usage, ...sampleUsage()].sort((a, b) =>
+      b.created_at.localeCompare(a.created_at),
+    );
+  }
+
   readonly ingestKeys = computed(() =>
     [...this.roles.snapshot().ingestKeys].sort((a, b) =>
       b.created_at.localeCompare(a.created_at),

@@ -29,6 +29,7 @@ export const SECONDARY_NAV: NavItem[] = [
   },
   { label: 'Insights', link: '/insights', icon: 'chart-column', keys: 'g i' },
   { label: 'Sources', link: '/sources', icon: 'compass', keys: 'g o' },
+  { label: 'Usage', link: '/usage', icon: 'gauge', keys: 'g u' },
   { label: 'Admin', link: '/admin', icon: 'shield', adminOnly: true },
   { label: 'Settings', link: '/settings', icon: 'settings' },
 ];

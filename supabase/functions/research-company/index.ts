@@ -284,13 +284,14 @@ async function askModel(
   } catch (e) {
     return { failed: (e as Error).message || 'Model call failed' };
   } finally {
-    if (tokensIn || tokensOut)
+    if (tokensIn || tokensOut || searches)
       await admin.from('ai_usage').insert({
         user_id: userId,
         job: 'research',
         model,
         tokens_in: tokensIn,
         tokens_out: tokensOut,
+        web_searches: searches,
         cost_usd: 0,
       });
   }

@@ -16,3 +16,4 @@ export * from './lib/runs';
 export * from './lib/careers';
 export * from './lib/company';
 export * from './lib/models';
+export * from './lib/usage';

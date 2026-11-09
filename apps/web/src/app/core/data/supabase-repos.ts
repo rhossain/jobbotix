@@ -557,6 +557,28 @@ export class SupabaseSettingsRepo extends SettingsRepo {
 
   private modelsLoaded = false;
 
+  async loadUsage(days: number | null): Promise<AiUsageRow[]> {
+    const since =
+      days === null
+        ? null
+        : new Date(Date.now() - (days + 1) * 86_400_000).toISOString();
+    const rows: AiUsageRow[] = [];
+    // The API returns at most 1000 rows per request; page through.
+    for (let page = 0; page < 20; page++) {
+      let q = this.supabase
+        .from('ai_usage')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .range(page * 1000, page * 1000 + 999);
+      if (since) q = q.gte('created_at', since);
+      const { data, error } = await q;
+      if (error) throw error;
+      rows.push(...(data ?? []));
+      if ((data ?? []).length < 1000) break;
+    }
+    return rows;
+  }
+
   private async loadModels() {
     try {
       const { data } = await this.supabase.functions.invoke<{

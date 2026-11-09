@@ -29,6 +29,7 @@ export class Shortcuts {
     { keys: 'g s', label: 'Go to Search profile' },
     { keys: 'g i', label: 'Go to Insights' },
     { keys: 'g o', label: 'Go to Sources' },
+    { keys: 'g u', label: 'Go to AI usage' },
     { keys: 'n', label: 'Add a role' },
     { keys: '/', label: 'Focus the search box on Roles' },
     { keys: '⌘ K', label: 'Search roles, pages and actions (Ctrl K)' },
@@ -76,6 +77,7 @@ export class Shortcuts {
         s: '/search',
         i: '/insights',
         o: '/sources',
+        u: '/usage',
       };
       const path = to[e.key.toLowerCase()];
       if (path) {

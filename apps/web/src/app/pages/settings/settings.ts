@@ -14,6 +14,7 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { formatUsd, summariseUsage } from '@jobbotix/shared-types';
 import { LettersRepo, SettingsRepo } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
@@ -209,34 +210,20 @@ import {
 
       <!-- Usage -->
       <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
-        <h2 class="jb-section-title">AI usage on your key</h2>
-        @if (usageByModel().length === 0) {
-          <p class="text-sm text-ink-muted">No in-app AI calls yet.</p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="jb-section-title">AI usage on your key</h2>
+          <a jbButton="ghost" size="sm" routerLink="/usage"
+            >See usage <jb-icon name="arrow-up-right" [size]="16"
+          /></a>
+        </div>
+        @if (usageMonth().calls === 0) {
+          <p class="text-sm text-ink-muted">No AI calls in the last 30 days.</p>
         } @else {
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead class="text-left text-xs text-ink-muted">
-                <tr>
-                  <th class="py-2 pr-4">Model</th>
-                  <th class="py-2 pr-4">Calls</th>
-                  <th class="py-2 pr-4">Tokens in</th>
-                  <th class="py-2 pr-4">Tokens out</th>
-                  <th class="py-2">Last used</th>
-                </tr>
-              </thead>
-              <tbody>
-                @for (u of usageByModel(); track u.model) {
-                  <tr class="border-t border-line">
-                    <td class="py-2 pr-4 font-mono">{{ u.model }}</td>
-                    <td class="py-2 pr-4 tabular-nums">{{ u.calls }}</td>
-                    <td class="py-2 pr-4 tabular-nums">{{ u.in }}</td>
-                    <td class="py-2 pr-4 tabular-nums">{{ u.out }}</td>
-                    <td class="py-2">{{ u.last | relativeDay }}</td>
-                  </tr>
-                }
-              </tbody>
-            </table>
-          </div>
+          <p class="text-sm text-ink-muted">
+            Last 30 days: {{ usageMonth().calls }} calls, about
+            <span class="font-medium text-ink">{{ usageMonth().cost }}</span>
+            at list prices.
+          </p>
         }
       </section>
 
@@ -386,26 +373,9 @@ export class Settings {
     }),
   });
 
-  readonly usageByModel = computed(() => {
-    const by = new Map<
-      string,
-      { model: string; calls: number; in: number; out: number; last: string }
-    >();
-    for (const u of this.repo.usage()) {
-      const row = by.get(u.model) ?? {
-        model: u.model,
-        calls: 0,
-        in: 0,
-        out: 0,
-        last: u.created_at,
-      };
-      row.calls++;
-      row.in += u.tokens_in;
-      row.out += u.tokens_out;
-      if (u.created_at > row.last) row.last = u.created_at;
-      by.set(u.model, row);
-    }
-    return [...by.values()].sort((a, b) => b.calls - a.calls);
+  readonly usageMonth = computed(() => {
+    const t = summariseUsage(this.repo.usage(), 30).total;
+    return { calls: t.calls, cost: formatUsd(t.cost) };
   });
 
   constructor() {

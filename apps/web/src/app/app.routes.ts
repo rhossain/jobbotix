@@ -70,6 +70,12 @@ export const appRoutes: Route[] = [
     title: 'Insights · Jobbotix',
   },
   {
+    path: 'usage',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/usage/usage').then((m) => m.UsagePage),
+    title: 'AI usage · Jobbotix',
+  },
+  {
     path: 'settings',
     canActivate: [authGuard],
     loadComponent: () =>

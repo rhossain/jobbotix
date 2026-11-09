@@ -271,6 +271,11 @@ export abstract class SettingsRepo {
   abstract readonly usage: Signal<AiUsageRow[]>;
   abstract readonly ingestKeys: Signal<IngestKeyRow[]>;
   abstract load(): Promise<void>;
+  /**
+   * The user's AI calls from the last `days` days (all time when null),
+   * newest first, for the Usage page.
+   */
+  abstract loadUsage(days: number | null): Promise<AiUsageRow[]>;
   abstract updateProfile(patch: {
     name?: string;
     timezone?: string;

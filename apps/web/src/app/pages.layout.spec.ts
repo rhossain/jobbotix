@@ -35,6 +35,7 @@ const SIGNED_IN: PageCase[] = [
   { name: 'Role detail', url: '/roles/r-northwind' },
   { name: 'Board', url: '/board' },
   { name: 'Insights', url: '/insights' },
+  { name: 'AI usage', url: '/usage' },
   { name: 'Sources', url: '/sources' },
   { name: 'Search profile', url: '/search' },
   { name: 'Master resume', url: '/resume' },

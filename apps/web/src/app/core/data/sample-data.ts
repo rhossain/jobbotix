@@ -1,5 +1,6 @@
 import type { ResumeSections } from '@jobbotix/shared-types';
 import type {
+  AiUsageRow,
   Json,
   RoleEventRow,
   RoleRow,
@@ -779,4 +780,49 @@ export function sampleFollows(): {
       followedAt: ago(52),
     },
   ];
+}
+
+/**
+ * A month of AI calls for the demo's Usage page: daily scoring on Haiku,
+ * letters and prep on Sonnet, the odd company research with web searches.
+ * Dates are relative to today so the page always has something to show.
+ */
+export function sampleUsage(now = Date.now()): AiUsageRow[] {
+  const rows: AiUsageRow[] = [];
+  const day = 86_400_000;
+  let n = 0;
+  const add = (
+    daysAgo: number,
+    job: AiUsageRow['job'],
+    model: string,
+    tokensIn: number,
+    tokensOut: number,
+    webSearches = 0,
+  ) =>
+    rows.push({
+      id: `demo-usage-${++n}`,
+      user_id: 'demo-user',
+      job,
+      model,
+      tokens_in: tokensIn,
+      tokens_out: tokensOut,
+      cost_usd: 0,
+      web_searches: webSearches,
+      created_at: new Date(
+        now - daysAgo * day - (n % 7) * 3_600_000,
+      ).toISOString(),
+    });
+  for (let d = 0; d < 30; d++) {
+    for (let i = 0; i < 3 + (d % 4); i++)
+      add(d, 'score', 'claude-haiku-5-5', 2400 + i * 180, 140);
+    if (d % 2 === 0) add(d, 'letter', 'claude-sonnet-5-5', 5200, 650);
+    if (d % 3 === 0) add(d, 'answer', 'claude-sonnet-5-5', 4300, 900);
+    if (d % 4 === 1) add(d, 'extract', 'claude-sonnet-5-5', 6100, 420);
+    if (d % 6 === 2) add(d, 'research', 'claude-sonnet-5-5', 31_000, 1900, 4);
+    if (d % 9 === 4) add(d, 'prep', 'claude-opus-5-5', 7400, 2600);
+    if (d === 12) add(d, 'tailor', 'claude-sonnet-5-5', 9800, 2200);
+    if (d >= 20 && d % 5 === 0)
+      add(d, 'letter', 'claude-sonnet-4-5', 5100, 700);
+  }
+  return rows;
 }

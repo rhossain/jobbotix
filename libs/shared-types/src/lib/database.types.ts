@@ -327,6 +327,8 @@ export type AiUsageRow = {
   tokens_in: number;
   tokens_out: number;
   cost_usd: number;
+  /** Web searches billed during the call (company research). */
+  web_searches: number;
   created_at: string;
 };
 

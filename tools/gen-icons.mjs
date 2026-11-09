@@ -77,6 +77,7 @@ const ICONS = [
   'loader-circle',
   'building',
   'globe',
+  'gauge',
   'newspaper',
   'users',
 ];
