@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   ATS_LABEL,
   careersSystem,
+  FALLBACK_MODELS,
   normaliseCompanyResearch,
   normaliseResume,
   summariseRuns,
@@ -542,12 +543,29 @@ export class SupabaseSettingsRepo extends SettingsRepo {
     this._profile.set(profile.data ?? null);
     this._usage.set(usage.data ?? []);
     this._keys.set(keys.data ?? []);
-    // settings.models is admin-only; fall back to the built-in list for everyone else
-    this._models.set([
-      { id: 'claude-haiku-4-5', label: 'Haiku 4.5 (fast, cheapest)' },
-      { id: 'claude-sonnet-4-5', label: 'Sonnet 4.5 (default)' },
-      { id: 'claude-opus-4-1', label: 'Opus 4.1 (best, priciest)' },
-    ]);
+    // The built-in list right away, then the models the user's key can use
+    // (newest of each family, from Anthropic's Models API) once they arrive.
+    if (!this._models().length)
+      this._models.set(
+        withDefault(FALLBACK_MODELS, profile.data?.default_model),
+      );
+    if (!this.modelsLoaded) {
+      this.modelsLoaded = true;
+      void this.loadModels();
+    }
+  }
+
+  private modelsLoaded = false;
+
+  private async loadModels() {
+    try {
+      const { data } = await this.supabase.functions.invoke<{
+        models?: ModelChoice[];
+      }>('list-models', { body: {} });
+      if (data?.models?.length) this._models.set(data.models);
+    } catch {
+      // keep the built-in list
+    }
   }
 
   async updateProfile(patch: {
@@ -923,4 +941,14 @@ export class SupabaseWatchlistRepo extends WatchlistRepo {
     const found = careersSystem(role.url);
     return found ? { ...found, name: role.company } : null;
   }
+}
+
+/** The built-in list plus the user's own default when it is not on it. */
+function withDefault(
+  list: ModelChoice[],
+  current: string | null | undefined,
+): ModelChoice[] {
+  return current && !list.some((m) => m.id === current)
+    ? [...list, { id: current, label: `${current} (older)` }]
+    : list;
 }

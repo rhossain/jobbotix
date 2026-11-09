@@ -10,6 +10,8 @@ import {
   type PrepSheet,
   localLetter,
   applyVariant,
+  DEFAULT_MODEL,
+  FALLBACK_MODELS,
   heuristicExtract,
   localCompanyResearch,
   keywordReport,
@@ -136,7 +138,7 @@ function seedProfile(): ProfileRow {
     timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
     invite_code: null,
     anthropic_key_ref: null,
-    default_model: 'claude-sonnet-4-5',
+    default_model: DEFAULT_MODEL,
     is_admin: true,
     created_at: now,
     updated_at: now,
@@ -661,11 +663,7 @@ export class MemorySettingsRepo extends SettingsRepo {
   readonly profile = computed<ProfileRow | null>(
     () => this.roles.snapshot().profileRow,
   );
-  readonly models = signal<ModelChoice[]>([
-    { id: 'claude-haiku-4-5', label: 'Haiku 4.5 (fast, cheapest)' },
-    { id: 'claude-sonnet-4-5', label: 'Sonnet 4.5 (default)' },
-    { id: 'claude-opus-4-1', label: 'Opus 4.1 (best, priciest)' },
-  ]);
+  readonly models = signal<ModelChoice[]>([...FALLBACK_MODELS]);
   readonly usage = computed(() => this.roles.snapshot().usage);
   readonly ingestKeys = computed(() =>
     [...this.roles.snapshot().ingestKeys].sort((a, b) =>

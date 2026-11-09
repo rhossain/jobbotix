@@ -8,6 +8,8 @@
 // The result lands on roles.cover_letter and in cover_letters (one draft per
 // role) so the Fit tab and the history agree.
 
+import { DEFAULT_MODEL } from '../_shared/models.ts';
+import { callMessages } from '../_shared/anthropic.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -115,22 +117,17 @@ Deno.serve(
           ? body.model
           : '') ||
         profile?.default_model ||
-        'claude-sonnet-4-5';
+        DEFAULT_MODEL;
       try {
-        const ai = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
+        const ai = await callMessages(
+          apiKey,
+          {
             model,
             max_tokens: 1200,
             messages: [{ role: 'user', content: letterPrompt(ctx) }],
-          }),
-          signal: AbortSignal.timeout(60_000),
-        });
+          },
+          60_000,
+        );
         const payload = await ai.json();
         const reply = Array.isArray(payload?.content)
           ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')

@@ -10,6 +10,8 @@
 // guessRemote and rolePosting are pure (tested in role-score.test.ts);
 // scoreRole reads the profile and settings and calls the model.
 
+import { FAST_MODEL } from './models.ts';
+import { callMessages } from './anthropic.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { parseLocations } from './countries.ts';
 import { matchPosting, type MatchPosting, type MatchProfile } from './match.ts';
@@ -23,8 +25,7 @@ import {
 } from './score.ts';
 import type { RemotePolicy } from './sources/types.ts';
 
-const ANTHROPIC_VERSION = '2023-06-01';
-const DEFAULT_TRIAGE_MODEL = 'claude-haiku-4-5';
+const DEFAULT_TRIAGE_MODEL = FAST_MODEL;
 
 export interface RemoteGuess {
   remote_policy: RemotePolicy;
@@ -265,14 +266,9 @@ export async function scoreRole(
 
   if (apiKey && post.description.length >= 80) {
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': ANTHROPIC_VERSION,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
+      const res = await callMessages(
+        apiKey,
+        {
           model,
           max_tokens: 400,
           messages: [
@@ -286,9 +282,9 @@ export async function scoreRole(
               ),
             },
           ],
-        }),
-        signal: AbortSignal.timeout(30_000),
-      });
+        },
+        30_000,
+      );
       const payload = await res.json().catch(() => null);
       if (!res.ok) {
         const detail = payload?.error?.message ?? res.statusText;

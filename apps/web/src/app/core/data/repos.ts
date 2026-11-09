@@ -2,6 +2,7 @@ import type { Signal } from '@angular/core';
 import type {
   CompanyResearch,
   MarketSignals,
+  ModelChoice,
   PrepSheet,
   SharedView,
   VariantDiff,
@@ -262,10 +263,7 @@ export abstract class SourcesRepo {
   abstract list(): Promise<SourceCatalogRow[]>;
 }
 
-export interface ModelChoice {
-  id: string;
-  label: string;
-}
+export type { ModelChoice };
 
 export abstract class SettingsRepo {
   abstract readonly profile: Signal<ProfileRow | null>;

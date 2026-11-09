@@ -10,6 +10,8 @@
 // same way the scheduled run scores what it finds (role-score.ts), so it
 // lands with a match score, reasons and things to watch.
 
+import { DEFAULT_MODEL } from '../_shared/models.ts';
+import { callMessages } from '../_shared/anthropic.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -23,7 +25,6 @@ import {
 import { scoreRole, type RoleScoreFields } from '../_shared/role-score.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
-const ANTHROPIC_VERSION = '2023-06-01';
 
 Deno.serve(
   withCors(async (req) => {
@@ -112,22 +113,17 @@ Deno.serve(
       : null;
 
     if (apiKey) {
-      const model = profile?.default_model || 'claude-sonnet-4-5';
+      const model = profile?.default_model || DEFAULT_MODEL;
       try {
-        const ai = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': ANTHROPIC_VERSION,
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
+        const ai = await callMessages(
+          apiKey,
+          {
             model,
             max_tokens: 800,
             messages: [{ role: 'user', content: extractionPrompt(url, text) }],
-          }),
-          signal: AbortSignal.timeout(40_000),
-        });
+          },
+          40_000,
+        );
         const payload = await ai.json();
         const reply = Array.isArray(payload?.content)
           ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')

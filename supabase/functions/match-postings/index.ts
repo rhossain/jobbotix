@@ -11,6 +11,8 @@
 // and files the best as new roles (score, reasons, gaps, a link to the pool).
 // One "run" event per user summarises it for Today and the digest.
 
+import { FAST_MODEL } from '../_shared/models.ts';
+import { callMessages } from '../_shared/anthropic.ts';
 import { alertWorthy, buildAlert, type AlertRole } from '../_shared/alert.ts';
 import { json, requireCronSecret, serviceClient } from '../_shared/auth.ts';
 import { normaliseUrl, pairKey } from '../_shared/dedupe.ts';
@@ -31,7 +33,6 @@ import {
 import { readVaultSecret } from '../_shared/vault.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
-const ANTHROPIC_VERSION = '2023-06-01';
 const RESEND_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const FROM = Deno.env.get('DIGEST_FROM') ?? 'Jobbotix <digest@jobbotix.com>';
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.jobbotix.com';
@@ -51,7 +52,7 @@ const DEFAULT_SOURCING: Sourcing = {
   min_file_score: 30,
   ai_scored_per_user_per_run: 10,
   ai_min_heuristic_score: 40,
-  triage_model: 'claude-haiku-4-5',
+  triage_model: FAST_MODEL,
   lookback_days: 3,
 };
 
@@ -479,14 +480,9 @@ async function aiScore(
   NonNullable<ReturnType<typeof parseScoreReply>> | { failed: string }
 > {
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
+    const res = await callMessages(
+      apiKey,
+      {
         model,
         max_tokens: 400,
         messages: [
@@ -500,9 +496,9 @@ async function aiScore(
             ),
           },
         ],
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
+      },
+      30_000,
+    );
     const payload = await res.json().catch(() => null);
     if (!res.ok) {
       // Anthropic error bodies name the problem ("invalid x-api-key", an

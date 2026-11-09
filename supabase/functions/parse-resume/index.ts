@@ -9,6 +9,8 @@
 // master. Without a key on file it answers 422 and the browser keeps its
 // local result.
 
+import { DEFAULT_MODEL } from '../_shared/models.ts';
+import { callMessages } from '../_shared/anthropic.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -71,25 +73,20 @@ Deno.serve(
         ? modelOverride
         : '') ||
       profile?.default_model ||
-      'claude-sonnet-4-5';
+      DEFAULT_MODEL;
 
     let reply = '';
     try {
-      const ai = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
+      const ai = await callMessages(
+        apiKey,
+        {
           model,
           max_tokens: 8000,
           temperature: 0,
           messages: [{ role: 'user', content: resumeImportPrompt(text) }],
-        }),
-        signal: AbortSignal.timeout(90_000),
-      });
+        },
+        90_000,
+      );
       const payload = await ai.json();
       if (!ai.ok)
         return json(502, {

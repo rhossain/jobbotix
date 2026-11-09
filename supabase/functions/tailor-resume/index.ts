@@ -7,6 +7,8 @@
 // without one the local heuristics do. Decisions already made on identical
 // proposals are kept, so a regenerate never throws the user's work away.
 
+import { DEFAULT_MODEL } from '../_shared/models.ts';
+import { callMessages } from '../_shared/anthropic.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -114,24 +116,19 @@ Deno.serve(
           ? modelOverride
           : '') ||
         profile?.default_model ||
-        'claude-sonnet-4-5';
+        DEFAULT_MODEL;
       try {
-        const ai = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
+        const ai = await callMessages(
+          apiKey,
+          {
             model,
             max_tokens: 2500,
             messages: [
               { role: 'user', content: tailorPrompt(sections, posting) },
             ],
-          }),
-          signal: AbortSignal.timeout(60_000),
-        });
+          },
+          60_000,
+        );
         const payload = await ai.json();
         const reply = Array.isArray(payload?.content)
           ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
@@ -202,7 +199,7 @@ Deno.serve(
         method === 'ai'
           ? (typeof modelOverride === 'string' && modelOverride) ||
             profile?.default_model ||
-            'claude-sonnet-4-5'
+            DEFAULT_MODEL
           : undefined,
     });
   }),

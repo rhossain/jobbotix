@@ -16,6 +16,8 @@
 // Research for the same company on another of the user's roles, less than
 // 30 days old, is reused unless "refresh" is set.
 
+import { DEFAULT_MODEL } from '../_shared/models.ts';
+import { callMessages } from '../_shared/anthropic.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import {
@@ -29,7 +31,6 @@ import { withCors } from '../_shared/cors.ts';
 import { normaliseCompany } from '../_shared/sources/normalise.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
-const ANTHROPIC_VERSION = '2023-06-01';
 const REUSE_DAYS = 30;
 const MAX_SEARCHES = 5;
 
@@ -134,7 +135,7 @@ Deno.serve(
       ? await readVaultSecret(admin, profile.anthropic_key_ref)
       : null;
     if (apiKey) {
-      const model = body.model || profile?.default_model || 'claude-sonnet-4-5';
+      const model = body.model || profile?.default_model || DEFAULT_MODEL;
       const withSearch = await askModel(
         admin,
         userId,
@@ -240,14 +241,9 @@ async function askModel(
   try {
     // A long search can pause the turn; continue it a couple of times.
     for (let turn = 0; turn < 3; turn++) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': ANTHROPIC_VERSION,
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({
+      const res = await callMessages(
+        apiKey,
+        {
           model,
           max_tokens: 2500,
           messages,
@@ -262,9 +258,9 @@ async function askModel(
                 ],
               }
             : {}),
-        }),
-        signal: AbortSignal.timeout(100_000),
-      });
+        },
+        100_000,
+      );
       const payload = await res.json().catch(() => null);
       if (!res.ok) {
         const detail = String(payload?.error?.message ?? res.statusText);

@@ -7,6 +7,8 @@
 // 'prep'), local templates otherwise. The user's own notes and practised
 // ticks on the previous sheet are carried over.
 
+import { DEFAULT_MODEL } from '../_shared/models.ts';
+import { callMessages } from '../_shared/anthropic.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -98,22 +100,17 @@ Deno.serve(
           ? body.model
           : '') ||
         profile?.default_model ||
-        'claude-sonnet-4-5';
+        DEFAULT_MODEL;
       try {
-        const ai = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-            'content-type': 'application/json',
-          },
-          body: JSON.stringify({
+        const ai = await callMessages(
+          apiKey,
+          {
             model,
             max_tokens: 3000,
             messages: [{ role: 'user', content: prepPrompt(resume, posting) }],
-          }),
-          signal: AbortSignal.timeout(90_000),
-        });
+          },
+          90_000,
+        );
         const payload = await ai.json();
         const reply = Array.isArray(payload?.content)
           ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
