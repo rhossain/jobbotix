@@ -112,3 +112,17 @@ Deno.test('a role outside the target roles is flagged, not dropped', () => {
   assertEquals(out.gaps[0], 'Not one of your target roles or stacks');
   assertEquals(out.score, scored.score);
 });
+
+Deno.test(
+  'long model reasons are shortened at a word, not mid-word',
+  async () => {
+    const { clip } = await import('./score.ts');
+    const long =
+      'Requires primarily European business hours overlap, which is a timezone restriction and the remote worldwide framing is partly undermined by it';
+    const out = clip(long, 100);
+    assertEquals(out.length <= 100, true);
+    assertEquals(out.endsWith('…'), true);
+    assertEquals(/\s\S+…$/.test(out) && !/undermi…$/.test(out), true);
+    assertEquals(clip('short', 100), 'short');
+  },
+);
