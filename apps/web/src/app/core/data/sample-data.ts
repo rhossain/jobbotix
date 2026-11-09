@@ -69,6 +69,7 @@ const seed: Seed[] = [
     source_id: null,
     remote_policy: 'unknown',
     hiring_countries: [],
+    company_research: {},
     prep: {},
   },
   {
@@ -108,6 +109,7 @@ const seed: Seed[] = [
     source_id: null,
     remote_policy: 'unknown',
     hiring_countries: [],
+    company_research: {},
     prep: {},
   },
   {
@@ -149,6 +151,7 @@ const seed: Seed[] = [
     source_id: null,
     remote_policy: 'unknown',
     hiring_countries: [],
+    company_research: {},
     prep: {},
   },
   {
@@ -179,6 +182,7 @@ const seed: Seed[] = [
     source_id: null,
     remote_policy: 'unknown',
     hiring_countries: [],
+    company_research: {},
     prep: {},
   },
   {
@@ -210,6 +214,7 @@ const seed: Seed[] = [
     source_id: null,
     remote_policy: 'unknown',
     hiring_countries: [],
+    company_research: {},
     prep: {},
   },
   {
@@ -237,6 +242,7 @@ const seed: Seed[] = [
     source_id: null,
     remote_policy: 'unknown',
     hiring_countries: [],
+    company_research: {},
     prep: {},
   },
   {
@@ -266,6 +272,7 @@ const seed: Seed[] = [
     source_id: null,
     remote_policy: 'unknown',
     hiring_countries: [],
+    company_research: {},
     prep: {},
   },
   {
@@ -298,6 +305,7 @@ const seed: Seed[] = [
     source_id: null,
     remote_policy: 'unknown',
     hiring_countries: [],
+    company_research: {},
     prep: {},
   },
 ];

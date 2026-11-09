@@ -11,6 +11,7 @@ import {
   localLetter,
   applyVariant,
   heuristicExtract,
+  localCompanyResearch,
   keywordReport,
   localTailor,
   normaliseResume,
@@ -331,6 +332,7 @@ export class MemoryRolesRepo extends RolesRepo {
         source_id: null,
         remote_policy: 'unknown',
         hiring_countries: [],
+        company_research: {},
         prep: {},
         created_at: now,
         updated_at: now,
@@ -345,6 +347,46 @@ export class MemoryRolesRepo extends RolesRepo {
       });
     });
     return { id, existed: false };
+  }
+
+  async rescore(id: string): Promise<{
+    score: number;
+    method: 'heuristic' | 'ai';
+    aiError?: string;
+  }> {
+    void id;
+    // Scoring runs in the Edge Function against the live search profile.
+    throw new Error(
+      'Demo mode cannot score roles. The sample roles come with scores; sign in to score your own.',
+    );
+  }
+
+  async researchCompany(id: string, opts: { refresh?: boolean } = {}) {
+    void opts;
+    const role = this.state().roles.find((r) => r.id === id);
+    if (!role) throw new Error('Role not found');
+    // Demo mode cannot reach other sites: what the posting says only.
+    const research = localCompanyResearch({
+      company: role.company,
+      url: role.url,
+      text: role.posting_text,
+    });
+    research.note =
+      'Demo mode reads only the posting. With your Anthropic key, the live app searches the web for size, funding, reviews and news.';
+    const now = new Date().toISOString();
+    this.patch((s) => {
+      const r = s.roles.find((x) => x.id === id);
+      if (r) r.company_research = research as unknown as Json;
+      s.events.push({
+        id: newId(),
+        user_id: DEMO_USER_ID,
+        role_id: id,
+        kind: 'generated',
+        payload: { what: 'company research', method: 'local' },
+        created_at: now,
+      });
+    });
+    return { research, reused: false };
   }
 
   /** Shared with MemorySearchProfileRepo so one storage key holds everything. */

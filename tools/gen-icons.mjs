@@ -75,6 +75,10 @@ const ICONS = [
   'arrow-down',
   'arrow-up',
   'loader-circle',
+  'building',
+  'globe',
+  'newspaper',
+  'users',
 ];
 
 const out = {};

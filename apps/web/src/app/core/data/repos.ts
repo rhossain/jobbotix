@@ -1,5 +1,6 @@
 import type { Signal } from '@angular/core';
 import type {
+  CompanyResearch,
   MarketSignals,
   PrepSheet,
   SharedView,
@@ -62,6 +63,22 @@ export abstract class RolesRepo {
     url: string,
     text?: string,
   ): Promise<{ id: string; existed: boolean }>;
+  /**
+   * Scores (or re-scores) the role against the current search profile, as the
+   * scheduled run would. `aiError` says why the model step was skipped.
+   */
+  abstract rescore(
+    id: string,
+  ): Promise<{ score: number; method: 'heuristic' | 'ai'; aiError?: string }>;
+  /**
+   * Researches the employer (web search on the user's key, the posting and
+   * company site otherwise) and stores it on the role. `reused` when another
+   * role at the same company had recent research.
+   */
+  abstract researchCompany(
+    id: string,
+    opts?: { model?: string; refresh?: boolean },
+  ): Promise<{ research: CompanyResearch; reused: boolean }>;
 }
 
 export type SearchProfileInput = Omit<

@@ -28,7 +28,14 @@ export type EmploymentType = 'full_time' | 'contract';
 export type RoleEventKind =
   'status_change' | 'note' | 'generated' | 'reminder' | 'run' | 'ingested';
 export type AiJob =
-  'extract' | 'score' | 'tailor' | 'letter' | 'answer' | 'prep' | 'import';
+  | 'extract'
+  | 'score'
+  | 'tailor'
+  | 'letter'
+  | 'answer'
+  | 'prep'
+  | 'import'
+  | 'research';
 export type VariantStatus = 'draft' | 'approved';
 export type RemotePolicy =
   'worldwide' | 'region_locked' | 'hybrid' | 'onsite' | 'unknown';
@@ -142,6 +149,8 @@ export type RoleRow = Timestamps & {
   source_id: string | null;
   remote_policy: RemotePolicy;
   hiring_countries: string[];
+  /** CompanyResearch (company.ts); {} until researched. */
+  company_research: Json;
 };
 
 export type SourceCatalogRow = Timestamps & {

@@ -6,7 +6,9 @@
 // inserts a role for the caller. With an Anthropic key in Vault for this user
 // the extraction is done by the model and the call is metered in ai_usage;
 // without one the heuristic extractor fills what it can and the user edits
-// the rest. Score stays 0 until a run or the user scores it.
+// the rest. The role is then scored against the user's search profile the
+// same way the scheduled run scores what it finds (role-score.ts), so it
+// lands with a match score, reasons and things to watch.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
@@ -18,6 +20,7 @@ import {
   parseExtraction,
   type ExtractedRole,
 } from '../_shared/extract.ts';
+import { scoreRole, type RoleScoreFields } from '../_shared/role-score.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -168,6 +171,32 @@ Deno.serve(
       .maybeSingle();
     if (existing) return json(200, { id: existing.id, existed: true, method });
 
+    // 4. Score it like the run would (no profile yet: it stays unscored)
+    let scoring: Partial<RoleScoreFields> = {};
+    let scoreMethod: 'heuristic' | 'ai' | null = null;
+    try {
+      const r = await scoreRole(
+        admin,
+        userId,
+        {
+          company: role.company,
+          title: role.title,
+          location: role.location,
+          type: role.type,
+          posting_text: role.postingText,
+          stack: role.stack,
+          posted_at: posted,
+        },
+        apiKey,
+      );
+      if ('fields' in r) {
+        scoring = r.fields;
+        scoreMethod = r.method;
+      }
+    } catch {
+      /* the role is still worth adding unscored */
+    }
+
     const { data: inserted, error } = await admin
       .from('roles')
       .insert({
@@ -184,6 +213,7 @@ Deno.serve(
         stack: role.stack,
         posting_text: role.postingText,
         status: 'new',
+        ...scoring,
       })
       .select('id')
       .single();
@@ -194,9 +224,18 @@ Deno.serve(
       user_id: userId,
       role_id: inserted.id,
       kind: 'ingested',
-      payload: { source: 'manual', method },
+      payload: {
+        source: 'manual',
+        method,
+        ...(scoreMethod ? { score: scoring.score, scored: scoreMethod } : {}),
+      },
     });
 
-    return json(200, { id: inserted.id, existed: false, method });
+    return json(200, {
+      id: inserted.id,
+      existed: false,
+      method,
+      score: scoring.score ?? null,
+    });
   }),
 );

@@ -44,17 +44,19 @@ import {
   Tabs,
   type TabItem,
 } from '../../ui';
+import { CompanyPanel } from './company-panel';
 import { PrepPanel } from './prep-panel';
 import { VariantPanel } from './variant-panel';
 import { wordCount } from '@jobbotix/shared-types';
 
-type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
+type Tab = 'fit' | 'company' | 'resume' | 'prep' | 'posting' | 'activity';
 
 @Component({
   selector: 'jb-role-detail',
   imports: [
     BackLink,
     Button,
+    CompanyPanel,
     CopyButton,
     EmptyState,
     FieldControl,
@@ -152,6 +154,29 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
               @switch (tab()) {
                 @case ('fit') {
                   <div class="flex flex-col gap-5">
+                    @if (unscored()) {
+                      <section
+                        class="jb-card flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between"
+                      >
+                        <div class="min-w-0">
+                          <h2 class="font-semibold text-ink">Not scored yet</h2>
+                          <p class="mt-1 text-sm text-ink-muted">
+                            Score it against your search profile, the same way
+                            the morning run scores what it finds.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          jbButton="primary"
+                          class="shrink-0"
+                          [busy]="scoring()"
+                          [disabled]="scoring()"
+                          (click)="rescore(r)"
+                        >
+                          <jb-icon name="target" /> Score this role
+                        </button>
+                      </section>
+                    }
                     <div class="grid gap-4 md:grid-cols-2">
                       <section class="jb-card p-5">
                         <h2
@@ -175,7 +200,11 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
                           </ul>
                         } @else {
                           <p class="mt-3 text-sm text-ink-muted">
-                            The run gave no reasons for this one.
+                            {{
+                              unscored()
+                                ? 'Score the role to see why it fits.'
+                                : 'The run gave no reasons for this one.'
+                            }}
                           </p>
                         }
                       </section>
@@ -204,11 +233,32 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
                           </ul>
                         } @else {
                           <p class="mt-3 text-sm text-ink-muted">
-                            Nothing flagged.
+                            {{
+                              unscored()
+                                ? 'Not scored yet.'
+                                : 'Nothing flagged.'
+                            }}
                           </p>
                         }
                       </section>
                     </div>
+                    @if (!unscored()) {
+                      <div
+                        class="-mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted"
+                      >
+                        <span>{{ scoredLine() }}</span>
+                        <button
+                          type="button"
+                          jbButton="ghost"
+                          size="sm"
+                          [busy]="scoring()"
+                          [disabled]="scoring()"
+                          (click)="rescore(r)"
+                        >
+                          <jb-icon name="rotate-cw" [size]="15" /> Re-score
+                        </button>
+                      </div>
+                    }
 
                     <!-- Cover letter -->
                     <section
@@ -468,6 +518,9 @@ type Tab = 'fit' | 'resume' | 'prep' | 'posting' | 'activity';
                 @case ('resume') {
                   <jb-variant-panel [role]="r" />
                 }
+                @case ('company') {
+                  <jb-company-panel [role]="r" />
+                }
                 @case ('prep') {
                   <jb-prep-panel [role]="r" />
                 }
@@ -696,12 +749,29 @@ export class RoleDetail {
 
   readonly tabs: TabItem<Tab>[] = [
     { id: 'fit', label: 'Fit', icon: 'target' },
+    { id: 'company', label: 'Company', icon: 'building' },
     { id: 'resume', label: 'Resume', icon: 'file-text' },
     { id: 'prep', label: 'Prep', icon: 'lightbulb' },
     { id: 'posting', label: 'Posting', icon: 'briefcase' },
     { id: 'activity', label: 'Activity', icon: 'clock' },
   ];
   readonly tab = signal<Tab>('fit');
+  readonly scoring = signal(false);
+  /** Added by hand before scoring on add existed (or with no search profile then). */
+  readonly unscored = computed(() => {
+    const r = this.role();
+    return !!r && r.score === 0 && !r.reasons.length && !r.gaps.length;
+  });
+  readonly scoredLine = computed(() => {
+    const b = (this.role()?.score_breakdown ?? {}) as Record<string, unknown>;
+    const by =
+      b['method'] === 'ai'
+        ? 'Scored by the model on your key'
+        : b['method'] === 'heuristic'
+          ? 'Scored by keyword rules'
+          : 'Scored by the morning run';
+    return b['added_by_hand'] ? `${by}, against your search profile` : by;
+  });
   readonly role = computed<RoleRow | undefined>(() =>
     this.repo.roles().find((r) => r.id === this.id()),
   );
@@ -846,6 +916,25 @@ export class RoleDetail {
   startEditLetter(r: RoleRow) {
     this.letterDraft.set(r.cover_letter);
     this.editingLetter.set(true);
+  }
+
+  async rescore(r: RoleRow) {
+    if (this.scoring()) return;
+    const before = r.score;
+    this.scoring.set(true);
+    try {
+      const res = await this.repo.rescore(r.id);
+      this.toast.show(
+        res.score === before
+          ? `Score unchanged at ${res.score}`
+          : `Scored ${res.score}`,
+      );
+      if (res.aiError) this.toast.show(`Model step skipped: ${res.aiError}`);
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not score the role');
+    } finally {
+      this.scoring.set(false);
+    }
   }
 
   async draftLetter(r: RoleRow, rewrite: boolean) {

@@ -50,6 +50,31 @@ const MESSY = {
   notes: `Recruiter sent ${UNBREAKABLE_URL} twice; reference SUPERCALIFRAGILISTICEXPIALIDOCIOUSREFERENCECODE0123456789.`,
 };
 
+/** Researched-company view with the same kind of unbreakable content. */
+const MESSY_RESEARCH = {
+  summary: `${MESSY.company} builds insurance software; see ${UNBREAKABLE_URL}.`,
+  website: UNBREAKABLE_URL,
+  headquarters: 'Frankfurt am Main, Hessen, Bundesrepublik Deutschland',
+  founded: '1999',
+  size: 'about 12,000 people across 40 countries (2025 annual report)',
+  funding: 'Publicly traded on the Frankfurter Wertpapierbörse since 2004',
+  remoteHiring: [MESSY.location, `Contractors through ${UNBREAKABLE_URL}`],
+  product: [MESSY.title],
+  engineering: [MESSY.stack.join(', ')],
+  reputation: [MESSY.notes],
+  recentNews: [MESSY.salary],
+  redFlags: ['Asks for a trial or test project'],
+  sources: [
+    { title: MESSY.title, url: UNBREAKABLE_URL },
+    { title: 'The posting', url: UNBREAKABLE_URL + '&x=1' },
+  ],
+  researchedAt: new Date().toISOString(),
+  method: 'ai',
+  model: 'claude-sonnet-4-5',
+  webSearch: true,
+  note: `Web search ran out of uses; ${UNBREAKABLE_URL}`,
+};
+
 const PHONES: ViewportName[] = ['small phone', 'phone'];
 
 function expectFits(where: string) {
@@ -79,6 +104,7 @@ describe('long, messy posting data', () => {
         Object.assign(role, MESSY, {
           reasons: [MESSY.title, `Links to ${UNBREAKABLE_URL}`],
           gaps: [MESSY.location],
+          company_research: MESSY_RESEARCH,
         });
       }
     });

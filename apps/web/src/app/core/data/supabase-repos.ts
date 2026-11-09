@@ -2,12 +2,14 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   ATS_LABEL,
   careersSystem,
+  normaliseCompanyResearch,
   normaliseResume,
   summariseRuns,
   type AtsKind,
   type CompanyRow,
 } from '@jobbotix/shared-types';
 import type {
+  CompanyResearch,
   MarketSignals,
   PrepSheet,
   SharedView,
@@ -209,6 +211,42 @@ export class SupabaseRolesRepo extends RolesRepo {
     if (!data?.id) throw new Error(data?.error ?? 'Could not add the role');
     await this.load();
     return { id: data.id, existed: data.existed };
+  }
+
+  async rescore(id: string) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      role?: RoleRow;
+      method?: 'heuristic' | 'ai';
+      aiError?: string;
+      error?: string;
+    }>('score-role', { body: { roleId: id } });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.role) throw new Error(data?.error ?? 'Could not score the role');
+    this.replace(data.role);
+    return {
+      score: data.role.score,
+      method: data.method ?? 'heuristic',
+      aiError: data.aiError,
+    };
+  }
+
+  async researchCompany(
+    id: string,
+    opts: { model?: string; refresh?: boolean } = {},
+  ) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      research?: CompanyResearch;
+      reused?: boolean;
+      error?: string;
+    }>('research-company', { body: { roleId: id, ...opts } });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.research)
+      throw new Error(data?.error ?? 'Could not research the company');
+    const research = normaliseCompanyResearch(data.research);
+    const role = this._roles().find((r) => r.id === id);
+    if (role)
+      this.replace({ ...role, company_research: research as unknown as Json });
+    return { research, reused: !!data.reused };
   }
 
   private replace(row: RoleRow) {

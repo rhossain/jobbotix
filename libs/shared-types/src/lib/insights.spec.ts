@@ -42,6 +42,7 @@ const role = (
     source_id: null,
     remote_policy: 'unknown',
     hiring_countries: [],
+    company_research: {},
     prep: {},
     created_at: d(foundDaysAgo),
     updated_at: d(changedDaysAgo),

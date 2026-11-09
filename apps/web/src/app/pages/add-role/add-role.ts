@@ -47,7 +47,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
       />
       <jb-page-header
         title="Add a role"
-        lead="Paste the posting's link. Jobbotix reads the page and fills in company, title, stack and pay; you can fix anything on the role's page afterwards."
+        lead="Paste the posting's link. Jobbotix reads the page, fills in company, title, stack and pay, and scores it against your search profile. You can fix anything on the role's page afterwards."
       />
 
       <form
@@ -109,7 +109,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
               [size]="18"
               class="animate-spin text-brand"
             />
-            Reading the posting. This can take up to 20 seconds.
+            Reading and scoring the posting. This can take up to 30 seconds.
           </p>
         }
 
@@ -117,7 +117,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
           class="flex flex-col-reverse gap-3 border-t border-line pt-5 md:flex-row md:items-center md:justify-between"
         >
           <p class="text-xs text-ink-muted">
-            Added roles start at score 0 until a run or you score them.
+            Scored the same way as the roles the morning run finds.
           </p>
           <button
             type="submit"
