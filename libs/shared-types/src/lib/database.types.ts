@@ -64,6 +64,8 @@ export type ProfileRow = Timestamps & {
   anthropic_key_ref: string | null;
   default_model: string;
   is_admin: boolean;
+  /** 'own': AI work never spends credits (missing before migration 0035). */
+  ai_route?: 'auto' | 'own';
 };
 
 export type InviteCodeRow = {
@@ -433,6 +435,8 @@ export type AiUsageRow = {
   job: AiJob;
   /** The provider that answered ('anthropic' for rows from before 0034). */
   provider?: string;
+  /** Whose key paid: the user's own, or Jobbotix's (on credits). */
+  route?: 'own' | 'platform';
   model: string;
   tokens_in: number;
   tokens_out: number;
@@ -809,6 +813,9 @@ export type Database = {
       market_signals: { Args: Record<string, never>; Returns: Json };
       report_error: { Args: { p: Json }; Returns: undefined };
       entitlements: { Args: Record<string, never>; Returns: Json };
+      ai_route_info: { Args: Record<string, never>; Returns: Json };
+      admin_pro_ai: { Args: Record<string, never>; Returns: Json };
+      admin_set_pro_ai: { Args: { p_patch: Json }; Returns: Json };
       entitlements_for: { Args: { p_user: string }; Returns: Json };
       credit_balance: { Args: { p_user: string }; Returns: number };
       admin_plans: { Args: Record<string, never>; Returns: Json };

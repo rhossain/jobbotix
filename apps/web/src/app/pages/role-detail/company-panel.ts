@@ -94,7 +94,7 @@ interface Section {
             @if (allowed()) {
               <div class="flex flex-wrap items-center gap-2 md:justify-end">
                 @if (canPickModel()) {
-                  <jb-model-picker [(value)]="model" />
+                  <jb-model-picker [(value)]="model" job="research" />
                 }
                 <button
                   type="button"
@@ -212,7 +212,7 @@ interface Section {
                 <jb-icon name="sparkles" /> Research the company
               </button>
               @if (canPickModel()) {
-                <jb-model-picker [(value)]="model" />
+                <jb-model-picker [(value)]="model" job="research" />
               }
             </div>
           } @else {

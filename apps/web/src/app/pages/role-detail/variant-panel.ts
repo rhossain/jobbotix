@@ -67,7 +67,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
           >
             <jb-icon name="sparkles" /> Generate tailored resume
           </button>
-          <jb-model-picker [(value)]="model" />
+          <jb-model-picker [(value)]="model" job="tailor" />
         </div>
       </jb-empty-state>
     } @else {
@@ -183,7 +183,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
           <div
             class="flex flex-wrap items-center gap-2 border-t border-line pt-4"
           >
-            <jb-model-picker [(value)]="model" />
+            <jb-model-picker [(value)]="model" job="tailor" />
             <button
               type="button"
               jbButton="ghost"

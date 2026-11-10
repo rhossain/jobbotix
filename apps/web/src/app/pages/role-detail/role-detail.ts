@@ -343,7 +343,10 @@ type Tab =
                         class="mt-2 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-ink-muted"
                       >
                         @if (!editingLetter()) {
-                          <jb-model-picker [(value)]="letterModel" />
+                          <jb-model-picker
+                            [(value)]="letterModel"
+                            job="letter"
+                          />
                         }
                         @if (r.cover_letter) {
                           <span
@@ -421,6 +424,7 @@ type Tab =
                           <jb-model-picker
                             [(value)]="answerModel"
                             [quiet]="true"
+                            job="answer"
                           />
                           <button
                             type="button"

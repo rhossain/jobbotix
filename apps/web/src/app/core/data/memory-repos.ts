@@ -23,8 +23,14 @@ import {
   type Entitlements,
   type VariantDiff,
   type AiConnectionView,
+  type AiRouteInfo,
+  type ProAiAdmin,
+  CREDIT_PRICES,
+  NO_AI_ROUTE,
+  PRICING,
   PROVIDERS,
   MODEL_ID,
+  normaliseProAiAdmin,
 } from '@jobbotix/shared-types';
 import type {
   SourceCatalogRow,
@@ -84,6 +90,7 @@ import {
   type LetterResult,
   type AiCheck,
   type NewAiConnection,
+  type ProAiPatch,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -770,6 +777,7 @@ export class MemorySettingsRepo extends SettingsRepo {
     name?: string;
     timezone?: string;
     default_model?: string;
+    ai_route?: 'auto' | 'own';
   }) {
     this.roles.patch((s) => {
       s.profileRow = {
@@ -1135,6 +1143,31 @@ export class MemoryPlanRepo extends PlanRepo {
   });
   readonly loaded = signal(true).asReadonly();
 
+  // The Pro route in the demo: off until the admin page switches it on.
+  // Nothing is ever charged; the screens only show what they would say.
+  private readonly roles = inject(MemoryRolesRepo);
+  readonly proAi = signal<ProAiAdmin>({
+    ...normaliseProAiAdmin(null),
+    trialCredits: PRICING.trialCredits,
+    dailyCreditCap: 150,
+    monthlyBudgetUsd: 50,
+    prices: Object.fromEntries(CREDIT_PRICES.map((p) => [p.job, p.credits])),
+    models: { fast: 'claude-haiku-5-5', writing: 'claude-sonnet-5-5' },
+  });
+  readonly route = computed<AiRouteInfo>(() => {
+    const cfg = this.proAi();
+    if (!cfg.enabled) return NO_AI_ROUTE;
+    const s = this.state();
+    return {
+      enabled: true,
+      prices: cfg.prices,
+      creditsFirst: s.plan === 'pro',
+      ownOnly: this.roles.snapshot().profileRow.ai_route === 'own',
+      credits: s.credits,
+      dailyLeft: cfg.dailyCreditCap,
+    };
+  });
+
   async load() {
     /* nothing to fetch */
   }
@@ -1232,6 +1265,28 @@ export class MemoryAdminRepo extends AdminRepo {
   }
 
   private readonly plan = inject(MemoryPlanRepo);
+
+  async proAi() {
+    return this.plan.proAi();
+  }
+
+  async setProAi(patch: ProAiPatch) {
+    const was = this.plan.proAi();
+    this.plan.proAi.set({
+      ...was,
+      enabled: patch.enabled ?? was.enabled,
+      monthlyBudgetUsd: patch.monthly_budget_usd ?? was.monthlyBudgetUsd,
+      dailyCreditCap: patch.daily_credit_cap ?? was.dailyCreditCap,
+    });
+    // Switching the route on gives the demo account its trial credits, once.
+    if (patch.enabled && !was.enabled && !this.trialGiven) {
+      this.trialGiven = true;
+      const e = this.plan.entitlements();
+      this.plan.patch({ credits: e.credits + was.trialCredits });
+    }
+    return this.plan.proAi();
+  }
+  private trialGiven = false;
 
   async plans() {
     return { enabled: false, users: [this.plan.adminPlan()] };

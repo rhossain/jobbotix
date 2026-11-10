@@ -1,6 +1,8 @@
 import type { Signal } from '@angular/core';
 import type {
   AiConnectionView,
+  AiRouteInfo,
+  ProAiAdmin,
   CompanyResearch,
   Entitlements,
   Feature,
@@ -364,12 +366,24 @@ export class UpgradeRequiredError extends Error {
 export abstract class PlanRepo {
   /** Open (everything on) until the server has answered. */
   abstract readonly entitlements: Signal<Entitlements>;
+  /** AI on credits for this account; "no route" until the server says otherwise. */
+  abstract readonly route: Signal<AiRouteInfo>;
   abstract readonly loaded: Signal<boolean>;
   abstract load(): Promise<void>;
 }
 
+/** What an admin may change about the Pro route. */
+export interface ProAiPatch {
+  enabled?: boolean;
+  monthly_budget_usd?: number;
+  daily_credit_cap?: number;
+}
+
 export abstract class AdminRepo {
   abstract overview(): Promise<{ users: AdminUser[]; totals: AdminTotals }>;
+  /** The Pro route (AI on credits): its switch, limits and this month's spend. */
+  abstract proAi(): Promise<ProAiAdmin>;
+  abstract setProAi(patch: ProAiPatch): Promise<ProAiAdmin>;
   /** Every account's plan and credits, and whether billing is switched on. */
   abstract plans(): Promise<{ enabled: boolean; users: AdminPlan[] }>;
   /** Puts an account on a plan by hand; `until` null means no end date. */
@@ -480,6 +494,8 @@ export abstract class SettingsRepo {
     name?: string;
     timezone?: string;
     default_model?: string;
+    /** 'own': never spend credits on AI work. */
+    ai_route?: 'auto' | 'own';
   }): Promise<void>;
   /**
    * Checks the key with its provider and stores it server-side (Vault).

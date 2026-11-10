@@ -19,6 +19,8 @@ export class Plan {
   private readonly router = inject(Router);
 
   readonly entitlements = this.repo.entitlements;
+  /** AI on credits for this account (off until the Pro route is switched on). */
+  readonly route = this.repo.route;
   readonly loaded = this.repo.loaded;
 
   /**
@@ -28,7 +30,9 @@ export class Plan {
    */
   readonly inEffect = computed(() => {
     const e = this.entitlements();
-    return e.enforced || e.plan !== 'free' || e.credits > 0;
+    return (
+      e.enforced || e.plan !== 'free' || e.credits > 0 || this.route().enabled
+    );
   });
 
   constructor() {

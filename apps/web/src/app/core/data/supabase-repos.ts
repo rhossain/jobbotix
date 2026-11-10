@@ -6,11 +6,15 @@ import {
   FALLBACK_MODELS,
   isUpgradeRequired,
   normaliseCompanyResearch,
+  NO_AI_ROUTE,
+  normaliseAiRoute,
   normaliseEntitlements,
+  normaliseProAiAdmin,
   normaliseResume,
   OPEN_ENTITLEMENTS,
   summariseRuns,
   type AiConnectionView,
+  type AiRouteInfo,
   type AtsKind,
   type CompanyRow,
   type Entitlements,
@@ -84,6 +88,7 @@ import {
   type AiCheck,
   type AiCheckResult,
   type NewAiConnection,
+  type ProAiPatch,
 } from './repos';
 
 /**
@@ -674,6 +679,7 @@ export class SupabaseSettingsRepo extends SettingsRepo {
     name?: string;
     timezone?: string;
     default_model?: string;
+    ai_route?: 'auto' | 'own';
   }) {
     const userId = this.auth.user()?.id;
     if (!userId) throw new Error('Not signed in');
@@ -897,23 +903,44 @@ export class SupabasePlanRepo extends PlanRepo {
   private readonly supabase = injectSupabase();
   private readonly _entitlements = signal<Entitlements>(OPEN_ENTITLEMENTS);
   private readonly _loaded = signal(false);
+  private readonly _route = signal<AiRouteInfo>(NO_AI_ROUTE);
   readonly entitlements = this._entitlements.asReadonly();
+  readonly route = this._route.asReadonly();
   readonly loaded = this._loaded.asReadonly();
 
   async load() {
     // A failed lookup (offline, the migration not applied yet) leaves the
     // account open: the server still decides every gated call.
-    const { data, error } = await this.supabase.rpc('entitlements');
-    if (!error) {
-      this._entitlements.set(normaliseEntitlements(data));
+    const [plan, route] = await Promise.all([
+      this.supabase.rpc('entitlements'),
+      this.supabase.rpc('ai_route_info'),
+    ]);
+    if (!plan.error) {
+      this._entitlements.set(normaliseEntitlements(plan.data));
       this._loaded.set(true);
     }
+    // No answer (a database from before credits existed) means no route.
+    this._route.set(route.error ? NO_AI_ROUTE : normaliseAiRoute(route.data));
   }
 }
 
 @Injectable()
 export class SupabaseAdminRepo extends AdminRepo {
   private readonly supabase = injectSupabase();
+
+  async proAi() {
+    const { data, error } = await this.supabase.rpc('admin_pro_ai');
+    if (error) throw error;
+    return normaliseProAiAdmin(data);
+  }
+
+  async setProAi(patch: ProAiPatch) {
+    const { error } = await this.supabase.rpc('admin_set_pro_ai', {
+      p_patch: patch as Json,
+    });
+    if (error) throw error;
+    return this.proAi();
+  }
 
   async errors(days: number) {
     const since = new Date(Date.now() - days * 86_400_000).toISOString();

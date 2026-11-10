@@ -66,7 +66,7 @@ import { Button, EmptyState, FieldControl, Icon } from '../../ui';
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <jb-model-picker [(value)]="model" />
+            <jb-model-picker [(value)]="model" job="prep" />
             <button
               type="button"
               jbButton
@@ -201,7 +201,7 @@ import { Button, EmptyState, FieldControl, Icon } from '../../ui';
             >
               <jb-icon name="sparkles" /> Build prep sheet
             </button>
-            <jb-model-picker [(value)]="model" />
+            <jb-model-picker [(value)]="model" job="prep" />
           </div>
         </jb-empty-state>
       }

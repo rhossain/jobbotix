@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  signal,
 } from '@angular/core';
 import {
   FEATURE_LABELS,
@@ -10,7 +11,9 @@ import {
   type Entitlements,
   type Feature,
 } from '@jobbotix/shared-types';
+import { SettingsRepo } from '../../core/data/repos';
 import { Plan } from '../../core/plan';
+import { Toast } from '../../shared/toast';
 import { Icon } from '../../ui';
 
 /**
@@ -97,6 +100,32 @@ export function planCardView(e: Entitlements): PlanCardView {
           }
         </ul>
 
+        @if (plan.route().enabled) {
+          <div class="flex flex-col gap-2 border-t border-line pt-4 text-sm">
+            <p class="text-ink-muted">
+              @if (plan.route().ownOnly) {
+                AI work uses only your own key. Your credits are not touched.
+              } @else if (plan.route().creditsFirst) {
+                AI work uses your credits first, then your own key if you
+                connected one. Each Generate button shows what it costs.
+              } @else {
+                AI work uses your own key when you have connected one, and your
+                credits when you have not.
+              }
+            </p>
+            <label class="flex items-start gap-2">
+              <input
+                type="checkbox"
+                class="mt-1"
+                [checked]="plan.route().ownOnly"
+                [disabled]="saving()"
+                (change)="setOwnOnly($any($event.target).checked)"
+              />
+              <span>Use only my own AI key, never credits</span>
+            </label>
+          </div>
+        }
+
         @if (view().open) {
           <p class="text-xs text-ink-muted">
             Plans are not enforced yet, so every feature is on for your account.
@@ -112,7 +141,25 @@ export function planCardView(e: Entitlements): PlanCardView {
 })
 export class PlanCard {
   protected readonly plan = inject(Plan);
+  private readonly settings = inject(SettingsRepo);
+  private readonly toast = inject(Toast);
   protected readonly view = computed(() =>
     planCardView(this.plan.entitlements()),
   );
+  readonly saving = signal(false);
+
+  async setOwnOnly(on: boolean) {
+    this.saving.set(true);
+    try {
+      await this.settings.updateProfile({ ai_route: on ? 'own' : 'auto' });
+      await this.plan.refresh();
+      this.toast.show(
+        on ? 'AI work now uses only your own key' : 'AI work can use credits',
+      );
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not save that');
+    } finally {
+      this.saving.set(false);
+    }
+  }
 }

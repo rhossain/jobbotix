@@ -1329,6 +1329,41 @@ begin
   if (r ->> 'ok')::boolean or r ->> 'reason' <> 'no_credits' then raise exception 'FAIL: unmetered scoring for an empty Free account: %', r; end if;
 end $$;
 
+-- What the app is told (0036): prices, who pays first, what is left.
+set role anon;
+do $$ begin
+  perform public.ai_route_info();
+  raise exception 'FAIL: a signed-out caller read the AI route';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ declare v jsonb := public.ai_route_info();
+begin
+  if not (v ->> 'enabled')::boolean or not (v ->> 'credits_first')::boolean or (v ->> 'own_only')::boolean
+     or (v -> 'prices' ->> 'research')::int <> 15 or (v ->> 'credits')::int <> 0 then
+    raise exception 'FAIL: route info for Pro: %', v;
+  end if;
+  -- the account may switch to its own key only
+  update public.profiles set ai_route = 'own' where id = auth.uid();
+  if not (public.ai_route_info() ->> 'own_only')::boolean then raise exception 'FAIL: own-key-only not reported'; end if;
+  update public.profiles set ai_route = 'auto' where id = auth.uid();
+  begin
+    update public.profiles set ai_route = 'credits-for-free' where id = auth.uid();
+    raise exception 'FAIL: an unknown AI route was saved';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role authenticated;
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+do $$ declare v jsonb := public.ai_route_info();
+begin
+  if (v ->> 'credits_first')::boolean or (v ->> 'credits')::int <> 20 then raise exception 'FAIL: route info for Free: %', v; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 -- The daily cap and the monthly budget.
 do $$
 declare u uuid := '44444444-4444-4444-4444-444444444444'; r jsonb; v jsonb;
@@ -1361,6 +1396,9 @@ begin
   -- The kill switch.
   perform public.admin_set_pro_ai_as_service('{"enabled": false}');
   if public.ai_reserve_credits(u, 'letter') ->> 'reason' <> 'off' then raise exception 'FAIL: the kill switch did not stop reservations'; end if;
+  perform set_config('request.jwt.claim.sub', u::text, true);
+  if public.ai_route_info() <> '{"enabled": false}'::jsonb then raise exception 'FAIL: route info while off'; end if;
+  perform set_config('request.jwt.claim.sub', '', true);
   if exists (select 1 from public.credit_holds where status = 'held' and expires_at > now()) then
     raise exception 'FAIL: holds left open';
   end if;

@@ -17,6 +17,7 @@ import {
 } from '@jobbotix/shared-types/resume-import';
 
 import { ResumesRepo, SettingsRepo } from '../../core/data/repos';
+import { Plan } from '../../core/plan';
 import { ModelPicker } from '../../shared/model-picker';
 import { Icon } from '../../ui';
 
@@ -141,7 +142,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
                 Use the built-in result
               </button>
             } @else if (hasKey()) {
-              <jb-model-picker [(value)]="model" [quiet]="true" />
+              <jb-model-picker [(value)]="model" [quiet]="true" job="import" />
               <button
                 type="button"
                 class="jb-btn text-sm"
@@ -281,7 +282,13 @@ const MAX_BYTES = 10 * 1024 * 1024;
 export class ResumeImportPanel {
   private readonly resumes = inject(ResumesRepo);
   private readonly settings = inject(SettingsRepo);
-  readonly hasKey = computed(() => this.settings.connections().length > 0);
+  private readonly plan = inject(Plan);
+  /** AI reading is on offer: a key of the user's own, or credits. */
+  readonly hasKey = computed(
+    () =>
+      this.settings.connections().length > 0 ||
+      (this.plan.route().enabled && !this.plan.route().ownOnly),
+  );
   readonly dragging = signal(false);
   readonly imported = output<{
     sections: ResumeSections;

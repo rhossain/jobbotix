@@ -180,7 +180,7 @@ import {
                 <jb-icon name="sparkles" />
                 {{ message() ? 'Draft again' : 'Draft' }}
               </button>
-              <jb-model-picker [(value)]="model" />
+              <jb-model-picker [(value)]="model" job="message" />
             </div>
             @if (message()) {
               <textarea

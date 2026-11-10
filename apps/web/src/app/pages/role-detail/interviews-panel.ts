@@ -310,7 +310,7 @@ function toLocalInput(iso: string | null): string {
                         >
                           <jb-icon name="sparkles" [size]="16" /> Draft note
                         </button>
-                        <jb-model-picker [(value)]="model" />
+                        <jb-model-picker [(value)]="model" job="thank_you" />
                       </div>
                     }
                   </div>
