@@ -404,9 +404,14 @@ async function functionError(error: unknown): Promise<Error> {
     } catch {
       /* fall through */
     }
+    // The app is ahead of the server: the function is not deployed yet.
+    if (ctx.status === 404)
+      return new Error(
+        'This is not switched on yet on the server. Try again after the next update.',
+      );
   }
-  // The request never got an answer (offline, blocked, or the function is
-  // not deployed); supabase-js's own wording means nothing to a user.
+  // The request never got an answer (offline or blocked); supabase-js's own
+  // wording means nothing to a user.
   if ((error as Error)?.name === 'FunctionsFetchError')
     return new Error(
       "Couldn't reach the server. Check your connection and try again.",
