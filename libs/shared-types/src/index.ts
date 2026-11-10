@@ -24,3 +24,4 @@ export * from './lib/contacts';
 export * from './lib/profile-suggest';
 export * from './lib/entitlements';
 export * from './lib/providers';
+export * from './lib/pricing';

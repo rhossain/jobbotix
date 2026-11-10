@@ -163,10 +163,29 @@ export const appRoutes: Route[] = [
       import('./pages/admin/invites').then((m) => m.AdminInvites),
     title: 'Invite codes · Jobbotix',
   },
-  // The UI-kit gallery exists in development builds only.
+  // Development builds only: the UI-kit gallery, and the pages that are
+  // written but not published yet (they go live with billing).
   ...(environment.production
     ? []
     : [
+        {
+          path: 'pricing',
+          loadComponent: () =>
+            import('./pages/landing/pricing').then((m) => m.Pricing),
+          title: 'Pricing (draft) · Jobbotix',
+        },
+        {
+          path: 'terms',
+          loadComponent: () =>
+            import('./pages/landing/terms').then((m) => m.Terms),
+          title: 'Terms (draft) · Jobbotix',
+        },
+        {
+          path: 'refunds',
+          loadComponent: () =>
+            import('./pages/landing/refunds').then((m) => m.Refunds),
+          title: 'Refunds (draft) · Jobbotix',
+        },
         {
           path: '_ui',
           loadComponent: () =>
