@@ -1,3 +1,4 @@
+import type { PoolPostingFacts } from './posting-health';
 /**
  * Database types for Jobbotix, in the shape `supabase gen types typescript`
  * produces, so the client is fully typed today and the file can be replaced by
@@ -576,6 +577,10 @@ export type Database = {
       signup_is_open: { Args: Record<string, never>; Returns: boolean };
       shared_view: { Args: { p_token: string }; Returns: Json };
       market_signals: { Args: Record<string, never>; Returns: Json };
+      posting_health: {
+        Args: Record<string, never>;
+        Returns: PoolPostingFacts[];
+      };
       follow_company: {
         Args: { p_kind: string; p_slug: string; p_name?: string };
         Returns: string;

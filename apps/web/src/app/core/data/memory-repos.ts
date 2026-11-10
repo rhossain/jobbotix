@@ -35,6 +35,7 @@ import type {
   ResumeVariantRow,
   RoleStatus,
   PostingSeenOn,
+  PoolPostingFacts,
   RunSummary,
   SavedViewRow,
   ScreeningAnswerRow,
@@ -169,6 +170,34 @@ function saveState(state: DemoState) {
   }
 }
 
+/**
+ * What the pool would know about two of the sample roles, so demo mode shows
+ * the posting-health badges: one relisted and open for weeks, one whose
+ * closing date has passed.
+ */
+function demoPostingFacts(): Record<string, PoolPostingFacts> {
+  const ago = (d: number) =>
+    new Date(Date.now() - d * 86_400_000).toISOString();
+  const fact = (role_id: string, f: Partial<PoolPostingFacts>) => ({
+    role_id,
+    first_seen_at: null,
+    posted_at: null,
+    expires_at: null,
+    listings: 1,
+    boards: 1,
+    gone_since: null,
+    ...f,
+  });
+  return {
+    'r-saltmarsh': fact('r-saltmarsh', {
+      first_seen_at: ago(47),
+      listings: 3,
+      boards: 2,
+    }),
+    'r-meridian': fact('r-meridian', { expires_at: ago(1) }),
+  };
+}
+
 const newId = () =>
   typeof crypto !== 'undefined' && 'randomUUID' in crypto
     ? crypto.randomUUID()
@@ -195,6 +224,8 @@ export class MemoryRolesRepo extends RolesRepo {
   readonly reminders = computed(() =>
     this.state().events.filter((e) => e.kind === 'reminder'),
   );
+  readonly postingFacts =
+    signal<Record<string, PoolPostingFacts>>(demoPostingFacts()).asReadonly();
 
   async load() {
     // What pg_cron's flag_follow_ups() does nightly on the hosted project.

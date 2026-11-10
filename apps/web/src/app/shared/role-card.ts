@@ -1,11 +1,13 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   input,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { RoleRow } from '@jobbotix/shared-types';
+import { postingHealth, type RoleRow } from '@jobbotix/shared-types';
+import { RolesRepo } from '../core/data/repos';
 import { Icon, MatchRing } from '../ui';
 import { Viewport } from '../core/viewport';
 import { RelativeDayPipe, TypeLabelPipe } from './format';
@@ -59,6 +61,15 @@ import { StatusSelect } from './status-select';
 
         @if (!compact()) {
           <div class="mt-3 flex flex-wrap gap-1.5">
+            @for (b of health().badges; track b.kind) {
+              <span
+                class="jb-tag"
+                [class.jb-tag-warn]="b.tone === 'warn'"
+                [class.jb-tag-bad]="b.tone === 'bad'"
+                [title]="b.detail"
+                >{{ b.label }}</span
+              >
+            }
             @if (role().ai_match) {
               <span class="jb-tag jb-tag-ai">AI-assisted dev</span>
             }
@@ -82,6 +93,15 @@ import { StatusSelect } from './status-select';
             @if (role().source) {
               <span class="hidden sm:inline">on {{ role().source }}</span>
             }
+            @if (compact() && health().badges[0]; as b) {
+              ·
+              <span
+                [class.text-warn]="b.tone === 'warn'"
+                [class.text-bad]="b.tone === 'bad'"
+                [title]="b.detail"
+                >{{ b.label }}</span
+              >
+            }
           </p>
           <jb-status-select class="relative z-10 shrink-0" [role]="role()" />
         </div>
@@ -91,7 +111,16 @@ import { StatusSelect } from './status-select';
 })
 export class RoleCard {
   protected readonly viewport = inject(Viewport);
+  private readonly repo = inject(RolesRepo);
   readonly role = input.required<RoleRow>();
+  /** Age, relisting and closure warnings from the shared pool. */
+  protected readonly health = computed(() =>
+    postingHealth(
+      this.role(),
+      this.repo.postingFacts()[this.role().id],
+      new Date(),
+    ),
+  );
   readonly showReasons = input(true);
   /** Fewer details: no tag row, a smaller ring. */
   readonly compact = input(false);

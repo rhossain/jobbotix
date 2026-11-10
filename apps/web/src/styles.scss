@@ -432,6 +432,14 @@
     background: var(--brand-tint);
     color: var(--brand-ink);
   }
+  .jb-tag-warn {
+    background: var(--warn-tint);
+    color: var(--warn);
+  }
+  .jb-tag-bad {
+    background: var(--bad-tint);
+    color: var(--bad);
+  }
 
   // ---------- Status ----------
   .jb-status {

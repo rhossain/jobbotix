@@ -32,6 +32,7 @@ import type {
   RoleRow,
   RoleStatus,
   PostingSeenOn,
+  PoolPostingFacts,
   RunSummary,
   SearchProfileRow,
 } from '@jobbotix/shared-types';
@@ -71,14 +72,16 @@ export class SupabaseRolesRepo extends RolesRepo {
   private readonly _roles = signal<RoleRow[]>([]);
   private readonly _reminders = signal<RoleEventRow[]>([]);
   private readonly _lastRun = signal<RunSummary | null>(null);
+  private readonly _postingFacts = signal<Record<string, PoolPostingFacts>>({});
 
   readonly roles = this._roles.asReadonly();
   readonly loaded = signal(false);
   readonly lastRun = this._lastRun.asReadonly();
   readonly reminders = this._reminders.asReadonly();
+  readonly postingFacts = this._postingFacts.asReadonly();
 
   async load() {
-    const [roles, run, reminders] = await Promise.all([
+    const [roles, run, reminders, health] = await Promise.all([
       this.supabase
         .from('roles')
         .select('*')
@@ -96,8 +99,14 @@ export class SupabaseRolesRepo extends RolesRepo {
         .eq('kind', 'reminder')
         .order('created_at', { ascending: false })
         .limit(50),
+      this.supabase.rpc('posting_health'),
     ]);
     this._roles.set(roles.data ?? []);
+    this._postingFacts.set(
+      Object.fromEntries(
+        ((health.data ?? []) as PoolPostingFacts[]).map((f) => [f.role_id, f]),
+      ),
+    );
     this._reminders.set(reminders.data ?? []);
     this._lastRun.set(summariseRuns(run.data ?? []));
     this.loaded.set(true);

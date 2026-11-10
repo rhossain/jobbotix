@@ -12,6 +12,7 @@ import { RouterLink } from '@angular/router';
 import {
   ATS_LABEL,
   ROLE_STATUS_LABELS,
+  postingHealth,
   type AtsKind,
   type RoleEventRow,
   type RoleRow,
@@ -101,6 +102,15 @@ type Tab = 'fit' | 'company' | 'resume' | 'prep' | 'posting' | 'activity';
               </h1>
               <p class="mt-1 text-ink-muted md:text-lg">{{ r.company }}</p>
               <div class="mt-3 flex flex-wrap gap-1.5">
+                @for (b of health().badges; track b.kind) {
+                  <span
+                    class="jb-tag"
+                    [class.jb-tag-warn]="b.tone === 'warn'"
+                    [class.jb-tag-bad]="b.tone === 'bad'"
+                    [title]="b.detail"
+                    >{{ b.label }}</span
+                  >
+                }
                 @if (r.ai_match) {
                   <span class="jb-tag jb-tag-ai">AI-assisted dev</span>
                 }
@@ -657,6 +667,25 @@ type Tab = 'fit' | 'company' | 'resume' | 'prep' | 'posting' | 'activity';
                   }
                 </dd>
               </dl>
+              @if (health().badges.length) {
+                <ul
+                  class="mt-4 flex flex-col gap-2 border-t border-line pt-3 text-sm"
+                  aria-label="Posting warnings"
+                >
+                  @for (b of health().badges; track b.kind) {
+                    <li class="flex gap-2">
+                      <jb-icon
+                        name="triangle-exclamation-point"
+                        [size]="16"
+                        class="mt-0.5 shrink-0"
+                        [class.text-warn]="b.tone === 'warn'"
+                        [class.text-bad]="b.tone === 'bad'"
+                      />
+                      <span class="text-ink-muted">{{ b.detail }}</span>
+                    </li>
+                  }
+                </ul>
+              }
               @if (careers(); as c) {
                 <div
                   class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm"
@@ -778,6 +807,13 @@ export class RoleDetail {
   readonly events = signal<RoleEventRow[]>([]);
   readonly answers = signal<ScreeningAnswerRow[]>([]);
   readonly seenOn = signal<PostingSeenOn[]>([]);
+  /** Age, relisting and closure warnings from the shared pool. */
+  readonly health = computed(() => {
+    const r = this.role();
+    return r
+      ? postingHealth(r, this.repo.postingFacts()[r.id], new Date())
+      : { ageDays: null, badges: [] };
+  });
   private readonly watchlist = inject(WatchlistRepo);
   readonly atsLabel = ATS_LABEL;
   /** The careers system behind this role, when Jobbotix can poll it. */

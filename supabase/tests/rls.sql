@@ -516,4 +516,55 @@ do $$ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Posting health: listings, boards, and "gone" only from a clean careers poll
+-- a day after the listing was last seen; each user sees only their own roles.
+-- ---------------------------------------------------------------------------
+do $$
+declare v_post uuid; v_open uuid;
+begin
+  insert into public.postings (dedupe_key, company, title, url, ats_kind, ats_slug, posted_at, first_seen_at)
+  values ('ph-gone', 'Gonecorp', 'Angular Dev', 'https://gone.example/1', 'lever', 'gonecorp',
+          now() - interval '70 days', now() - interval '65 days')
+  returning id into v_post;
+  insert into public.postings (dedupe_key, company, title, url, ats_kind, ats_slug)
+  values ('ph-open', 'Opencorp', 'Angular Dev', 'https://open.example/1', 'lever', 'opencorp')
+  returning id into v_open;
+  insert into public.companies (ats_kind, ats_slug, name, last_polled_at)
+  values ('lever', 'gonecorp', 'Gonecorp', now()), ('lever', 'opencorp', 'Opencorp', now())
+  on conflict (ats_kind, ats_slug) do update set last_polled_at = excluded.last_polled_at, last_error = null;
+  insert into public.posting_sources (source_id, external_id, posting_id, url, last_seen_at) values
+    ('ats', 'lever:gonecorp:1', v_post, 'https://gone.example/1', now() - interval '3 days'),
+    ('himalayas', 'h-gone-1', v_post, 'https://himalayas.app/g1', now()),
+    ('himalayas', 'h-gone-2', v_post, 'https://himalayas.app/g2', now()),
+    ('ats', 'lever:opencorp:1', v_open, 'https://open.example/1', now() - interval '2 hours');
+  insert into public.roles (user_id, company, title, url, posting_id) values
+    ('11111111-1111-1111-1111-111111111111', 'Gonecorp', 'Angular Dev', 'https://gone.example/1', v_post),
+    ('11111111-1111-1111-1111-111111111111', 'Opencorp', 'Angular Dev', 'https://open.example/1', v_open);
+end $$;
+
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare h record;
+begin
+  select * into h from public.posting_health() ph
+    join public.roles r on r.id = ph.role_id where r.company = 'Gonecorp';
+  if h.listings <> 3 or h.boards <> 2 then
+    raise exception 'FAIL: posting_health listings/boards = %/%', h.listings, h.boards;
+  end if;
+  if h.gone_since is null then raise exception 'FAIL: closed careers listing not reported gone'; end if;
+  select * into h from public.posting_health() ph
+    join public.roles r on r.id = ph.role_id where r.company = 'Opencorp';
+  if h.gone_since is not null then raise exception 'FAIL: open careers listing reported gone'; end if;
+end $$;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if exists (select 1 from public.posting_health() ph join public.postings p on p.first_seen_at = ph.first_seen_at
+             where p.dedupe_key in ('ph-gone', 'ph-open')) then
+    raise exception 'FAIL: posting_health shows another user''s roles';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

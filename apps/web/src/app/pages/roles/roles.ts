@@ -12,6 +12,7 @@ import {
   EMPLOYMENT_TYPE_LABELS,
   ROLE_STATUSES,
   ROLE_STATUS_LABELS,
+  postingHealth,
   type EmploymentType,
   type RoleRow,
   type RoleStatus,
@@ -316,6 +317,15 @@ const DEFAULT_FILTERS: Filters = {
                             r.salary
                           }}</span>
                         }
+                        @if (healthBadge(r); as b) {
+                          <span
+                            class="jb-tag min-h-5 px-2 text-[0.6875rem] leading-[1.05rem]"
+                            [class.jb-tag-warn]="b.tone === 'warn'"
+                            [class.jb-tag-bad]="b.tone === 'bad'"
+                            [title]="b.detail"
+                            >{{ b.label }}</span
+                          >
+                        }
                       </div>
                     </td>
                     <td
@@ -532,6 +542,14 @@ const DEFAULT_FILTERS: Filters = {
 })
 export class Roles {
   protected readonly repo = inject(RolesRepo);
+
+  /** The most serious posting warning for a table row, or null. */
+  protected healthBadge(r: RoleRow) {
+    return (
+      postingHealth(r, this.repo.postingFacts()[r.id], new Date()).badges[0] ??
+      null
+    );
+  }
   private readonly router = inject(Router);
 
   readonly statuses = ROLE_STATUSES;

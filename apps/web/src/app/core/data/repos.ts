@@ -30,6 +30,7 @@ import type {
   SourceCatalogRow,
   AtsKind,
   CompanyRow,
+  PoolPostingFacts,
 } from '@jobbotix/shared-types';
 
 /**
@@ -44,6 +45,8 @@ export abstract class RolesRepo {
   abstract readonly lastRun: Signal<RunSummary | null>;
   /** Reminder events (stale shortlist etc.) not yet dismissed. */
   abstract readonly reminders: Signal<RoleEventRow[]>;
+  /** What the shared pool knows about each role's posting, by role id. */
+  abstract readonly postingFacts: Signal<Record<string, PoolPostingFacts>>;
 
   abstract load(): Promise<void>;
   abstract setStatus(id: string, status: RoleStatus): Promise<void>;
