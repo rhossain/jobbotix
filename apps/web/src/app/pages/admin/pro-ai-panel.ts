@@ -72,7 +72,12 @@ export function proAiView(a: ProAiAdmin): ProAiView {
         }
       </div>
 
-      @if (error()) {
+      @if (notDeployed()) {
+        <p class="text-sm text-ink-muted">
+          Built, and waiting for the next server update (migrations 0035 and
+          0036). Nothing runs on credits until then.
+        </p>
+      } @else if (error()) {
         <p class="text-sm text-bad" role="alert">{{ error() }}</p>
       } @else if (!data()) {
         <jb-skeleton shape="row" [count]="2" />
@@ -192,6 +197,8 @@ export class ProAiPanel {
 
   readonly data = signal<ProAiAdmin | null>(null);
   readonly error = signal('');
+  /** The app is ahead of the database: the Pro route is not there yet. */
+  readonly notDeployed = signal(false);
   readonly busy = signal<'' | 'limits' | 'switch'>('');
   readonly budget = signal(0);
   readonly cap = signal(0);
@@ -223,10 +230,14 @@ export class ProAiPanel {
     try {
       this.take(await this.repo.proAi());
     } catch (e) {
-      // A database from before the Pro route existed has nothing to show.
-      this.error.set(
-        (e as Error).message || 'Could not load the AI on credits settings',
-      );
+      // A database from before the Pro route existed has no such function
+      // (PostgREST answers PGRST202): say it is waiting, not that it broke.
+      if ((e as { code?: string }).code === 'PGRST202')
+        this.notDeployed.set(true);
+      else
+        this.error.set(
+          (e as Error).message || 'Could not load the AI on credits settings',
+        );
     }
   }
 
