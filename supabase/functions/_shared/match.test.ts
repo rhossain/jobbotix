@@ -283,3 +283,37 @@ Deno.test('secondary stacks count in the title, not in the tags', () => {
     'match',
   );
 });
+
+Deno.test('minimum pay excludes only postings that state less', () => {
+  const min = {
+    exclusions: { min_salary: 60_000, min_salary_currency: 'USD' },
+  };
+  // no pay stated: kept
+  assertEquals(m({}, min).kind, 'match');
+  // structured yearly fields from the board
+  assertEquals(
+    m({ salary_min: 70_000, salary_max: 90_000, salary_currency: 'USD' }, min)
+      .kind,
+    'match',
+  );
+  assertEquals(
+    m({ salary_min: 30_000, salary_max: 45_000, salary_currency: 'USD' }, min),
+    {
+      kind: 'excluded',
+      reason: 'Pay below your minimum (about USD 45k a year)',
+    },
+  );
+  // text, hourly, annualised at 2080 hours: $25/h ≈ $52k
+  assertEquals(m({ salary_text: '$25/h' }, min).kind, 'excluded');
+  assertEquals(m({ salary_text: '$40/h' }, min).kind, 'match');
+  // converted from the minimum's currency
+  assertEquals(
+    m(
+      { salary_text: '€50,000 - €58,000 per year' },
+      { exclusions: { min_salary: 60_000, min_salary_currency: 'USD' } },
+    ).kind,
+    'match',
+  );
+  // an unknown currency is never excluded
+  assertEquals(m({ salary_text: 'XYZ 10' }, min).kind, 'match');
+});

@@ -25,7 +25,6 @@ import {
 import { scoreRole, type RoleScoreFields } from '../_shared/role-score.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
-
 Deno.serve(
   withCors(async (req) => {
     if (req.method !== 'POST') return json(405, { error: 'POST only' });
@@ -179,6 +178,7 @@ Deno.serve(
           title: role.title,
           location: role.location,
           type: role.type,
+          salary: role.salary,
           posting_text: role.postingText,
           stack: role.stack,
           posted_at: posted,

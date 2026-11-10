@@ -13,6 +13,7 @@ import { regionIncludes } from './countries.ts';
 import { roleKeywords, stackTerm } from './queries.ts';
 import { normaliseTitle } from './sources/normalise.ts';
 import type { RemotePolicy } from './sources/types.ts';
+import { formatYearly, meetsMinimum, salaryFrom, yearlyIn } from './salary.ts';
 import {
   EMPLOYMENT_LABEL,
   typeList,
@@ -45,6 +46,12 @@ export interface MatchPosting {
   seniority: string;
   posted_at: string | null;
   expires_at: string | null;
+  /** Yearly figures from the board, when it gives them. */
+  salary_min?: number | null;
+  salary_max?: number | null;
+  salary_currency?: string | null;
+  /** The pay line as written ("$55/h", "USD 80k–120k"). */
+  salary_text?: string | null;
 }
 
 export type MatchResult =
@@ -181,6 +188,22 @@ export function matchPosting(
       kind: 'excluded',
       reason: `${EMPLOYMENT_LABEL[post.employment_type]} role; profile wants ${typeList(p.employment_types).toLowerCase()}`,
     };
+  const minPay = Number(excl['min_salary'] ?? 0);
+  if (minPay > 0) {
+    const cur = String(excl['min_salary_currency'] || 'USD');
+    const range = salaryFrom(post, post.salary_text);
+    if (range && meetsMinimum(range, minPay, cur) === false) {
+      const y = yearlyIn(range, cur);
+      const top = y ? (y.max ?? y.min) : null;
+      return {
+        kind: 'excluded',
+        reason:
+          top === null
+            ? 'Pay below your minimum'
+            : `Pay below your minimum (about ${formatYearly(top, cur)} a year)`,
+      };
+    }
+  }
 
   // 4. Where it can be done from
   const allowed = new Set(

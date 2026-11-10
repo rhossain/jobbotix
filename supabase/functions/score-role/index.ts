@@ -72,6 +72,7 @@ Deno.serve(
         title: role.title,
         location: role.location,
         type: role.type,
+        salary: role.salary,
         posting_text: role.posting_text,
         stack: role.stack ?? [],
         posted_at: role.posted_at,

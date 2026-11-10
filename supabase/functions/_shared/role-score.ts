@@ -104,6 +104,8 @@ export interface RoleForScoring {
   posting_text: string;
   stack: string[];
   posted_at?: string | null;
+  /** The pay line as written on the role. */
+  salary?: string;
   /** Known remote policy (a role the run filed from the pool); guessed otherwise. */
   remote?: RemoteGuess;
 }
@@ -125,6 +127,7 @@ export function rolePosting(role: RoleForScoring): MatchPosting {
     seniority: '',
     posted_at: role.posted_at ?? null,
     expires_at: null,
+    salary_text: role.salary ?? '',
   };
 }
 

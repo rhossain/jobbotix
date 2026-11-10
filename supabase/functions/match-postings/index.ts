@@ -184,7 +184,7 @@ async function matchForUser(
     admin
       .from('postings')
       .select(
-        'id, title, company, url, description, tags, location, remote_policy, hiring_countries, hiring_regions, source_country, employment_type, seniority, salary_text, posted_at, expires_at, first_seen_at, posting_sources(source_id, url, first_seen_at)',
+        'id, title, company, url, description, tags, location, remote_policy, hiring_countries, hiring_regions, source_country, employment_type, seniority, salary_min, salary_max, salary_currency, salary_text, posted_at, expires_at, first_seen_at, posting_sources(source_id, url, first_seen_at)',
       )
       .gt('first_seen_at', since)
       .order('first_seen_at', { ascending: true })

@@ -11,6 +11,7 @@ import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
   DEFAULT_SCORING_WEIGHTS,
+  SALARY_CURRENCIES,
   SCORING_WEIGHT_LABELS,
   countryName,
   countryOptions,
@@ -212,6 +213,34 @@ const splitLines = (s: string) =>
               ><input id="sp-pt" type="checkbox" formControlName="partTime" />
               Part-time</label
             >
+            <div class="flex flex-wrap items-center gap-2">
+              <label for="sp-min-pay">Minimum pay</label>
+              <input
+                id="sp-min-pay"
+                type="number"
+                min="0"
+                step="1000"
+                inputmode="numeric"
+                placeholder="None"
+                formControlName="minSalary"
+                class="jb-input jb-input-inline w-32"
+              />
+              <select
+                aria-label="Minimum pay currency"
+                formControlName="minSalaryCurrency"
+                class="jb-input jb-input-inline"
+              >
+                @for (c of currencies; track c) {
+                  <option [value]="c">{{ c }}</option>
+                }
+              </select>
+              a year
+            </div>
+            <p class="-mt-1 text-xs text-ink-muted">
+              Postings that state less are left out; hourly, daily and monthly
+              rates are counted as yearly, other currencies at approximate
+              rates. Postings with no pay stated are kept.
+            </p>
             <label class="flex items-center gap-2">
               Minimum seniority
               <select
@@ -462,6 +491,7 @@ export class SearchProfile {
   readonly keyBusy = signal(false);
   readonly ingestKey = signal('');
 
+  readonly currencies = SALARY_CURRENCIES;
   readonly form = new FormGroup({
     targetRoles: new FormControl('', { nonNullable: true }),
     stacks: new FormControl('', { nonNullable: true }),
@@ -475,6 +505,8 @@ export class SearchProfile {
     hybrid: new FormControl(true, { nonNullable: true }),
     junior: new FormControl(true, { nonNullable: true }),
     olderThanDays: new FormControl(45, { nonNullable: true }),
+    minSalary: new FormControl<number | null>(null),
+    minSalaryCurrency: new FormControl('USD', { nonNullable: true }),
     fullTime: new FormControl(true, { nonNullable: true }),
     contract: new FormControl(true, { nonNullable: true }),
     freelance: new FormControl(true, { nonNullable: true }),
@@ -567,6 +599,8 @@ export class SearchProfile {
       hybrid: excl['hybrid_or_onsite'] !== false,
       junior: excl['junior_or_mid'] !== false,
       olderThanDays: Number(excl['older_than_days'] ?? 45),
+      minSalary: Number(excl['min_salary'] ?? 0) || null,
+      minSalaryCurrency: String(excl['min_salary_currency'] || 'USD'),
       fullTime: p.employment_types.includes('full_time'),
       contract: p.employment_types.includes('contract'),
       freelance: p.employment_types.includes('freelance'),
@@ -615,6 +649,12 @@ export class SearchProfile {
           hybrid_or_onsite: v.hybrid,
           junior_or_mid: v.junior,
           older_than_days: v.olderThanDays,
+          ...(Number(v.minSalary) > 0
+            ? {
+                min_salary: Math.round(Number(v.minSalary)),
+                min_salary_currency: v.minSalaryCurrency,
+              }
+            : {}),
         },
         languages: ['english'],
         min_seniority: v.minSeniority,

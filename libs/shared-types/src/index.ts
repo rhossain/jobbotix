@@ -18,3 +18,4 @@ export * from './lib/company';
 export * from './lib/models';
 export * from './lib/usage';
 export * from './lib/posting-health';
+export * from './lib/salary';

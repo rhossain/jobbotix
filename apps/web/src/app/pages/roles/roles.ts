@@ -13,13 +13,21 @@ import {
   EMPLOYMENT_TYPES,
   ROLE_STATUSES,
   ROLE_STATUS_LABELS,
+  meetsMinimum,
+  parseSalary,
   postingHealth,
+  salarySortKey,
   type EmploymentType,
+  type SalaryRange,
   type RoleRow,
   type RoleStatus,
   type SavedViewRow,
 } from '@jobbotix/shared-types';
-import { RolesRepo, SavedViewsRepo } from '../../core/data/repos';
+import {
+  RolesRepo,
+  SavedViewsRepo,
+  SearchProfileRepo,
+} from '../../core/data/repos';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
 import { RoleMover } from '../../shared/role-mover';
@@ -40,7 +48,8 @@ import {
 } from '../../ui';
 import { StatusSelect } from '../../shared/status-select';
 
-type Sort = 'score' | 'found' | 'posted' | 'company' | 'status';
+type Sort = 'score' | 'found' | 'posted' | 'pay' | 'company' | 'status';
+type PayFilter = '' | 'stated' | 'min';
 type ScoreBand = '' | '80' | '60' | '0';
 
 interface Filters {
@@ -50,6 +59,7 @@ interface Filters {
   band: ScoreBand;
   ai: boolean;
   source: string;
+  pay: PayFilter;
   sort: Sort;
 }
 
@@ -60,6 +70,7 @@ const DEFAULT_FILTERS: Filters = {
   band: '',
   ai: false,
   source: '',
+  pay: '',
   sort: 'score',
 };
 /** Every role, as a sortable, filterable table (cards on phones) with keyboard navigation. */
@@ -458,6 +469,33 @@ const DEFAULT_FILTERS: Filters = {
         "
       >
         @if (stacked) {
+          Pay
+        }
+        <select
+          class="jb-input"
+          [class.w-auto]="!stacked"
+          aria-label="Pay"
+          (change)="set('pay', $any($event.target).value)"
+        >
+          <option value="" [selected]="filters().pay === ''">Any pay</option>
+          <option value="stated" [selected]="filters().pay === 'stated'">
+            Pay stated
+          </option>
+          <option
+            value="min"
+            [selected]="filters().pay === 'min'"
+            [disabled]="!minimumPay()"
+          >
+            Meets my minimum
+          </option>
+        </select>
+      </label>
+      <label
+        [class]="
+          stacked ? 'flex flex-col gap-1.5 text-sm font-medium' : 'contents'
+        "
+      >
+        @if (stacked) {
           Source
         }
         <select
@@ -498,6 +536,9 @@ const DEFAULT_FILTERS: Filters = {
           </option>
           <option value="posted" [selected]="filters().sort === 'posted'">
             Recently posted
+          </option>
+          <option value="pay" [selected]="filters().sort === 'pay'">
+            Highest pay
           </option>
           <option value="company" [selected]="filters().sort === 'company'">
             Company A–Z
@@ -580,7 +621,8 @@ export class Roles {
   /** Filters set besides search and sort, for the phone Filters button. */
   readonly activeCount = computed(() => {
     const f = this.filters();
-    return [f.status, f.type, f.band, f.source, f.ai].filter(Boolean).length;
+    return [f.status, f.type, f.band, f.source, f.pay, f.ai].filter(Boolean)
+      .length;
   });
   readonly active = signal(0);
   private readonly viewsRepo = inject(SavedViewsRepo);
@@ -601,10 +643,39 @@ export class Roles {
     ].sort(),
   );
 
+  private readonly profileRepo = inject(SearchProfileRepo);
+  /** The yearly minimum pay from the search profile, if one is set. */
+  readonly minimumPay = computed(() => {
+    const ex = (this.profileRepo.profile()?.exclusions ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const amount = Number(ex['min_salary'] ?? 0);
+    return amount > 0
+      ? { amount, currency: String(ex['min_salary_currency'] || 'USD') }
+      : null;
+  });
+  /** Each role's pay line read as numbers, by role id. */
+  private readonly pay = computed(() => {
+    const m = new Map<string, SalaryRange | null>();
+    for (const r of this.repo.roles()) m.set(r.id, parseSalary(r.salary));
+    return m;
+  });
+
   readonly rows = computed<RoleRow[]>(() => {
     const f = this.filters();
     const q = f.q.trim().toLowerCase();
+    const pay = this.pay();
+    const min = this.minimumPay();
     const list = this.repo.roles().filter((r) => {
+      if (f.pay === 'stated' && !pay.get(r.id)) return false;
+      if (
+        f.pay === 'min' &&
+        (!min ||
+          meetsMinimum(pay.get(r.id) ?? null, min.amount, min.currency) !==
+            true)
+      )
+        return false;
       if (f.status && r.status !== f.status) return false;
       if (f.type && r.type !== f.type) return false;
       if (f.source && r.source !== f.source) return false;
@@ -634,6 +705,11 @@ export class Roles {
           return b.found_at.localeCompare(a.found_at);
         case 'posted':
           return (b.posted_at ?? '').localeCompare(a.posted_at ?? '');
+        case 'pay':
+          return (
+            salarySortKey(pay.get(b.id) ?? null) -
+              salarySortKey(pay.get(a.id) ?? null) || b.score - a.score
+          );
         case 'company':
           return a.company.localeCompare(b.company) || b.score - a.score;
         case 'status':
@@ -651,6 +727,7 @@ export class Roles {
   constructor() {
     void this.repo.load();
     void this.viewsRepo.load();
+    if (!this.profileRepo.loaded()) void this.profileRepo.load();
     const status = this.route.snapshot.queryParamMap.get(
       'status',
     ) as RoleStatus | null;

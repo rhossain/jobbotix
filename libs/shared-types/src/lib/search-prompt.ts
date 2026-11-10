@@ -1,6 +1,7 @@
 import type { SearchProfileRow } from './database.types';
 import { resolveScoringWeights } from './scoring';
 import { EMPLOYMENT_TYPE_LABELS } from './shared-types';
+import { formatYearly } from './salary';
 
 export interface PromptContext {
   /** Who the search is for, in a few lines (name, title, stack, location). */
@@ -48,6 +49,11 @@ export function renderSearchPrompt(
   if (excludeRegions.length)
     exclusions.push(
       `roles limited to ${excludeRegions.join(', ')} unless the posting also says worldwide`,
+    );
+  const minPay = Number(excl['min_salary'] ?? 0);
+  if (minPay > 0)
+    exclusions.push(
+      `roles whose stated pay, counted as a yearly figure, is below ${formatYearly(minPay, String(excl['min_salary_currency'] || 'USD'))} (keep roles that state no pay)`,
     );
   exclusions.push(`postings older than ${olderThan} days`);
   exclusions.push(

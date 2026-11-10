@@ -12,7 +12,11 @@ import { RouterLink } from '@angular/router';
 import {
   ATS_LABEL,
   ROLE_STATUS_LABELS,
+  formatYearly,
+  meetsMinimum,
+  parseSalary,
   postingHealth,
+  yearlyIn,
   type AtsKind,
   type RoleEventRow,
   type RoleRow,
@@ -23,6 +27,7 @@ import {
   LettersRepo,
   RolesRepo,
   ScreeningRepo,
+  SearchProfileRepo,
   WatchlistRepo,
 } from '../../core/data/repos';
 import { ModelPicker } from '../../shared/model-picker';
@@ -635,6 +640,16 @@ type Tab = 'fit' | 'company' | 'resume' | 'prep' | 'posting' | 'activity';
                 <dt class="text-ink-muted">Pay</dt>
                 <dd class="m-0 text-right text-ink">
                   {{ r.salary || 'Not stated' }}
+                  @if (pay().yearly) {
+                    <span class="block text-xs text-ink-muted">{{
+                      pay().yearly
+                    }}</span>
+                  }
+                  @if (pay().belowMinimum) {
+                    <span class="block text-xs text-warn"
+                      >Below your minimum</span
+                    >
+                  }
                 </dd>
                 <dt class="text-ink-muted">Remote</dt>
                 <dd class="m-0 text-right text-ink">
@@ -807,6 +822,38 @@ export class RoleDetail {
   readonly events = signal<RoleEventRow[]>([]);
   readonly answers = signal<ScreeningAnswerRow[]>([]);
   readonly seenOn = signal<PostingSeenOn[]>([]);
+  private readonly profileRepo = inject(SearchProfileRepo);
+  /**
+   * The pay line as a yearly figure (in the currency of the user's minimum,
+   * else its own) when it is hourly, monthly or in another currency, and
+   * whether it falls short of the minimum.
+   */
+  readonly pay = computed(() => {
+    const range = parseSalary(this.role()?.salary);
+    if (!range) return { yearly: '', belowMinimum: false };
+    const ex = (this.profileRepo.profile()?.exclusions ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const minimum = Number(ex['min_salary'] ?? 0);
+    const minCur = String(ex['min_salary_currency'] || '');
+    const target = (minimum > 0 && minCur) || range.currency || 'USD';
+    let yearly = '';
+    if (range.period !== 'year' || (range.currency || target) !== target) {
+      const y = yearlyIn(range, target);
+      if (y && (y.min !== null || y.max !== null)) {
+        const text =
+          y.min !== null && y.max !== null && y.min !== y.max
+            ? `${formatYearly(y.min, target)}–${formatYearly(y.max, '')}`
+            : formatYearly((y.max ?? y.min) as number, target);
+        yearly = `≈ ${text} a year`;
+      }
+    }
+    return {
+      yearly,
+      belowMinimum: meetsMinimum(range, minimum, minCur || 'USD') === false,
+    };
+  });
   /** Age, relisting and closure warnings from the shared pool. */
   readonly health = computed(() => {
     const r = this.role();
@@ -851,6 +898,7 @@ export class RoleDetail {
   private noteTimer: ReturnType<typeof setTimeout> | undefined;
 
   constructor() {
+    if (!this.profileRepo.loaded()) void this.profileRepo.load();
     inject(ShellState).usePageAction({
       label: 'Open posting',
       icon: 'arrow-up-right',
