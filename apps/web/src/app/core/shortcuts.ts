@@ -33,6 +33,7 @@ export class Shortcuts {
     { keys: 'g u', label: 'Go to AI usage' },
     { keys: 'n', label: 'Add a role' },
     { keys: '/', label: 'Focus the search box on Roles' },
+    { keys: 'x', label: 'Select the focused role on Roles' },
     { keys: '⌘ K', label: 'Search roles, pages and actions (Ctrl K)' },
     { keys: '[', label: 'Collapse or expand the sidebar' },
     { keys: '?', label: 'Show these shortcuts' },

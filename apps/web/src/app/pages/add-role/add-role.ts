@@ -1,18 +1,21 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   inject,
   signal,
 } from '@angular/core';
+import { DomSanitizer } from '@angular/platform-browser';
 import {
   FormControl,
   FormGroup,
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { RolesRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
+import { acceptPosting, bookmarklet, readShared } from '../../shared/capture';
 import {
   BackLink,
   Button,
@@ -99,6 +102,19 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
             {{ error() }}
           </p>
         }
+        @if (waiting()) {
+          <p
+            class="flex items-center gap-2.5 text-sm text-ink-muted"
+            role="status"
+          >
+            <jb-icon
+              name="loader-circle"
+              [size]="18"
+              class="animate-spin text-brand"
+            />
+            Receiving the page from your other tab…
+          </p>
+        }
         @if (busy()) {
           <p
             class="flex items-center gap-2.5 text-sm text-ink-muted"
@@ -130,14 +146,111 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
           </button>
         </div>
       </form>
+
+      <section
+        class="jb-card mt-6 p-5 text-sm md:p-7"
+        aria-labelledby="anywhere-h"
+      >
+        <h2 id="anywhere-h" class="font-semibold text-ink">
+          Add from anywhere
+        </h2>
+        <div class="mt-3 grid gap-5 md:grid-cols-2">
+          <div>
+            <h3 class="font-medium text-ink">On a computer</h3>
+            <p class="mt-1 text-ink-muted">
+              Drag this button to your bookmarks bar. On any posting, click it:
+              the page's link and text come here and the role is added. It works
+              on pages behind a sign-in, such as LinkedIn.
+            </p>
+            <a
+              class="mt-3 inline-flex items-center gap-2 rounded-control border border-line bg-sunken px-3 py-2 font-medium text-ink no-underline"
+              [href]="bookmarklet"
+              (click)="
+                $event.preventDefault();
+                toast.show('Drag it to your bookmarks bar')
+              "
+              title="Drag to your bookmarks bar"
+              ><jb-icon name="bookmark" [size]="16" /> Add to Jobbotix</a
+            >
+          </div>
+          <div>
+            <h3 class="font-medium text-ink">On a phone</h3>
+            <p class="mt-1 text-ink-muted">
+              Install Jobbotix from your browser menu (Add to Home screen). Then
+              tap Share on any posting and pick Jobbotix: the role is added in
+              one step. Share-to-app works on Android; on iPhone, copy the link
+              and paste it here.
+            </p>
+          </div>
+        </div>
+      </section>
     </div>
   `,
 })
 export class AddRole {
   private readonly repo = inject(RolesRepo);
   private readonly router = inject(Router);
-  private readonly toast = inject(Toast);
+  protected readonly toast = inject(Toast);
   readonly demo = environment.demo;
+  readonly waiting = signal(false);
+  readonly bookmarklet = inject(DomSanitizer).bypassSecurityTrustUrl(
+    bookmarklet(typeof location === 'undefined' ? '' : location.origin),
+  );
+
+  constructor() {
+    const q = inject(ActivatedRoute).snapshot.queryParamMap;
+    if (q.get('via') === 'bookmarklet') {
+      this.form.controls.url.setValue(q.get('url') ?? '');
+      this.receiveFromOpener();
+      return;
+    }
+    const shared = readShared({
+      url: q.get('url'),
+      text: q.get('text'),
+      title: q.get('title'),
+    });
+    if (!shared.url) return;
+    this.form.setValue({ url: shared.url, text: shared.text });
+    // shared from the phone: add it straight away
+    if (this.form.valid) queueMicrotask(() => void this.submit());
+  }
+
+  /** Waits up to 5 seconds for the bookmarklet's page text, then adds the role. */
+  private receiveFromOpener() {
+    const opener = typeof window === 'undefined' ? null : window.opener;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      this.waiting.set(false);
+      window.removeEventListener('message', onMessage);
+      if (this.form.valid) void this.submit();
+    };
+    const onMessage = (e: MessageEvent) => {
+      if (opener && e.source !== opener) return;
+      const m = acceptPosting(e.data, e.origin);
+      if (!m) return;
+      const body = m.text.trim();
+      this.form.setValue({
+        url: m.url,
+        // the tab title usually carries the job title and company
+        text:
+          body.length >= 200
+            ? `${m.title.trim() ? `${m.title.trim()}\n\n` : ''}${body}`
+            : '',
+      });
+      finish();
+    };
+    if (!opener) return;
+    this.waiting.set(true);
+    window.addEventListener('message', onMessage);
+    const timer = setTimeout(finish, 5000);
+    inject(DestroyRef).onDestroy(() => {
+      clearTimeout(timer);
+      done = true;
+      window.removeEventListener('message', onMessage);
+    });
+  }
   readonly busy = signal(false);
   readonly error = signal('');
   readonly urlTouched = signal(false);

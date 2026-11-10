@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -274,13 +275,69 @@ const DEFAULT_FILTERS: Filters = {
         } @else {
           <!-- Tablets and up: table. Scrolls rather than clipping the Status
                column when a long title or company makes it too wide. -->
+          @if (selected().size) {
+            <div
+              class="jb-card sticky top-2 z-20 mb-3 flex flex-wrap items-center gap-2 px-4 py-3 text-sm shadow-[var(--elev-overlay)]"
+              role="toolbar"
+              aria-label="Selected roles"
+            >
+              <span class="mr-1 font-medium text-ink"
+                >{{ selected().size }} selected</span
+              >
+              <button
+                type="button"
+                jbButton="primary"
+                size="sm"
+                (click)="moveSelected('shortlist')"
+              >
+                To apply
+              </button>
+              <button
+                type="button"
+                jbButton
+                size="sm"
+                (click)="moveSelected('skipped')"
+              >
+                Skip
+              </button>
+              <select
+                class="jb-input w-auto"
+                aria-label="Move the selected roles to"
+                (change)="moveSelectedTo($any($event.target))"
+              >
+                <option value="">Move to…</option>
+                @for (s of statuses; track s) {
+                  <option [value]="s">{{ statusLabels[s] }}</option>
+                }
+              </select>
+              <button
+                type="button"
+                jbButton="ghost"
+                size="sm"
+                class="ml-auto"
+                (click)="clearSelection()"
+              >
+                Clear
+              </button>
+            </div>
+          }
           <div class="jb-card overflow-x-auto">
             <table class="w-full text-sm">
               <thead>
                 <tr
                   class="border-b border-line text-left text-xs font-medium text-ink-muted"
                 >
-                  <th class="w-16 py-3 pr-2 pl-5 font-medium">Match</th>
+                  <th class="w-10 py-3 pl-5">
+                    <input
+                      type="checkbox"
+                      class="size-4 align-middle"
+                      aria-label="Select every role shown"
+                      [checked]="allSelected()"
+                      [indeterminate]="selected().size > 0 && !allSelected()"
+                      (change)="selectAll($any($event.target).checked)"
+                    />
+                  </th>
+                  <th class="w-16 py-3 pr-2 pl-3 font-medium">Match</th>
                   <th class="py-3 pr-4 font-medium">Role</th>
                   <th class="hidden py-3 pr-4 font-medium lg:table-cell">
                     Type
@@ -302,9 +359,21 @@ const DEFAULT_FILTERS: Filters = {
                     [attr.data-index]="i"
                     (focus)="active.set(i)"
                     (keydown)="onKey($event)"
+                    [class.bg-brand-tint]="selected().has(r.id)"
                     (click)="open(r)"
                   >
-                    <td class="py-3 pr-2 pl-5">
+                    <td class="py-3 pl-5" (click)="$event.stopPropagation()">
+                      <input
+                        type="checkbox"
+                        class="size-4 align-middle"
+                        [attr.aria-label]="
+                          'Select ' + r.title + ' at ' + r.company
+                        "
+                        [checked]="selected().has(r.id)"
+                        (change)="toggle(r.id)"
+                      />
+                    </td>
+                    <td class="py-3 pr-2 pl-3">
                       <jb-match-ring [score]="r.score" size="xs" />
                     </td>
                     <td class="min-w-0 py-3 pr-4 wrap-anywhere">
@@ -725,6 +794,11 @@ export class Roles {
   private readonly route = inject(ActivatedRoute);
 
   constructor() {
+    // a new filter starts a new selection, so hidden rows are never moved
+    effect(() => {
+      this.filters();
+      untracked(() => this.clearSelection());
+    });
     void this.repo.load();
     void this.viewsRepo.load();
     if (!this.profileRepo.loaded()) void this.profileRepo.load();
@@ -771,7 +845,50 @@ export class Roles {
     ) {
       e.preventDefault();
       this.open(rows[this.active()]);
+    } else if (e.key === 'x' && (e.target as HTMLElement).tagName === 'TR') {
+      e.preventDefault();
+      this.toggle(rows[this.active()].id);
     }
+  }
+
+  // ---- selection (tablet and up) -------------------------------------
+  readonly selected = signal<Set<string>>(new Set());
+  /** Every role shown is selected. */
+  readonly allSelected = computed(() => {
+    const rows = this.rows();
+    const sel = this.selected();
+    return rows.length > 0 && rows.every((r) => sel.has(r.id));
+  });
+
+  toggle(id: string) {
+    this.selected.update((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+  }
+
+  selectAll(on: boolean) {
+    this.selected.set(on ? new Set(this.rows().map((r) => r.id)) : new Set());
+  }
+
+  clearSelection() {
+    this.selected.set(new Set());
+  }
+
+  async moveSelected(to: RoleStatus) {
+    const sel = this.selected();
+    const roles = this.repo.roles().filter((r) => sel.has(r.id));
+    if (!roles.length) return;
+    await this.mover.moveMany(roles, to);
+    this.clearSelection();
+  }
+
+  moveSelectedTo(select: HTMLSelectElement) {
+    const to = select.value as RoleStatus | '';
+    select.value = '';
+    if (to) void this.moveSelected(to);
   }
 
   private focusRow(i: number) {
