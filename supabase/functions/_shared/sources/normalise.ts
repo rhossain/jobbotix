@@ -190,14 +190,7 @@ export const textList = (v: unknown, max = 40): string[] =>
       ].slice(0, max)
     : [];
 
-/** "Contractor", "Freelance", "Temporary" → contract; everything else full time. */
-export function employmentType(v: unknown): 'full_time' | 'contract' {
-  return /contract|freelanc|temporar|fixed[- ]term|consult/i.test(
-    String(v ?? ''),
-  )
-    ? 'contract'
-    : 'full_time';
-}
+export { employmentType } from '../employment.ts';
 
 /** A draft with every optional field defaulted, so adapters set only what they know. */
 export function draft(

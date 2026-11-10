@@ -73,3 +73,21 @@ Deno.test(
     assertEquals(r.company, 'Glassfern Labs');
   },
 );
+
+Deno.test('heuristicExtract reads the employment type', () => {
+  const page = (body: string) =>
+    `<html><head><title>Angular Dev at Acme</title></head><body>${body}</body></html>`;
+  const type = (body: string) =>
+    heuristicExtract('https://acme.example/jobs/1', page(body)).type;
+  assertEquals(type('<p>A 6-month contract role.</p>'), 'contract');
+  assertEquals(type('<p>Freelance engagement, 20 hours.</p>'), 'freelance');
+  assertEquals(type('<p>Part-time, mornings.</p>'), 'part_time');
+  assertEquals(type('<p>Full-time; contractors welcome.</p>'), 'full_time');
+  assertEquals(type('<p>Join the team.</p>'), 'full_time');
+});
+
+Deno.test('parseExtraction keeps the four employment types', () => {
+  assertEquals(parseExtraction('{"type":"freelance"}')?.type, 'freelance');
+  assertEquals(parseExtraction('{"type":"part_time"}')?.type, 'part_time');
+  assertEquals(parseExtraction('{"type":"weird"}')?.type, 'full_time');
+});

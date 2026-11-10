@@ -13,12 +13,17 @@ import { regionIncludes } from './countries.ts';
 import { roleKeywords, stackTerm } from './queries.ts';
 import { normaliseTitle } from './sources/normalise.ts';
 import type { RemotePolicy } from './sources/types.ts';
+import {
+  EMPLOYMENT_LABEL,
+  typeList,
+  type EmploymentType,
+} from './employment.ts';
 
 export interface MatchProfile {
   target_roles: string[];
   stacks: string[];
   languages: string[];
-  employment_types: ('full_time' | 'contract')[];
+  employment_types: EmploymentType[];
   remote_rules: Record<string, unknown> | null;
   exclusions: Record<string, unknown> | null;
   home_country: string | null;
@@ -36,7 +41,7 @@ export interface MatchPosting {
   hiring_countries: string[];
   hiring_regions: string[];
   source_country: string | null;
-  employment_type: 'full_time' | 'contract';
+  employment_type: EmploymentType;
   seniority: string;
   posted_at: string | null;
   expires_at: string | null;
@@ -174,10 +179,7 @@ export function matchPosting(
   )
     return {
       kind: 'excluded',
-      reason:
-        post.employment_type === 'contract'
-          ? 'Contract role; profile wants full-time'
-          : 'Full-time role; profile wants contract',
+      reason: `${EMPLOYMENT_LABEL[post.employment_type]} role; profile wants ${typeList(p.employment_types).toLowerCase()}`,
     };
 
   // 4. Where it can be done from

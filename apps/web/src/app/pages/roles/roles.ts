@@ -10,6 +10,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   EMPLOYMENT_TYPE_LABELS,
+  EMPLOYMENT_TYPES,
   ROLE_STATUSES,
   ROLE_STATUS_LABELS,
   postingHealth,
@@ -420,12 +421,11 @@ const DEFAULT_FILTERS: Filters = {
           (change)="set('type', $any($event.target).value)"
         >
           <option value="" [selected]="filters().type === ''">All types</option>
-          <option value="full_time" [selected]="filters().type === 'full_time'">
-            {{ typeLabels.full_time }}
-          </option>
-          <option value="contract" [selected]="filters().type === 'contract'">
-            {{ typeLabels.contract }}
-          </option>
+          @for (t of types; track t) {
+            <option [value]="t" [selected]="filters().type === t">
+              {{ typeLabels[t] }}
+            </option>
+          }
         </select>
       </label>
       <label
@@ -555,6 +555,7 @@ export class Roles {
   readonly statuses = ROLE_STATUSES;
   readonly statusLabels = ROLE_STATUS_LABELS;
   readonly typeLabels = EMPLOYMENT_TYPE_LABELS;
+  readonly types = EMPLOYMENT_TYPES;
 
   private readonly confirm = inject(Confirm);
   protected readonly mover = inject(RoleMover);

@@ -5,7 +5,7 @@ export interface ExtractedRole {
   company: string;
   title: string;
   location: string;
-  type: 'full_time' | 'contract';
+  type: 'full_time' | 'contract' | 'freelance' | 'part_time';
   salary: string;
   stack: string[];
   postingText: string;
@@ -68,11 +68,16 @@ export function heuristicExtract(url: string, html: string): ExtractedRole {
     }
   }
   const lower = text.toLowerCase();
-  const type: ExtractedRole['type'] =
-    /\b(contract|freelance|contractor)\b/.test(lower) &&
-    !/\bfull[- ]time\b/.test(lower)
-      ? 'contract'
-      : 'full_time';
+  const fullTime = /\bfull[- ]time\b/.test(lower);
+  const type: ExtractedRole['type'] = fullTime
+    ? 'full_time'
+    : /\bfreelanc(?:e|er|ing)\b/.test(lower)
+      ? 'freelance'
+      : /\b(?:contract|contractor)\b/.test(lower)
+        ? 'contract'
+        : /\bpart[- ]time\b/.test(lower)
+          ? 'part_time'
+          : 'full_time';
   const salaryMatch = text.match(
     /(?:[$€£]\s?\d[\d,.]*\s?[kK]?(?:\s?[-–]\s?[$€£]?\s?\d[\d,.]*\s?[kK]?)?(?:\s?(?:per|\/)\s?(?:year|yr|hour|hr|h))?)/,
   );
@@ -148,7 +153,7 @@ export function detectStack(text: string): string[] {
 /** The prompt sent to the user's own Anthropic key for a proper extraction. */
 export function extractionPrompt(url: string, text: string): string {
   return `Extract the job posting below into JSON with exactly these keys:
-{"company": string, "title": string, "location": string (remote scope in a few words, e.g. "Remote, worldwide" or "Remote, EU only" or "Hybrid, Berlin"), "type": "full_time" | "contract", "salary": string ("" if not stated), "stack": string[] (technologies and tools named, max 20), "posted": string (ISO date or ""), "summary": string (two sentences on what the role is)}
+{"company": string, "title": string, "location": string (remote scope in a few words, e.g. "Remote, worldwide" or "Remote, EU only" or "Hybrid, Berlin"), "type": "full_time" | "contract" | "freelance" | "part_time", "salary": string ("" if not stated), "stack": string[] (technologies and tools named, max 20), "posted": string (ISO date or ""), "summary": string (two sentences on what the role is)}
 Return only the JSON object, no prose.
 
 URL: ${url}
@@ -170,7 +175,10 @@ export function parseExtraction(
       company: str(o['company']),
       title: str(o['title']),
       location: str(o['location']),
-      type: str(o['type']) === 'contract' ? 'contract' : 'full_time',
+      type:
+        (['contract', 'freelance', 'part_time'] as const).find(
+          (t) => t === str(o['type']),
+        ) ?? 'full_time',
       salary: str(o['salary']),
       stack: Array.isArray(o['stack'])
         ? (o['stack'] as unknown[])

@@ -217,8 +217,8 @@ export function parseHnComment(c: HnComment): DraftPosting | null {
       remote.remote_policy === 'onsite' || remote.remote_policy === 'hybrid'
         ? (remote.hiring_countries[0] ?? null)
         : null,
-    employment_type: /contract|freelance/i.test(header)
-      ? 'contract'
+    employment_type: /contract|freelanc|part[- ]?time/i.test(header)
+      ? employmentType(header)
       : 'full_time',
     salary_text: salary.slice(0, 100),
     description: htmlToText(decoded.replace(/<p>/gi, '\n\n')).slice(0, 20_000),

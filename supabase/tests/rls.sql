@@ -567,4 +567,18 @@ do $$ begin
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- Employment types: freelance and part-time exist; new profiles accept freelance.
+do $$
+declare v public.employment_type[];
+begin
+  insert into public.search_profiles (user_id, name, active)
+  values ('22222222-2222-2222-2222-222222222222', 'types test', false)
+  returning employment_types into v;
+  if v <> '{full_time,contract,freelance}' then
+    raise exception 'FAIL: new profile employment types are %', v;
+  end if;
+  update public.search_profiles set employment_types = '{part_time}' where name = 'types test';
+  delete from public.search_profiles where name = 'types test';
+end $$;
+
 \echo RLS tests passed

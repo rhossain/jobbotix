@@ -25,7 +25,8 @@ export type RoleStatus =
   | 'offer'
   | 'rejected'
   | 'skipped';
-export type EmploymentType = 'full_time' | 'contract';
+export type EmploymentType =
+  'full_time' | 'contract' | 'freelance' | 'part_time';
 export type RoleEventKind =
   'status_change' | 'note' | 'generated' | 'reminder' | 'run' | 'ingested';
 export type AiJob =

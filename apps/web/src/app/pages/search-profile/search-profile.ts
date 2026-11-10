@@ -202,7 +202,15 @@ const splitLines = (s: string) =>
             >
             <label class="flex items-center gap-2"
               ><input id="sp-ct" type="checkbox" formControlName="contract" />
-              Contract and freelance</label
+              Contract</label
+            >
+            <label class="flex items-center gap-2"
+              ><input id="sp-fl" type="checkbox" formControlName="freelance" />
+              Freelance</label
+            >
+            <label class="flex items-center gap-2"
+              ><input id="sp-pt" type="checkbox" formControlName="partTime" />
+              Part-time</label
             >
             <label class="flex items-center gap-2">
               Minimum seniority
@@ -469,6 +477,8 @@ export class SearchProfile {
     olderThanDays: new FormControl(45, { nonNullable: true }),
     fullTime: new FormControl(true, { nonNullable: true }),
     contract: new FormControl(true, { nonNullable: true }),
+    freelance: new FormControl(true, { nonNullable: true }),
+    partTime: new FormControl(false, { nonNullable: true }),
     minSeniority: new FormControl('senior', { nonNullable: true }),
     digestTime: new FormControl('06:45', { nonNullable: true }),
     digestEnabled: new FormControl(true, { nonNullable: true }),
@@ -559,6 +569,8 @@ export class SearchProfile {
       olderThanDays: Number(excl['older_than_days'] ?? 45),
       fullTime: p.employment_types.includes('full_time'),
       contract: p.employment_types.includes('contract'),
+      freelance: p.employment_types.includes('freelance'),
+      partTime: p.employment_types.includes('part_time'),
       minSeniority: p.min_seniority,
       digestTime: p.digest_time.slice(0, 5),
       digestEnabled: p.digest_enabled !== false,
@@ -574,6 +586,8 @@ export class SearchProfile {
     const employment_types: EmploymentType[] = [
       ...(v.fullTime ? (['full_time'] as const) : []),
       ...(v.contract ? (['contract'] as const) : []),
+      ...(v.freelance ? (['freelance'] as const) : []),
+      ...(v.partTime ? (['part_time'] as const) : []),
     ];
     if (!employment_types.length) {
       this.toast.show('Pick at least one employment type');

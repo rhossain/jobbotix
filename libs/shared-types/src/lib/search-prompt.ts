@@ -1,5 +1,6 @@
 import type { SearchProfileRow } from './database.types';
 import { resolveScoringWeights } from './scoring';
+import { EMPLOYMENT_TYPE_LABELS } from './shared-types';
 
 export interface PromptContext {
   /** Who the search is for, in a few lines (name, title, stack, location). */
@@ -29,8 +30,8 @@ export function renderSearchPrompt(
     : [];
   const olderThan = Number(excl['older_than_days'] ?? 45);
   const types = p.employment_types
-    .map((t) => (t === 'contract' ? 'contract or freelance' : 'full-time'))
-    .join(' and ');
+    .map((t) => EMPLOYMENT_TYPE_LABELS[t].toLowerCase())
+    .join(', ');
   const key = ctx.ingestKeyPlaceholder ?? '<paste your ingest key>';
 
   const exclusions: string[] = [];

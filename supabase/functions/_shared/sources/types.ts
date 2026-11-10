@@ -1,6 +1,8 @@
 // The adapter contract. One module per source; each turns that source's feed
 // into PoolPosting rows that ingest_postings() (migration 0016) accepts.
 
+import type { EmploymentType } from '../employment.ts';
+
 export type RemotePolicy =
   'worldwide' | 'region_locked' | 'hybrid' | 'onsite' | 'unknown';
 
@@ -18,7 +20,7 @@ export interface PoolPosting {
   hiring_regions: string[];
   timezones: string;
   source_country: string | null;
-  employment_type: 'full_time' | 'contract';
+  employment_type: EmploymentType;
   seniority: string;
   salary_min: number | null;
   salary_max: number | null;

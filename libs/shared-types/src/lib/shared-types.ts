@@ -25,9 +25,18 @@ export const ROLE_STATUS_LABELS: Record<RoleStatus, string> = {
   skipped: 'Skipped',
 };
 
+export const EMPLOYMENT_TYPES: readonly EmploymentType[] = [
+  'full_time',
+  'contract',
+  'freelance',
+  'part_time',
+] as const;
+
 export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
   full_time: 'Full-time',
   contract: 'Contract',
+  freelance: 'Freelance',
+  part_time: 'Part-time',
 };
 
 export interface ScreeningAnswer {
@@ -47,7 +56,7 @@ export interface IngestRole {
   source?: string;
   location?: string;
   /** "Full-time" | "Contract" as the task writes them, or the enum value. */
-  type?: 'Full-time' | 'Contract' | EmploymentType;
+  type?: 'Full-time' | 'Contract' | 'Freelance' | 'Part-time' | EmploymentType;
   salary?: string;
   /** ISO date or '' */
   posted?: string;

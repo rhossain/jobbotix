@@ -11,6 +11,7 @@
 
 import type { MatchPosting, MatchProfile } from './match.ts';
 import { stackTerm } from './queries.ts';
+import { EMPLOYMENT_LABEL } from './employment.ts';
 import { normaliseTitle } from './sources/normalise.ts';
 
 export type Weights = {
@@ -332,7 +333,7 @@ Backend-heavy ${sign(w.backend_heavy)}; unclear remote eligibility ${sign(w.remo
 POSTING
 ${post.title} at ${post.company}
 Where: ${where}
-Type: ${post.employment_type === 'contract' ? 'contract' : 'full-time'}
+Type: ${EMPLOYMENT_LABEL[post.employment_type].toLowerCase()}
 A keyword pass scored it ${heuristic}.
 ---
 ${post.description.slice(0, 6000)}

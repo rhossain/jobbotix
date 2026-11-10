@@ -24,6 +24,7 @@ import {
   type Weights,
 } from './score.ts';
 import type { RemotePolicy } from './sources/types.ts';
+import type { EmploymentType } from './employment.ts';
 
 const DEFAULT_TRIAGE_MODEL = FAST_MODEL;
 
@@ -99,7 +100,7 @@ export interface RoleForScoring {
   company: string;
   title: string;
   location: string;
-  type: 'full_time' | 'contract';
+  type: EmploymentType;
   posting_text: string;
   stack: string[];
   posted_at?: string | null;
@@ -120,7 +121,7 @@ export function rolePosting(role: RoleForScoring): MatchPosting {
     hiring_countries: remote.hiring_countries,
     hiring_regions: remote.hiring_regions,
     source_country: null,
-    employment_type: role.type === 'contract' ? 'contract' : 'full_time',
+    employment_type: role.type,
     seniority: '',
     posted_at: role.posted_at ?? null,
     expires_at: null,
@@ -196,7 +197,7 @@ type ProfileRow = {
   target_roles: string[] | null;
   stacks: string[] | null;
   languages: string[] | null;
-  employment_types: ('full_time' | 'contract')[] | null;
+  employment_types: EmploymentType[] | null;
   remote_rules: Record<string, unknown> | null;
   exclusions: Record<string, unknown> | null;
   home_country: string | null;

@@ -1,13 +1,15 @@
 // Builds the morning digest for one user. Pure: takes rows, returns subject,
 // text and HTML, so it is unit-tested without a database or Resend.
 
+import { EMPLOYMENT_LABEL, type EmploymentType } from './employment.ts';
+
 export interface DigestRole {
   id: string;
   company: string;
   title: string;
   url: string;
   location: string;
-  type: 'full_time' | 'contract';
+  type: EmploymentType;
   salary: string;
   score: number;
   ai_match: boolean;
@@ -89,8 +91,7 @@ const esc = (s: string) =>
       ] as string,
   );
 
-const typeLabel = (t: DigestRole['type']) =>
-  t === 'contract' ? 'Contract' : 'Full-time';
+const typeLabel = (t: DigestRole['type']) => EMPLOYMENT_LABEL[t] ?? 'Full-time';
 
 export function daysBetween(a: string, b: Date): number {
   return Math.max(

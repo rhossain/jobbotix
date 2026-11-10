@@ -2,6 +2,8 @@
 // libs/shared-types (Edge Functions cannot import from the Nx workspace), so
 // keep the two in step.
 
+import { employmentType, type EmploymentType } from './employment.ts';
+
 export interface ScreeningAnswer {
   q: string;
   a: string;
@@ -13,7 +15,7 @@ export interface IngestRole {
   url: string;
   source?: string;
   location?: string;
-  type?: 'Full-time' | 'Contract' | 'full_time' | 'contract';
+  type?: string;
   salary?: string;
   posted?: string;
   stack?: string | string[];
@@ -59,7 +61,7 @@ export interface NormalisedRole {
   source: string;
   location: string;
   remote_scope: string;
-  type: 'full_time' | 'contract';
+  type: EmploymentType;
   salary: string;
   posted_at: string | null;
   stack: string[];
@@ -113,11 +115,7 @@ export function normaliseRole(
   const posted = str(raw.posted, 10);
   const posted_at = /^\d{4}-\d{2}-\d{2}$/.test(posted) ? posted : null;
 
-  const typeRaw = String(raw.type ?? '').toLowerCase();
-  const type: 'full_time' | 'contract' =
-    typeRaw.includes('contract') || typeRaw.includes('freelance')
-      ? 'contract'
-      : 'full_time';
+  const type = employmentType(raw.type);
 
   const posting_text = str(raw.postingText, 50_000);
   const qa = Array.isArray(raw.qa)
