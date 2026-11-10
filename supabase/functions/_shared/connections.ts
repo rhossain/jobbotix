@@ -5,6 +5,7 @@
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { probe, type AiAnswer } from './ai.ts';
+import { goldenSummary, runGolden, type GoldenResult } from './golden.ts';
 import {
   isProviderId,
   MODEL_ID,
@@ -19,7 +20,8 @@ export const VIEW_COLUMNS =
   'id, provider, key_hint, model, position, status, last_error, last_checked_at, limited_until';
 
 export type Outcome =
-  { ok: true; message?: string } | { ok: false; status: number; error: string };
+  | { ok: true; message?: string; results?: GoldenResult[] }
+  | { ok: false; status: number; error: string };
 
 const refuse = (status: number, error: string): Outcome => ({
   ok: false,
@@ -271,6 +273,67 @@ export async function testConnection(
       ? `${info.name} accepted the key but is rate limited right now.`
       : `${info.name} answered on ${model}.`,
   };
+}
+
+/**
+ * The full check (golden.ts): the four core jobs once each on this
+ * connection, metered like any other call. Resolves with one result per job.
+ */
+export async function checkConnection(
+  admin: SupabaseClient,
+  userId: string,
+  id: unknown,
+): Promise<Outcome> {
+  const row = await ownRow(admin, userId, id);
+  if (!row) return refuse(404, 'Connection not found');
+  const info = PROVIDERS[row.provider];
+  const key = await readVaultSecret(admin, row.key_ref);
+  if (!key)
+    return refuse(
+      422,
+      `The saved ${info.name} key could not be read. Add it again.`,
+    );
+  let retryAt: number | undefined;
+  let rejected = '';
+  const results = await runGolden(row.provider, key, row.model, {
+    onAnswer: async (job, a) => {
+      if (a.ok)
+        await admin.from('ai_usage').insert({
+          user_id: userId,
+          job,
+          provider: a.provider,
+          model: a.model,
+          tokens_in: a.tokensIn,
+          tokens_out: a.tokensOut,
+          cost_usd: 0,
+        });
+      else if (a.kind === 'rate_limited')
+        retryAt = a.retryAt ?? Date.now() + 60_000;
+      else if (a.kind === 'auth') rejected = a.message;
+    },
+  });
+  const now = new Date().toISOString();
+  await admin
+    .from('ai_connections')
+    .update(
+      rejected
+        ? {
+            status: 'error',
+            last_error: `${info.name} rejected the key: ${rejected}`.slice(
+              0,
+              500,
+            ),
+            last_checked_at: now,
+          }
+        : {
+            status: 'ok',
+            last_error: '',
+            last_checked_at: now,
+            limited_until: retryAt ? new Date(retryAt).toISOString() : null,
+          },
+    )
+    .eq('id', row.id);
+  return { ok: true, message: goldenSummary(results), results };
 }
 
 /** Sets the order connections are tried in; `ids` must be all of the user's. */

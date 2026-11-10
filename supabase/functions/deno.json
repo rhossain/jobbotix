@@ -1,7 +1,7 @@
 {
   "tasks": {
     "test": "deno test _shared/",
-    "check": "deno check ingest-roles/index.ts list-roles/index.ts extract-role/index.ts send-digest/index.ts tailor-resume/index.ts set-anthropic-key/index.ts draft-letter/index.ts answer-screening/index.ts prep-role/index.ts parse-resume/index.ts fetch-sources/index.ts match-postings/index.ts score-role/index.ts research-company/index.ts list-models/index.ts draft-thank-you/index.ts draft-message/index.ts delete-account/index.ts set-ai-connection/index.ts"
+    "check": "deno check ingest-roles/index.ts list-roles/index.ts extract-role/index.ts send-digest/index.ts tailor-resume/index.ts set-anthropic-key/index.ts draft-letter/index.ts answer-screening/index.ts prep-role/index.ts parse-resume/index.ts fetch-sources/index.ts match-postings/index.ts score-role/index.ts research-company/index.ts list-models/index.ts draft-thank-you/index.ts draft-message/index.ts delete-account/index.ts set-ai-connection/index.ts ../../tools/ai-golden.ts"
   },
   "lint": { "rules": { "tags": ["recommended"] } },
   "fmt": { "singleQuote": true, "lineWidth": 120 }

@@ -2,19 +2,22 @@
 //   Authorization: Bearer <user JWT>
 //   { "action": "save", "provider": "gemini", "key": "...", "model"?: "...", "consent"?: true }
 //   { "action": "test", "id": "<connection id>" }
+//   { "action": "check", "id": "..." }                      the four core jobs, once each
 //   { "action": "update", "id": "...", "model": "..." }     '' = the provider's default
 //   { "action": "reorder", "ids": ["...", "..."] }          the order they are tried in
 //   { "action": "remove", "id": "..." }
 //
 // A user's AI connections: their own key for Anthropic, or for a free tier
 // such as Gemini or Groq. A key is checked against the provider with one tiny
-// call before it is stored in Vault, and is never sent back. Every reply
-// carries the user's connections as they now stand (no keys).
+// call before it is stored in Vault, and is never sent back. "check" runs the
+// full check (_shared/golden.ts) and adds one result per job to the reply.
+// Every reply carries the user's connections as they now stand (no keys).
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 import {
+  checkConnection,
   listConnections,
   removeConnection,
   reorderConnections,
@@ -64,6 +67,9 @@ Deno.serve(
       case 'test':
         outcome = await testConnection(admin, userId, body.id);
         break;
+      case 'check':
+        outcome = await checkConnection(admin, userId, body.id);
+        break;
       case 'update':
         outcome = await testConnection(
           admin,
@@ -85,6 +91,10 @@ Deno.serve(
     const connections = await listConnections(admin, userId);
     if (!outcome.ok)
       return json(outcome.status, { error: outcome.error, connections });
-    return json(200, { connections, message: outcome.message });
+    return json(200, {
+      connections,
+      message: outcome.message,
+      results: outcome.results,
+    });
   }),
 );

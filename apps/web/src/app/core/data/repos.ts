@@ -444,6 +444,25 @@ export interface NewAiConnection {
   consent?: boolean;
 }
 
+/** One job of a connection's full check. */
+export interface AiCheckResult {
+  job: string;
+  label: string;
+  ok: boolean;
+  /** What was wrong; '' when it passed. */
+  detail: string;
+  model: string;
+  ms: number;
+  /** Stopped by the provider's rate limit: says nothing about the model. */
+  limited?: boolean;
+}
+
+export interface AiCheck {
+  /** "4 of 4 passed". */
+  summary: string;
+  results: AiCheckResult[];
+}
+
 export abstract class SettingsRepo {
   abstract readonly profile: Signal<ProfileRow | null>;
   /** The user's AI connections in the order they are tried (never the keys). */
@@ -469,6 +488,11 @@ export abstract class SettingsRepo {
   abstract saveConnection(input: NewAiConnection): Promise<string>;
   /** Runs the provider check again; resolves with how it went. */
   abstract testConnection(id: string): Promise<string>;
+  /**
+   * The full check: scoring, reading a posting, tailoring and a letter, once
+   * each on the connection (real calls on the user's key).
+   */
+  abstract checkConnection(id: string): Promise<AiCheck>;
   /** Changes the connection's model ('' = the provider's default) once it answers. */
   abstract setConnectionModel(id: string, model: string): Promise<string>;
   /** The order connections are tried in: every id, first one first. */

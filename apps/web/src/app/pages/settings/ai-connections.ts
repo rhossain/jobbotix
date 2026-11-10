@@ -10,12 +10,13 @@ import {
   isLimited,
   PROVIDER_ORDER,
   PROVIDERS,
+  summariseUsage,
   waitWords,
   type AiConnectionView,
   type ProviderId,
   type ProviderModel,
 } from '@jobbotix/shared-types';
-import { SettingsRepo } from '../../core/data/repos';
+import { SettingsRepo, type AiCheck } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { Button, Confirm, Icon } from '../../ui';
@@ -130,6 +131,9 @@ const OTHER = '__other';
                 @if (c.lastCheckedAt) {
                   Checked {{ c.lastCheckedAt | relativeDay }}.
                 }
+                @if (calls()[c.provider]; as n) {
+                  {{ n }} {{ n === 1 ? 'call' : 'calls' }} in the last 30 days.
+                }
               </p>
               @if (c.status === 'error' && c.lastError) {
                 <p class="text-sm text-bad">{{ c.lastError }}</p>
@@ -171,6 +175,17 @@ const OTHER = '__other';
                   >
                     <jb-icon name="rotate-cw" [size]="16" /> Test
                   </button>
+                  <button
+                    type="button"
+                    jbButton="ghost"
+                    size="sm"
+                    title="Runs four short jobs on this key: scoring, reading a posting, tailoring a resume and a cover letter"
+                    [busy]="busy() === 'check:' + c.id"
+                    [disabled]="!!busy()"
+                    (click)="check(c)"
+                  >
+                    Full check
+                  </button>
                   @if (repo.connections().length > 1) {
                     <button
                       type="button"
@@ -209,6 +224,60 @@ const OTHER = '__other';
                   </button>
                 </div>
               </div>
+              @if (busy() === 'check:' + c.id) {
+                <p class="text-xs text-ink-muted" role="status">
+                  Scoring a sample posting, reading it, tailoring a sample
+                  resume and writing a letter. This takes up to a minute.
+                </p>
+              }
+              @if (checks()[c.id]; as chk) {
+                <div
+                  class="flex flex-col gap-2 rounded-control bg-sunken p-3 text-sm"
+                >
+                  <p class="font-medium text-ink">
+                    Full check: {{ chk.summary }}
+                  </p>
+                  @if (chk.results.length) {
+                    <ul class="flex flex-col gap-1.5">
+                      @for (r of chk.results; track r.job) {
+                        <li class="flex items-start gap-2">
+                          <jb-icon
+                            [name]="
+                              r.ok
+                                ? 'circle-check'
+                                : r.limited
+                                  ? 'clock'
+                                  : 'circle-x'
+                            "
+                            [size]="16"
+                            class="mt-0.5 shrink-0"
+                            [class.text-good]="r.ok"
+                            [class.text-bad]="!r.ok && !r.limited"
+                            [class.text-ink-muted]="r.limited"
+                          />
+                          <span class="min-w-0">
+                            <span class="text-ink">{{ r.label }}</span>
+                            <span class="text-xs text-ink-muted">
+                              · {{ r.model
+                              }}{{ r.ms ? ' · ' + seconds(r.ms) : '' }}</span
+                            >
+                            @if (r.detail) {
+                              <span class="block text-xs text-ink-muted">{{
+                                r.detail
+                              }}</span>
+                            }
+                          </span>
+                        </li>
+                      }
+                    </ul>
+                    <p class="text-xs text-ink-muted">
+                      Run on a made-up resume and posting; the calls count
+                      toward your usage. A job that fails here falls back to a
+                      local draft in the app.
+                    </p>
+                  }
+                </div>
+              }
               @if (customFor() === c.id) {
                 <form
                   class="flex flex-wrap items-end gap-2"
@@ -371,13 +440,15 @@ export class AiConnections {
   protected readonly providers = PROVIDERS;
   protected readonly other = OTHER;
 
-  /** What is running: '', 'save', 'test:<id>', 'model:<id>', 'order', 'remove:<id>'. */
+  /** What is running: '', 'save', 'test:<id>', 'check:<id>', 'model:<id>', 'order', 'remove:<id>'. */
   readonly busy = signal('');
   readonly adding = signal<ProviderId | null>(null);
   readonly key = signal('');
   readonly consent = signal(false);
   readonly addError = signal('');
   readonly rowError = signal<Record<string, string>>({});
+  /** The last full check of each connection, by connection id. */
+  readonly checks = signal<Record<string, AiCheck>>({});
   /** The connection whose "Another model" field is open. */
   readonly customFor = signal('');
   readonly customModel = signal('');
@@ -386,6 +457,13 @@ export class AiConnections {
   readonly available = computed(() => {
     const have = new Set(this.repo.connections().map((c) => c.provider));
     return PROVIDER_ORDER.filter((id) => !have.has(id));
+  });
+  /** Calls per provider in the last 30 days (from the most recent usage rows). */
+  readonly calls = computed(() => {
+    const out: Record<string, number> = {};
+    for (const g of summariseUsage(this.repo.usage(), 30).byProvider)
+      out[g.key] = g.calls;
+    return out;
   });
   readonly hasClaude = computed(() =>
     this.repo.connections().some((c) => c.provider === 'anthropic'),
@@ -451,6 +529,18 @@ export class AiConnections {
         tone: 'success',
       });
     });
+  }
+
+  async check(c: AiConnectionView) {
+    await this.run(`check:${c.id}`, c.id, async () => {
+      const result = await this.repo.checkConnection(c.id);
+      this.checks.update((all) => ({ ...all, [c.id]: result }));
+    });
+  }
+
+  /** 1240 → "1.2 s". */
+  seconds(ms: number) {
+    return `${(ms / 1000).toFixed(1)} s`;
   }
 
   async pickModel(c: AiConnectionView, select: HTMLSelectElement) {

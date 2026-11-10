@@ -82,6 +82,7 @@ import {
   type FollowedCompany,
   type InterviewInput,
   type LetterResult,
+  type AiCheck,
   type NewAiConnection,
 } from './repos';
 import {
@@ -822,6 +823,52 @@ export class MemorySettingsRepo extends SettingsRepo {
     const c = this.connections().find((x) => x.id === id);
     if (!c) throw new Error('Connection not found');
     return 'Demo mode does not call the provider.';
+  }
+
+  async checkConnection(id: string): Promise<AiCheck> {
+    const c = this.connections().find((x) => x.id === id);
+    if (!c) throw new Error('Connection not found');
+    const info = PROVIDERS[c.provider];
+    const model = c.model || info.defaultModel;
+    // Sample results, like the rest of the demo's data.
+    return {
+      summary:
+        'sample result (demo mode does not call the provider): 3 of 4 passed',
+      results: [
+        {
+          job: 'score',
+          label: 'Scoring a posting',
+          ok: true,
+          detail: '',
+          model: info.fastModel,
+          ms: 900,
+        },
+        {
+          job: 'extract',
+          label: 'Reading a posting',
+          ok: true,
+          detail: '',
+          model,
+          ms: 1400,
+        },
+        {
+          job: 'tailor',
+          label: 'Tailoring a resume',
+          ok: false,
+          detail: 'Proposed no change Jobbotix could apply to the resume.',
+          model,
+          ms: 4100,
+        },
+        {
+          job: 'letter',
+          label: 'Writing a cover letter',
+          ok: true,
+          detail: '',
+          model,
+          ms: 3600,
+        },
+      ],
+    };
   }
 
   async setConnectionModel(id: string, model: string) {

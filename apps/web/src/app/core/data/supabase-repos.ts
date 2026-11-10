@@ -81,6 +81,8 @@ import {
   type FollowedCompany,
   type AdminTotals,
   type AdminUser,
+  type AiCheck,
+  type AiCheckResult,
   type NewAiConnection,
 } from './repos';
 
@@ -691,10 +693,13 @@ export class SupabaseSettingsRepo extends SettingsRepo {
   }
 
   /** One set-ai-connection call; the reply carries the connections as they now stand. */
-  private async connection(body: Record<string, unknown>): Promise<string> {
+  private async connection(
+    body: Record<string, unknown>,
+  ): Promise<{ message: string; results: AiCheckResult[] }> {
     const { data, error } = await this.supabase.functions.invoke<{
       connections?: unknown[];
       message?: string;
+      results?: AiCheckResult[];
     }>('set-ai-connection', { body });
     if (error) {
       const failure = await functionError(error);
@@ -705,19 +710,27 @@ export class SupabaseSettingsRepo extends SettingsRepo {
     this.setConnections(data?.connections);
     // The Claude model list depends on the Anthropic key.
     if (body['provider'] === 'anthropic') void this.loadModels();
-    return data?.message ?? '';
+    return {
+      message: data?.message ?? '',
+      results: Array.isArray(data?.results) ? data.results : [],
+    };
   }
 
-  saveConnection(input: NewAiConnection) {
-    return this.connection({ action: 'save', ...input });
+  async saveConnection(input: NewAiConnection) {
+    return (await this.connection({ action: 'save', ...input })).message;
   }
 
-  testConnection(id: string) {
-    return this.connection({ action: 'test', id });
+  async testConnection(id: string) {
+    return (await this.connection({ action: 'test', id })).message;
   }
 
-  setConnectionModel(id: string, model: string) {
-    return this.connection({ action: 'update', id, model });
+  async checkConnection(id: string): Promise<AiCheck> {
+    const r = await this.connection({ action: 'check', id });
+    return { summary: r.message, results: r.results };
+  }
+
+  async setConnectionModel(id: string, model: string) {
+    return (await this.connection({ action: 'update', id, model })).message;
   }
 
   async reorderConnections(ids: string[]) {
