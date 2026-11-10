@@ -66,6 +66,10 @@ export type ProfileRow = Timestamps & {
   is_admin: boolean;
   /** 'own': AI work never spends credits (missing before migration 0035). */
   ai_route?: 'auto' | 'own';
+  /** Set by an admin (missing before migration 0037). */
+  suspended_at?: string | null;
+  /** Until then an admin may see the account's roles and resume. */
+  support_access_until?: string | null;
 };
 
 export type InviteCodeRow = {

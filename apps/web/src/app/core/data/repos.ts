@@ -1,5 +1,9 @@
 import type { Signal } from '@angular/core';
 import type {
+  AdminMoney,
+  AdminUserDetail,
+  AdminUserFilters,
+  AdminUserRow,
   AiConnectionView,
   AiRouteInfo,
   ProAiAdmin,
@@ -401,6 +405,22 @@ export abstract class AdminRepo {
   ): Promise<number>;
   /** Turns the billing gates on or off for one account. */
   abstract setBillingPreview(userId: string, on: boolean): Promise<void>;
+  /** The users table: search, filters, one page. Every call is audited. */
+  abstract users(
+    filters: AdminUserFilters,
+  ): Promise<{ total: number; users: AdminUserRow[] }>;
+  /** Every account that matches, for the CSV. */
+  abstract exportUsers(filters: AdminUserFilters): Promise<AdminUserRow[]>;
+  /** One account: profile, billing, AI usage, activity. Null when unknown. */
+  abstract user(id: string): Promise<AdminUserDetail | null>;
+  abstract money(): Promise<AdminMoney>;
+  /** Blocks sign-in, AI calls and scheduled matching for the account. */
+  abstract suspend(userId: string, reason: string): Promise<void>;
+  abstract unsuspend(userId: string): Promise<void>;
+  /** Emails the account a sign-in link. */
+  abstract sendLoginLink(userId: string): Promise<void>;
+  /** Deletes the account for good; `confirmEmail` must be its email. */
+  abstract deleteUser(userId: string, confirmEmail: string): Promise<void>;
   /** Error reports from the last `days`, newest first (admins only). */
   abstract errors(days: number): Promise<AppErrorRow[]>;
   abstract requests(): Promise<InviteRequestRow[]>;
@@ -496,6 +516,8 @@ export abstract class SettingsRepo {
     default_model?: string;
     /** 'own': never spend credits on AI work. */
     ai_route?: 'auto' | 'own';
+    /** Until when an admin may see the roles and resume; null closes it. */
+    support_access_until?: string | null;
   }): Promise<void>;
   /**
    * Checks the key with its provider and stores it server-side (Vault).

@@ -22,9 +22,15 @@ import {
   OPEN_ENTITLEMENTS,
   type Entitlements,
   type VariantDiff,
+  type AdminUserDetail,
+  type AdminUserFilters,
+  type AdminUserRow,
   type AiConnectionView,
   type AiRouteInfo,
   type ProAiAdmin,
+  adminMoney,
+  adminUserDetail,
+  adminUserRow,
   CREDIT_PRICES,
   NO_AI_ROUTE,
   PRICING,
@@ -744,9 +750,12 @@ export class MemoryVariantsRepo extends VariantsRepo {
 @Injectable()
 export class MemorySettingsRepo extends SettingsRepo {
   private readonly roles = inject(MemoryRolesRepo);
-  readonly profile = computed<ProfileRow | null>(
-    () => this.roles.snapshot().profileRow,
-  );
+  readonly profile = computed<ProfileRow | null>(() => ({
+    // (a demo saved before these columns existed has neither)
+    ai_route: 'auto',
+    support_access_until: null,
+    ...this.roles.snapshot().profileRow,
+  }));
   readonly models = signal<ModelChoice[]>([...FALLBACK_MODELS]);
   readonly usage = computed(() => this.roles.snapshot().usage);
   readonly connections = computed<AiConnectionView[]>(() =>
@@ -778,6 +787,7 @@ export class MemorySettingsRepo extends SettingsRepo {
     timezone?: string;
     default_model?: string;
     ai_route?: 'auto' | 'own';
+    support_access_until?: string | null;
   }) {
     this.roles.patch((s) => {
       s.profileRow = {
@@ -1292,19 +1302,316 @@ export class MemoryAdminRepo extends AdminRepo {
     return { enabled: false, users: [this.plan.adminPlan()] };
   }
 
-  async setPlan(_userId: string, plan: 'free' | 'pro', reason: string) {
+  async setPlan(userId: string, plan: 'free' | 'pro', reason: string) {
+    if (this.samples().some((u) => u.id === userId)) {
+      this.samples.update((l) =>
+        l.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                plan,
+                plan_name: plan === 'pro' ? 'Pro' : 'Free',
+                status: plan === 'pro' ? 'active' : 'none',
+              }
+            : u,
+        ),
+      );
+      this.record(userId, 'set_plan', { plan, reason });
+      return;
+    }
     this.plan.patch({ plan, note: reason });
   }
 
-  async addCredits(_userId: string, amount: number) {
-    const credits = this.plan.adminPlan().credits + amount;
+  async addCredits(userId: string, amount: number, reason = '') {
+    const sample = this.samples().find((u) => u.id === userId);
+    const credits =
+      (sample ? sample.credits : this.plan.adminPlan().credits) + amount;
     if (credits < 0) throw new Error('That would take the balance below zero');
-    this.plan.patch({ credits });
+    if (sample) {
+      this.samples.update((l) =>
+        l.map((u) => (u.id === userId ? { ...u, credits } : u)),
+      );
+      this.record(userId, 'add_credits', { credits: amount, reason });
+    } else this.plan.patch({ credits });
     return credits;
   }
 
   async setBillingPreview(_userId: string, on: boolean) {
     this.plan.patch({ preview: on });
+  }
+
+  // --- the admin console, on the demo account and two made-up ones ---------
+  private readonly samples = signal<AdminUserRow[]>(
+    [
+      {
+        id: 'demo-user-sam',
+        email: 'sam@example.com',
+        name: 'Sam Okafor',
+        created_at: new Date(Date.now() - 21 * 86_400_000).toISOString(),
+        plan: 'pro',
+        plan_name: 'Pro',
+        status: 'active',
+        credits: 312,
+        route: 'credits',
+        providers: [],
+        roles: 38,
+        ai_calls_30d: 141,
+        last_active: new Date(Date.now() - 86_400_000).toISOString(),
+        support_access: true,
+      },
+      {
+        id: 'demo-user-lee',
+        email: 'lee@example.com',
+        name: 'Lee Tran',
+        created_at: new Date(Date.now() - 6 * 86_400_000).toISOString(),
+        plan: 'free',
+        plan_name: 'Free',
+        status: 'none',
+        credits: 20,
+        route: 'own',
+        providers: ['gemini'],
+        roles: 9,
+        ai_calls_30d: 17,
+        last_active: new Date(Date.now() - 3 * 86_400_000).toISOString(),
+      },
+    ].map(adminUserRow),
+  );
+  private readonly trail = signal<
+    Record<string, AdminUserDetail['activity']['audit']>
+  >({});
+
+  private record(userId: string, action: string, detail = {}) {
+    this.trail.update((t) => ({
+      ...t,
+      [userId]: [
+        {
+          action,
+          admin_email: this.roles.snapshot().profileRow.email,
+          detail,
+          created_at: new Date().toISOString(),
+        },
+        ...(t[userId] ?? []),
+      ],
+    }));
+  }
+
+  private allUsers(): AdminUserRow[] {
+    const s = this.roles.snapshot();
+    const e = this.plan.entitlements();
+    const connections = s.connections ?? [];
+    const me = adminUserRow({
+      id: s.profileRow.id,
+      email: s.profileRow.email,
+      name: s.profileRow.name,
+      created_at: s.profileRow.created_at,
+      is_admin: true,
+      plan: e.plan,
+      plan_name: e.planName,
+      status: e.status,
+      credits: e.credits,
+      route:
+        this.plan.proAi().enabled && e.plan !== 'free'
+          ? 'credits'
+          : connections.length
+            ? 'own'
+            : 'none',
+      providers: connections.map((c) => c.provider),
+      roles: s.roles.length,
+      ai_calls_30d: s.usage.length,
+      last_active: s.roles[0]?.status_changed_at ?? null,
+      support_access:
+        !!s.profileRow.support_access_until &&
+        Date.parse(s.profileRow.support_access_until) > Date.now(),
+    });
+    return [me, ...this.samples()];
+  }
+
+  private matching(f: AdminUserFilters): AdminUserRow[] {
+    const q = (f.q ?? '').trim().toLowerCase();
+    return this.allUsers().filter(
+      (u) =>
+        (!q ||
+          u.email.toLowerCase().includes(q) ||
+          u.name.toLowerCase().includes(q)) &&
+        (!f.plan || u.plan === f.plan) &&
+        (!f.route || u.route === f.route),
+    );
+  }
+
+  async users(filters: AdminUserFilters) {
+    const all = this.matching(filters);
+    const offset = filters.offset ?? 0;
+    return {
+      total: all.length,
+      users: all.slice(offset, offset + (filters.limit ?? 50)),
+    };
+  }
+
+  async exportUsers(filters: AdminUserFilters) {
+    return this.matching(filters);
+  }
+
+  async user(id: string): Promise<AdminUserDetail | null> {
+    const row = this.allUsers().find((u) => u.id === id);
+    if (!row) return null;
+    this.record(id, 'view_user');
+    const s = this.roles.snapshot();
+    const mine = id === s.profileRow.id;
+    const byStatus: Record<string, number> = {};
+    for (const r of mine ? s.roles : [])
+      byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+    return adminUserDetail({
+      account: {
+        ...row,
+        timezone: mine ? s.profileRow.timezone : 'Europe/Lisbon',
+        suspended_at: row.suspended ? new Date().toISOString() : null,
+        suspended_reason: row.suspended ? 'Suspended in the demo' : '',
+        support_access_until: row.support_access
+          ? new Date(Date.now() + 5 * 86_400_000).toISOString()
+          : null,
+        has_resume: true,
+        has_search_profile: true,
+        ingest_keys: mine ? s.ingestKeys.length : 0,
+      },
+      auth: {
+        last_sign_in_at: row.last_active,
+        email_confirmed_at: row.created_at,
+      },
+      billing: {
+        entitlements: {
+          plan: row.plan,
+          plan_name: row.plan_name,
+          status: row.status,
+          source: row.plan === 'pro' ? 'admin' : null,
+          features: ['ai'],
+          credits: row.credits,
+          monthly_credits: row.plan === 'pro' ? 500 : 0,
+        },
+        subscription:
+          row.plan === 'pro'
+            ? {
+                plan: 'pro',
+                status: 'active',
+                source: 'admin',
+                note: 'Demo grant',
+              }
+            : null,
+        payments: [],
+        ledger: row.credits
+          ? [
+              {
+                delta: row.credits,
+                kind: row.plan === 'pro' ? 'admin' : 'trial',
+                reason: row.plan === 'pro' ? 'Demo grant' : 'Trial credits',
+                created_at: row.created_at,
+              },
+            ]
+          : [],
+      },
+      ai: {
+        connections: row.providers.map((provider) => ({
+          provider,
+          model: '',
+          status: 'ok',
+        })),
+        month: row.ai_calls_30d
+          ? [
+              {
+                job: 'score',
+                provider:
+                  row.route === 'own'
+                    ? (row.providers[0] ?? 'anthropic')
+                    : 'anthropic',
+                model:
+                  row.route === 'own'
+                    ? 'gemini-3.5-flash-lite'
+                    : 'claude-haiku-5-5',
+                route: row.route === 'credits' ? 'platform' : 'own',
+                calls: row.ai_calls_30d,
+                tokens_in: row.ai_calls_30d * 1500,
+                tokens_out: row.ai_calls_30d * 250,
+                cost_usd:
+                  row.route === 'credits' ? row.ai_calls_30d * 0.0003 : 0,
+              },
+            ]
+          : [],
+        trend: [],
+        credits_spent_month: row.route === 'credits' ? 188 : 0,
+        platform_cost_month: row.route === 'credits' ? 2.31 : 0,
+      },
+      activity: {
+        roles_by_status: mine ? byStatus : { new: row.roles },
+        last_run: new Date().toISOString(),
+        runs_30d: 30,
+        events_30d: { run: 30, status_change: row.roles },
+        audit: this.trail()[id] ?? [],
+      },
+      content: row.support_access
+        ? {
+            roles: (mine ? s.roles : sampleRoles()).slice(0, 8).map((r) => ({
+              company: r.company,
+              title: r.title,
+              status: r.status,
+              score: r.score,
+              found_at: r.found_at,
+            })),
+            resume: null,
+          }
+        : null,
+    });
+  }
+
+  async money() {
+    return adminMoney({
+      revenue_month_usd: 0,
+      revenue_last_month_usd: 0,
+      active_granted: this.allUsers().filter((u) => u.plan === 'pro').length,
+      ai_spend_month_usd: this.plan.proAi().enabled ? 2.31 : 0,
+      over_cost: this.plan.proAi().enabled
+        ? [
+            {
+              id: 'demo-user-sam',
+              email: 'sam@example.com',
+              cost_usd: 2.31,
+              paid_usd: 0,
+            },
+          ]
+        : [],
+    });
+  }
+
+  private sample(userId: string, what: string): AdminUserRow {
+    const u = this.samples().find((x) => x.id === userId);
+    if (!u) throw new Error(`You cannot ${what} your own account.`);
+    return u;
+  }
+
+  async suspend(userId: string, reason: string) {
+    this.sample(userId, 'suspend');
+    this.samples.update((l) =>
+      l.map((u) => (u.id === userId ? { ...u, suspended: true } : u)),
+    );
+    this.record(userId, 'suspend', { reason });
+  }
+
+  async unsuspend(userId: string) {
+    this.samples.update((l) =>
+      l.map((u) => (u.id === userId ? { ...u, suspended: false } : u)),
+    );
+    this.record(userId, 'unsuspend');
+  }
+
+  async sendLoginLink(userId: string) {
+    this.record(userId, 'send_login_link');
+  }
+
+  async deleteUser(userId: string, confirmEmail: string) {
+    const u = this.sample(userId, 'delete');
+    if (confirmEmail.trim().toLowerCase() !== u.email.toLowerCase())
+      throw new Error(
+        "Type the account's email address to confirm the deletion.",
+      );
+    this.samples.update((l) => l.filter((x) => x.id !== userId));
   }
 
   async requests() {

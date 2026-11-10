@@ -1,6 +1,9 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   ATS_LABEL,
+  adminMoney,
+  adminUserDetail,
+  adminUserRow,
   careersSystem,
   connectionView,
   FALLBACK_MODELS,
@@ -13,6 +16,7 @@ import {
   normaliseResume,
   OPEN_ENTITLEMENTS,
   summariseRuns,
+  type AdminUserFilters,
   type AiConnectionView,
   type AiRouteInfo,
   type AtsKind,
@@ -680,6 +684,7 @@ export class SupabaseSettingsRepo extends SettingsRepo {
     timezone?: string;
     default_model?: string;
     ai_route?: 'auto' | 'own';
+    support_access_until?: string | null;
   }) {
     const userId = this.auth.user()?.id;
     if (!userId) throw new Error('Not signed in');
@@ -932,6 +937,64 @@ export class SupabaseAdminRepo extends AdminRepo {
     const { data, error } = await this.supabase.rpc('admin_pro_ai');
     if (error) throw error;
     return normaliseProAiAdmin(data);
+  }
+
+  /** One admin-users call; the function checks the caller and audits it. */
+  private async console<T>(body: Record<string, unknown>): Promise<T> {
+    const { data, error } = await this.supabase.functions.invoke<T>(
+      'admin-users',
+      { body },
+    );
+    if (error) throw await functionError(error);
+    return data as T;
+  }
+
+  async users(filters: AdminUserFilters) {
+    const r = await this.console<{ total?: number; users?: unknown[] }>({
+      action: 'list',
+      ...filters,
+    });
+    return {
+      total: Number(r?.total ?? 0),
+      users: (r?.users ?? []).map(adminUserRow),
+    };
+  }
+
+  async exportUsers(filters: AdminUserFilters) {
+    const r = await this.console<{ users?: unknown[] }>({
+      action: 'export',
+      ...filters,
+    });
+    return (r?.users ?? []).map(adminUserRow);
+  }
+
+  async user(id: string) {
+    try {
+      return adminUserDetail(await this.console({ action: 'get', userId: id }));
+    } catch (e) {
+      if ((e as Error).message === 'No such account') return null;
+      throw e;
+    }
+  }
+
+  async money() {
+    return adminMoney(await this.console({ action: 'money' }));
+  }
+
+  async suspend(userId: string, reason: string) {
+    await this.console({ action: 'suspend', userId, reason });
+  }
+
+  async unsuspend(userId: string) {
+    await this.console({ action: 'unsuspend', userId });
+  }
+
+  async sendLoginLink(userId: string) {
+    await this.console({ action: 'login_link', userId });
+  }
+
+  async deleteUser(userId: string, confirmEmail: string) {
+    await this.console({ action: 'delete', userId, confirmEmail });
   }
 
   async setProAi(patch: ProAiPatch) {

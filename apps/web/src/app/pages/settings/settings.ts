@@ -23,6 +23,7 @@ import { Tour } from '../../shell/tour';
 import { AiConnections } from './ai-connections';
 import { DataPanel } from './data-panel';
 import { PlanCard } from './plan-card';
+import { SupportAccess } from './support-access';
 import {
   Button,
   Confirm,
@@ -39,6 +40,7 @@ import {
     AiConnections,
     DataPanel,
     PlanCard,
+    SupportAccess,
     Button,
     Icon,
     PageHeader,
@@ -250,6 +252,8 @@ import {
           </ul>
         }
       </section>
+
+      <jb-support-access />
 
       <jb-data-panel />
     </section>

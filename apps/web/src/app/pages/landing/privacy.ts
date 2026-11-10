@@ -90,11 +90,41 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
 
       <h2 class="mt-10 text-xl font-semibold">Who can see what</h2>
       <p class="mt-2">
-        Only you can see your data. The admin can see the list of accounts
-        (email, plan, how many AI calls each made and which AI providers are
-        connected) and invite codes, not your roles, notes, letters or keys.
-        Aggregate market signals, if we ever show them, are counts across users
-        with nothing identifying.
+        Only you can see your data. The person who runs Jobbotix (the admin) can
+        see what is needed to run the service and to answer you, and nothing of
+        what you write:
+      </p>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        <li>
+          <span class="font-medium">Your account:</span> email, name, timezone,
+          sign-up date and last sign-in, to know who an account belongs to.
+        </li>
+        <li>
+          <span class="font-medium">Billing:</span> your plan, payments and AI
+          credits, to answer billing questions and give refunds. Never a card
+          number; the payment company holds those.
+        </li>
+        <li>
+          <span class="font-medium">AI usage:</span> how many AI calls you made,
+          on which provider and model, how many tokens, and whether a connection
+          is failing, to keep costs in check and to see why something broke.
+          Never your keys or what was sent.
+        </li>
+        <li>
+          <span class="font-medium">Activity:</span> how many roles you track by
+          status and when your runs happened, to see whether the service is
+          working for you. Counts only.
+        </li>
+      </ul>
+      <p class="mt-2">
+        The admin cannot see your roles, resume, letters, answers or notes. If
+        you ask for help, you can open your roles and master resume to the admin
+        for 7 days from Settings, under Support access; it closes by itself, and
+        your notes and letters stay closed even then. Every time the admin opens
+        an account or changes something on it, that is recorded. The admin can
+        also suspend or delete an account that breaks the rules. Aggregate
+        market signals, if we ever show them, are counts across users with
+        nothing identifying.
       </p>
 
       <h2 class="mt-10 text-xl font-semibold">Deleting your account</h2>

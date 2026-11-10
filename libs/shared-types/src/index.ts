@@ -26,3 +26,4 @@ export * from './lib/entitlements';
 export * from './lib/providers';
 export * from './lib/pricing';
 export * from './lib/ai-route';
+export * from './lib/admin';

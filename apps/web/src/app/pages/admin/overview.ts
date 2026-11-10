@@ -16,6 +16,7 @@ import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { ErrorsPanel } from './errors-panel';
 import { PlansPanel } from './plans-panel';
+import { MoneyPanel } from './money-panel';
 import { ProAiPanel } from './pro-ai-panel';
 import { CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
 
@@ -33,6 +34,7 @@ const LIMITS = {
   selector: 'jb-admin-overview',
   imports: [
     ErrorsPanel,
+    MoneyPanel,
     PlansPanel,
     ProAiPanel,
     CopyButton,
@@ -49,6 +51,9 @@ const LIMITS = {
       lead="Who is on Jobbotix and how close the free tiers are."
     >
       <div actions>
+        <a routerLink="/admin/users" class="jb-btn"
+          ><jb-icon name="users" /> Users</a
+        >
         <a routerLink="/admin/invites" class="jb-btn"
           ><jb-icon name="user-plus" /> Invite codes</a
         >
@@ -235,6 +240,8 @@ const LIMITS = {
       }
 
       <jb-pro-ai-panel />
+
+      <jb-money-panel />
 
       <section class="jb-card p-5 md:p-6">
         <h2 class="jb-section-title">Invite requests</h2>
