@@ -58,9 +58,21 @@ Deno.serve(
         });
     }
 
-    if (profile?.anthropic_key_ref) {
+    // Every saved AI key leaves Vault with the account (the connections
+    // themselves go with the profile).
+    const { data: connections } = await admin
+      .from('ai_connections')
+      .select('key_ref')
+      .eq('user_id', userId);
+    const secrets = new Set<string>(
+      [
+        profile?.anthropic_key_ref,
+        ...(connections ?? []).map((c: { key_ref: string }) => c.key_ref),
+      ].filter((n): n is string => !!n),
+    );
+    for (const name of secrets) {
       const { error } = await admin.rpc('vault_delete_secret', {
-        p_name: profile.anthropic_key_ref,
+        p_name: name,
       });
       if (error) return json(500, { error: `Key: ${error.message}` });
     }

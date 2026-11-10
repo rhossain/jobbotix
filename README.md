@@ -76,7 +76,7 @@ release (CI runs lint, tests, the database tests and the Deno checks).
 4. Deploy the functions: `npx supabase functions deploy` (all of
    `ingest-roles list-roles extract-role send-digest tailor-resume
 set-anthropic-key draft-letter answer-screening prep-role parse-resume
-fetch-sources match-postings score-role research-company list-models draft-thank-you draft-message delete-account`).
+fetch-sources match-postings score-role research-company list-models draft-thank-you draft-message delete-account set-ai-connection`).
 5. Secrets (Project Settings → Edge Functions): `RESEND_API_KEY`,
    `DIGEST_CRON_SECRET` (any long random string), `APP_URL`
    (`https://app.jobbotix.com`), `DIGEST_FROM` (`Jobbotix <digest@jobbotix.com>`).
@@ -114,9 +114,9 @@ your account once.
 | Need                                          | Where                                                                              | Needs a key? |
 | --------------------------------------------- | ---------------------------------------------------------------------------------- | ------------ |
 | Find postings (every 6 hours)                 | pg_cron → fetch-sources → each source adapter → shared postings pool               | No           |
-| Match and score for each user (hourly)        | pg_cron → match-postings: profile rules, weights; your Anthropic key re-scores top | Optional     |
+| Match and score for each user (hourly)        | pg_cron → match-postings: profile rules, weights; your AI connection re-scores top | Optional     |
 | Find, score, draft (legacy, daily)            | Your Claude scheduled task → ingest API                                            | No           |
-| Tailored resume, letter, Q&A, prep in the app | Edge Functions with **your** Anthropic key from Vault; local templates without one | Optional     |
+| Tailored resume, letter, Q&A, prep in the app | Edge Functions with **your** AI key from Vault; local templates without one        | Optional     |
 | Digest email                                  | pg_cron → send-digest → Resend                                                     | Resend key   |
 
 ## Status

@@ -684,6 +684,26 @@ Deno.test(
   },
 );
 
+Deno.test(
+  'runAi: a model picked for this generation puts its provider first',
+  async () => {
+    const { admin } = db([{ provider: 'gemini' }, { provider: 'groq' }]);
+    const p = provider(openAiOk('from groq'));
+    try {
+      const r = await runAi(admin, 'u', call, {
+        job: 'letter',
+        choice: 'groq:llama-3.3-70b-versatile',
+      });
+      assert(r.ok && r.provider === 'groq');
+      assertEquals(r.ok && r.model, 'llama-3.3-70b-versatile');
+      assertEquals(p.sent.length, 1);
+      assert(p.sent[0].url.startsWith('https://api.groq.com/'));
+    } finally {
+      p.restore();
+    }
+  },
+);
+
 Deno.test('runAi: skip leaves a provider out', async () => {
   const { admin } = db([{ provider: 'anthropic' }, { provider: 'groq' }]);
   const p = provider(openAiOk('from groq'));

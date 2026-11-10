@@ -1,14 +1,14 @@
 // POST /functions/v1/prep-role     (signed-in user)
 //   Authorization: Bearer <user JWT>
-//   { "roleId": "...", "model"?: "claude-..." }
+//   { "roleId": "...", "model"?: "provider:model" }
 //
 // Builds the interview prep sheet for one role from the master resume and
-// the posting: model on the user's Vault key (metered in ai_usage as
-// 'prep'), local templates otherwise. The user's own notes and practised
+// the posting: the model on one of the user's AI connections (metered in
+// ai_usage as 'prep'), local templates otherwise, with `aiNote` saying why
+// when a connection was tried and failed. The user's own notes and practised
 // ticks on the previous sheet are carried over.
 
-import { DEFAULT_MODEL } from '../_shared/models.ts';
-import { callMessages } from '../_shared/anthropic.ts';
+import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -21,7 +21,6 @@ import {
   type PrepSheet,
 } from '../_shared/prep.ts';
 import { requireAiJob } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -55,26 +54,20 @@ Deno.serve(
     const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'prep');
     if (gate instanceof Response) return gate;
-    const [{ data: role }, { data: master }, { data: profile }] =
-      await Promise.all([
-        admin
-          .from('roles')
-          .select('*')
-          .eq('id', roleId)
-          .eq('user_id', userId)
-          .maybeSingle(),
-        admin
-          .from('resumes')
-          .select('*')
-          .eq('user_id', userId)
-          .eq('is_master', true)
-          .maybeSingle(),
-        admin
-          .from('profiles')
-          .select('anthropic_key_ref, default_model')
-          .eq('id', userId)
-          .maybeSingle(),
-      ]);
+    const [{ data: role }, { data: master }] = await Promise.all([
+      admin
+        .from('roles')
+        .select('*')
+        .eq('id', roleId)
+        .eq('user_id', userId)
+        .maybeSingle(),
+      admin
+        .from('resumes')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('is_master', true)
+        .maybeSingle(),
+    ]);
     if (!role) return json(404, { error: 'Role not found' });
     if (!master) return json(422, { error: 'Save a master resume first' });
 
@@ -92,54 +85,23 @@ Deno.serve(
     const previous = normalisePrep(role.prep);
 
     let sheet: PrepSheet = localPrep(resume, posting);
-    let model = '';
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-    if (apiKey) {
-      model =
-        (typeof body.model === 'string' &&
-        /^claude-[a-z0-9-]+$/.test(body.model)
-          ? body.model
-          : '') ||
-        profile?.default_model ||
-        DEFAULT_MODEL;
-      try {
-        const ai = await callMessages(
-          apiKey,
-          {
-            model,
-            max_tokens: 3000,
-            messages: [{ role: 'user', content: prepPrompt(resume, posting) }],
-          },
-          90_000,
-        );
-        const payload = await ai.json();
-        const reply = Array.isArray(payload?.content)
-          ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-          : '';
-        const parsed = parsePrepReply(reply);
-        if (parsed) {
-          sheet = {
-            ...parsed,
-            generatedAt: new Date().toISOString(),
-            method: 'ai',
-            model,
-          };
-        }
-        const u = payload?.usage ?? {};
-        await admin.from('ai_usage').insert({
-          user_id: userId,
-          job: 'prep',
-          model,
-          tokens_in: Number(u.input_tokens ?? 0),
-          tokens_out: Number(u.output_tokens ?? 0),
-          cost_usd: 0,
-        });
-      } catch {
-        /* the local sheet stands */
-      }
-    }
+    const ai = await runAi(
+      admin,
+      userId,
+      {
+        prompt: prepPrompt(resume, posting),
+        maxTokens: 3000,
+        timeoutMs: 90_000,
+      },
+      { job: 'prep', choice: body.model, parse: parsePrepReply },
+    );
+    if (ai.ok)
+      sheet = {
+        ...ai.value,
+        generatedAt: new Date().toISOString(),
+        method: 'ai',
+        model: ai.model,
+      };
     // Keep what the user wrote and ticked.
     sheet.userNotes = previous.userNotes;
     const practised = new Set(
@@ -164,8 +126,13 @@ Deno.serve(
         what: 'interview prep',
         method: sheet.method,
         model: sheet.model,
+        provider: ai.ok ? ai.provider : undefined,
       },
     });
-    return json(200, { prep: sheet });
+    return json(200, {
+      prep: sheet,
+      provider: ai.ok ? ai.provider : undefined,
+      aiNote: aiNote(ai, 'This sheet was built without a model.'),
+    });
   }),
 );

@@ -15,6 +15,7 @@ import { callMessages } from './anthropic.ts';
 import {
   isProviderId,
   limitMessage,
+  parseModelChoice,
   PROVIDERS,
   resolveModel,
   type ProviderId,
@@ -431,11 +432,25 @@ export async function runAi<T = string>(
 ): Promise<RunResult<T>> {
   const now = opts.now ?? Date.now;
   const all = opts.connections ?? (await loadConnections(admin, userId));
-  const conns = all.filter((c) => !opts.skip?.includes(c.provider));
+  // A model picked for this generation puts its provider first; the others
+  // stay behind it as fallbacks, in the user's order.
+  const picked = parseModelChoice(opts.choice)?.provider;
+  const conns = all
+    .filter((c) => !opts.skip?.includes(c.provider))
+    .sort(
+      (a, b) => Number(b.provider === picked) - Number(a.provider === picked),
+    );
   if (!conns.length) return { ok: false, reason: 'no_connection', message: '' };
 
-  const patch = (id: string, values: Record<string, unknown>) =>
-    admin.from('ai_connections').update(values).eq('id', id);
+  // Saved on the row, and on the row object too: a caller making several
+  // calls with one loaded list (a scoring run) must not retry a parked key.
+  const patch = (
+    conn: ConnectionRow,
+    values: Partial<ConnectionRow> & Record<string, unknown>,
+  ) => {
+    Object.assign(conn, values);
+    return admin.from('ai_connections').update(values).eq('id', conn.id);
+  };
   const log = (a: Extract<AiAnswer, { ok: true }>) =>
     admin.from('ai_usage').insert({
       user_id: userId,
@@ -492,12 +507,12 @@ export async function runAi<T = string>(
         note(failureMessage(answer, now()));
         if (answer.kind === 'rate_limited') {
           const at = answer.retryAt ?? now() + 60_000;
-          await patch(conn.id, { limited_until: new Date(at).toISOString() });
+          await patch(conn, { limited_until: new Date(at).toISOString() });
           retryAt = Math.min(retryAt ?? at, at);
         } else {
           failed = true;
           if (answer.kind === 'auth')
-            await patch(conn.id, {
+            await patch(conn, {
               status: 'error',
               last_error: failureMessage(answer, now()),
               last_checked_at: new Date(now()).toISOString(),
@@ -508,7 +523,7 @@ export async function runAi<T = string>(
 
       await log(answer);
       if (conn.status !== 'ok' || conn.limited_until)
-        await patch(conn.id, {
+        await patch(conn, {
           status: 'ok',
           last_error: '',
           limited_until: null,

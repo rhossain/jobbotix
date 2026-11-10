@@ -3,13 +3,13 @@
 //   { "roleId": "...", "model"?: "claude-...", "rewrite"?: true }
 //
 // Drafts (or rewrites) the cover letter for one role from the master resume
-// and the user's voice samples. With an Anthropic key in Vault the model
-// writes it (metered in ai_usage); without one the local template does.
+// and the user's voice samples. With an AI connection the model writes it
+// (metered in ai_usage); without one, or when every connection fails, the
+// local template does and `aiNote` says why.
 // The result lands on roles.cover_letter and in cover_letters (one draft per
 // role) so the Fit tab and the history agree.
 
-import { DEFAULT_MODEL } from '../_shared/models.ts';
-import { callMessages } from '../_shared/anthropic.ts';
+import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -22,7 +22,6 @@ import {
   wordCount,
 } from '../_shared/letter.ts';
 import { requireAiJob } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -57,37 +56,28 @@ Deno.serve(
     const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'letter');
     if (gate instanceof Response) return gate;
-    const [
-      { data: role },
-      { data: master },
-      { data: samples },
-      { data: profile },
-    ] = await Promise.all([
-      admin
-        .from('roles')
-        .select('*')
-        .eq('id', roleId)
-        .eq('user_id', userId)
-        .maybeSingle(),
-      admin
-        .from('resumes')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_master', true)
-        .maybeSingle(),
-      admin
-        .from('cover_letters')
-        .select('body')
-        .eq('user_id', userId)
-        .eq('voice_sample', true)
-        .order('created_at', { ascending: true })
-        .limit(3),
-      admin
-        .from('profiles')
-        .select('anthropic_key_ref, default_model')
-        .eq('id', userId)
-        .maybeSingle(),
-    ]);
+    const [{ data: role }, { data: master }, { data: samples }] =
+      await Promise.all([
+        admin
+          .from('roles')
+          .select('*')
+          .eq('id', roleId)
+          .eq('user_id', userId)
+          .maybeSingle(),
+        admin
+          .from('resumes')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_master', true)
+          .maybeSingle(),
+        admin
+          .from('cover_letters')
+          .select('body')
+          .eq('user_id', userId)
+          .eq('voice_sample', true)
+          .order('created_at', { ascending: true })
+          .limit(3),
+      ]);
     if (!role) return json(404, { error: 'Role not found' });
     if (!master) return json(422, { error: 'Save a master resume first' });
 
@@ -110,48 +100,25 @@ Deno.serve(
     let text = localLetter(ctx);
     let method: 'ai' | 'local' = 'local';
     let model = '';
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-    if (apiKey) {
-      model =
-        (typeof body.model === 'string' &&
-        /^claude-[a-z0-9-]+$/.test(body.model)
-          ? body.model
-          : '') ||
-        profile?.default_model ||
-        DEFAULT_MODEL;
-      try {
-        const ai = await callMessages(
-          apiKey,
-          {
-            model,
-            max_tokens: 1200,
-            messages: [{ role: 'user', content: letterPrompt(ctx) }],
-          },
-          60_000,
-        );
-        const payload = await ai.json();
-        const reply = Array.isArray(payload?.content)
-          ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-          : '';
-        const cleaned = parseLetterReply(reply);
-        if (wordCount(cleaned) >= LETTER_MIN_WORDS / 2) {
-          text = cleaned;
-          method = 'ai';
-        }
-        const u = payload?.usage ?? {};
-        await admin.from('ai_usage').insert({
-          user_id: userId,
-          job: 'letter',
-          model,
-          tokens_in: Number(u.input_tokens ?? 0),
-          tokens_out: Number(u.output_tokens ?? 0),
-          cost_usd: 0,
-        });
-      } catch {
-        /* the local draft stands */
-      }
+    let provider = '';
+    const ai = await runAi(
+      admin,
+      userId,
+      { prompt: letterPrompt(ctx), maxTokens: 1200, timeoutMs: 60_000 },
+      {
+        job: 'letter',
+        choice: body.model,
+        parse: (reply) => {
+          const cleaned = parseLetterReply(reply);
+          return wordCount(cleaned) >= LETTER_MIN_WORDS / 2 ? cleaned : null;
+        },
+      },
+    );
+    if (ai.ok) {
+      text = ai.value;
+      method = 'ai';
+      model = ai.model;
+      provider = ai.provider;
     }
 
     const { error: rErr } = await admin
@@ -186,12 +153,15 @@ Deno.serve(
         what: 'cover letter',
         method,
         model: method === 'ai' ? model : undefined,
+        provider: method === 'ai' ? provider : undefined,
       },
     });
     return json(200, {
       body: text,
       method,
       model: method === 'ai' ? model : undefined,
+      provider: method === 'ai' ? provider : undefined,
+      aiNote: aiNote(ai, 'This draft was written without a model.'),
     });
   }),
 );

@@ -1,15 +1,14 @@
 // POST /functions/v1/answer-screening     (signed-in user)
 //   Authorization: Bearer <user JWT>
-//   { "roleId": "...", "ids"?: ["..."], "model"?: "claude-..." }
+//   { "roleId": "...", "ids"?: ["..."], "model"?: "provider:model" }
 //
 // Writes answers for the role's screening questions (the given ids, or every
-// question whose answer is empty) from the master resume. With an Anthropic
-// key in Vault the model answers the batch in one call (metered in ai_usage);
-// without one the local templates do, flagged with [edit] where a fact is
-// missing. Existing non-empty answers are never overwritten unless listed.
+// question whose answer is empty) from the master resume. With an AI
+// connection the model answers the batch in one call (metered in ai_usage);
+// without one, or when every connection fails, the local templates do,
+// flagged with [edit] where a fact is missing, and `aiNote` says why. Existing non-empty answers are never overwritten unless listed.
 
-import { DEFAULT_MODEL } from '../_shared/models.ts';
-import { callMessages } from '../_shared/anthropic.ts';
+import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -20,7 +19,6 @@ import {
   screeningPrompt,
 } from '../_shared/screening.ts';
 import { requireAiJob } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -58,36 +56,27 @@ Deno.serve(
     const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'answer');
     if (gate instanceof Response) return gate;
-    const [
-      { data: role },
-      { data: master },
-      { data: rows },
-      { data: profile },
-    ] = await Promise.all([
-      admin
-        .from('roles')
-        .select('*')
-        .eq('id', roleId)
-        .eq('user_id', userId)
-        .maybeSingle(),
-      admin
-        .from('resumes')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_master', true)
-        .maybeSingle(),
-      admin
-        .from('screening_answers')
-        .select('*')
-        .eq('role_id', roleId)
-        .eq('user_id', userId)
-        .order('position'),
-      admin
-        .from('profiles')
-        .select('anthropic_key_ref, default_model')
-        .eq('id', userId)
-        .maybeSingle(),
-    ]);
+    const [{ data: role }, { data: master }, { data: rows }] =
+      await Promise.all([
+        admin
+          .from('roles')
+          .select('*')
+          .eq('id', roleId)
+          .eq('user_id', userId)
+          .maybeSingle(),
+        admin
+          .from('resumes')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_master', true)
+          .maybeSingle(),
+        admin
+          .from('screening_answers')
+          .select('*')
+          .eq('role_id', roleId)
+          .eq('user_id', userId)
+          .order('position'),
+      ]);
     if (!role) return json(404, { error: 'Role not found' });
     if (!master) return json(422, { error: 'Save a master resume first' });
 
@@ -110,63 +99,36 @@ Deno.serve(
     );
     let method: 'ai' | 'local' = 'local';
     let model = '';
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-    if (apiKey) {
-      model =
-        (typeof body.model === 'string' &&
-        /^claude-[a-z0-9-]+$/.test(body.model)
-          ? body.model
-          : '') ||
-        profile?.default_model ||
-        DEFAULT_MODEL;
-      try {
-        const ai = await callMessages(
-          apiKey,
-          {
-            model,
-            max_tokens: 1500,
-            messages: [
-              {
-                role: 'user',
-                content: screeningPrompt({
-                  resume,
-                  posting,
-                  questions: targets.map((t) => ({
-                    id: t.id,
-                    question: t.question,
-                  })),
-                  existing: all
-                    .filter((r) => r.answer.trim() && !answers.has(r.id))
-                    .map((r) => ({ question: r.question, answer: r.answer })),
-                }),
-              },
-            ],
-          },
-          60_000,
-        );
-        const payload = await ai.json();
-        const reply = Array.isArray(payload?.content)
-          ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-          : '';
-        const parsed = parseScreeningReply(reply, targets);
-        if (parsed.size) {
-          for (const [id, a] of parsed) if (a) answers.set(id, a);
-          method = 'ai';
-        }
-        const u = payload?.usage ?? {};
-        await admin.from('ai_usage').insert({
-          user_id: userId,
-          job: 'answer',
-          model,
-          tokens_in: Number(u.input_tokens ?? 0),
-          tokens_out: Number(u.output_tokens ?? 0),
-          cost_usd: 0,
-        });
-      } catch {
-        /* local answers stand */
-      }
+    let provider = '';
+    const ai = await runAi(
+      admin,
+      userId,
+      {
+        prompt: screeningPrompt({
+          resume,
+          posting,
+          questions: targets.map((t) => ({ id: t.id, question: t.question })),
+          existing: all
+            .filter((r) => r.answer.trim() && !answers.has(r.id))
+            .map((r) => ({ question: r.question, answer: r.answer })),
+        }),
+        maxTokens: 1500,
+        timeoutMs: 60_000,
+      },
+      {
+        job: 'answer',
+        choice: body.model,
+        parse: (reply) => {
+          const parsed = parseScreeningReply(reply, targets);
+          return parsed.size ? parsed : null;
+        },
+      },
+    );
+    if (ai.ok) {
+      for (const [id, a] of ai.value) if (a) answers.set(id, a);
+      method = 'ai';
+      model = ai.model;
+      provider = ai.provider;
     }
 
     for (const [id, answer] of answers) {
@@ -186,12 +148,15 @@ Deno.serve(
         count: answers.size,
         method,
         model: method === 'ai' ? model : undefined,
+        provider: method === 'ai' ? provider : undefined,
       },
     });
     return json(200, {
       answered: answers.size,
       method,
       model: method === 'ai' ? model : undefined,
+      provider: method === 'ai' ? provider : undefined,
+      aiNote: aiNote(ai, 'These answers were written without a model.'),
     });
   }),
 );

@@ -4,14 +4,14 @@
 // a URL never passes through it, so it would sit at 0 with no reasons. This
 // applies the same rules to one role: the user's search profile and weights,
 // the same keyword pass (heuristicScore), and the same model re-score when the
-// user has a key. Where the run would have dropped or excluded the posting,
+// user has an AI connection. Where the run would have dropped or excluded the posting,
 // the reason is shown first in "Watch out" instead, since the user chose it.
 //
 // guessRemote and rolePosting are pure (tested in role-score.test.ts);
 // scoreRole reads the profile and settings and calls the model.
 
 import { FAST_MODEL } from './models.ts';
-import { callMessages } from './anthropic.ts';
+import { runAi, type ConnectionRow } from './ai.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { parseLocations } from './countries.ts';
 import { matchPosting, type MatchPosting, type MatchProfile } from './match.ts';
@@ -192,6 +192,8 @@ export type RoleScoreResult =
       fields: RoleScoreFields;
       method: 'heuristic' | 'ai';
       model?: string;
+      /** The provider that scored it, when a model did. */
+      provider?: string;
       aiError?: string;
     }
   | { error: string };
@@ -212,14 +214,16 @@ type ProfileRow = {
 
 /**
  * Scores one role for its owner: search profile and weights, keyword pass,
- * the run's verdict, then the model when `apiKey` is given. Never throws on a
- * model failure; the keyword score stands and `aiError` says why.
+ * the run's verdict, then the model on one of the user's AI connections
+ * (unless `useAi` is false). Never throws on a model failure; the keyword
+ * score stands and `aiError` says why.
  */
 export async function scoreRole(
   admin: SupabaseClient,
   userId: string,
   role: RoleForScoring,
-  apiKey: string | null,
+  useAi = true,
+  connections?: ConnectionRow[],
 ): Promise<RoleScoreResult> {
   const [{ data: sp }, { data: settings }] = await Promise.all([
     admin
@@ -247,7 +251,7 @@ export async function scoreRole(
     setting('scoring_defaults'),
     p.scoring_weights,
   );
-  const model =
+  const triageModel =
     (setting('sourcing')?.['triage_model'] as string | undefined) ||
     DEFAULT_TRIAGE_MODEL;
 
@@ -268,59 +272,45 @@ export async function scoreRole(
   let method: 'heuristic' | 'ai' = 'heuristic';
   let aiError: string | undefined;
 
-  if (apiKey && post.description.length >= 80) {
-    try {
-      const res = await callMessages(
-        apiKey,
-        {
-          model,
-          max_tokens: 400,
-          messages: [
-            {
-              role: 'user',
-              content: scorePrompt(
-                { ...profile, min_seniority: p.min_seniority ?? undefined },
-                weights,
-                post,
-                keyword.score,
-              ),
-            },
-          ],
-        },
-        30_000,
-      );
-      const payload = await res.json().catch(() => null);
-      if (!res.ok) {
-        const detail = payload?.error?.message ?? res.statusText;
-        aiError = `Anthropic ${res.status}: ${String(detail).slice(0, 200)}`;
-      } else {
-        const reply = Array.isArray(payload?.content)
-          ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-          : '';
-        const u = payload?.usage ?? {};
-        await admin.from('ai_usage').insert({
-          user_id: userId,
-          job: 'score',
-          model,
-          tokens_in: Number(u.input_tokens ?? 0),
-          tokens_out: Number(u.output_tokens ?? 0),
-          cost_usd: 0,
-        });
-        const ai = parseScoreReply(reply);
-        if (ai) {
-          method = 'ai';
-          scored = {
-            ...keyword,
-            score: ai.score,
-            reasons: ai.reasons.length ? ai.reasons : keyword.reasons,
-            gaps: ai.gaps.length ? ai.gaps : keyword.gaps,
-            aiMatch: ai.aiMatch || keyword.aiMatch,
-          };
-        } else aiError = 'The model reply had no usable score';
-      }
-    } catch (e) {
-      aiError = (e as Error).message || 'Model call failed';
-    }
+  let provider: string | undefined;
+  let usedModel: string | undefined;
+
+  if (useAi && post.description.length >= 80) {
+    // Scoring is a fast job: each provider's fast model, and the admin's
+    // triage model on an Anthropic connection.
+    const ai = await runAi(
+      admin,
+      userId,
+      {
+        prompt: scorePrompt(
+          { ...profile, min_seniority: p.min_seniority ?? undefined },
+          weights,
+          post,
+          keyword.score,
+        ),
+        maxTokens: 400,
+        timeoutMs: 30_000,
+      },
+      {
+        job: 'score',
+        fast: true,
+        anthropicFastModel: triageModel,
+        parse: parseScoreReply,
+        connections,
+      },
+    );
+    if (ai.ok) {
+      method = 'ai';
+      provider = ai.provider;
+      usedModel = ai.model;
+      scored = {
+        ...keyword,
+        score: ai.value.score,
+        reasons: ai.value.reasons.length ? ai.value.reasons : keyword.reasons,
+        gaps: ai.value.gaps.length ? ai.value.gaps : keyword.gaps,
+        aiMatch: ai.value.aiMatch || keyword.aiMatch,
+      };
+    } else if (ai.reason !== 'no_connection') aiError = ai.message;
   }
 
   // The model reads the location rules itself; the keyword score gets the
@@ -338,7 +328,8 @@ export async function scoreRole(
 
   return {
     method,
-    model: method === 'ai' ? model : undefined,
+    model: usedModel,
+    provider,
     aiError,
     fields: {
       score: scored.score,

@@ -3,8 +3,9 @@
 //   { "roleId": "..." }
 //
 // Scores (or re-scores) one of the caller's roles against their current
-// search profile: the keyword pass, the run's rules, and the model on the
-// user's Vault key when there is one (metered in ai_usage as 'score'). Used
+// search profile: the keyword pass, the run's rules, and the model on one
+// of the user's AI connections when there is one (metered in ai_usage as
+// 'score'). Used
 // for roles added by hand before scoring on add existed, and after the
 // profile or the posting text changes. Replies with the updated role.
 
@@ -13,7 +14,6 @@ import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 import { scoreRole } from '../_shared/role-score.ts';
 import { requireAiJob } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -44,19 +44,12 @@ Deno.serve(
     const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'score');
     if (gate instanceof Response) return gate;
-    const [{ data: role }, { data: profile }] = await Promise.all([
-      admin
-        .from('roles')
-        .select('*')
-        .eq('id', roleId)
-        .eq('user_id', userId)
-        .maybeSingle(),
-      admin
-        .from('profiles')
-        .select('anthropic_key_ref')
-        .eq('id', userId)
-        .maybeSingle(),
-    ]);
+    const { data: role } = await admin
+      .from('roles')
+      .select('*')
+      .eq('id', roleId)
+      .eq('user_id', userId)
+      .maybeSingle();
     if (!role) return json(404, { error: 'Role not found' });
     if ((role.posting_text ?? '').length < 80)
       return json(422, {
@@ -64,34 +57,26 @@ Deno.serve(
           'This role has no posting text to score. Add it from the posting link again, pasting the text.',
       });
 
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-    const result = await scoreRole(
-      admin,
-      userId,
-      {
-        company: role.company,
-        title: role.title,
-        location: role.location,
-        type: role.type,
-        salary: role.salary,
-        posting_text: role.posting_text,
-        stack: role.stack ?? [],
-        posted_at: role.posted_at,
-        // The pool's reading of where a filed role can be done from is better
-        // than a guess from the text; keep it.
-        remote:
-          role.posting_id && role.remote_policy !== 'unknown'
-            ? {
-                remote_policy: role.remote_policy,
-                hiring_countries: role.hiring_countries ?? [],
-                hiring_regions: [],
-              }
-            : undefined,
-      },
-      apiKey,
-    );
+    const result = await scoreRole(admin, userId, {
+      company: role.company,
+      title: role.title,
+      location: role.location,
+      type: role.type,
+      salary: role.salary,
+      posting_text: role.posting_text,
+      stack: role.stack ?? [],
+      posted_at: role.posted_at,
+      // The pool's reading of where a filed role can be done from is better
+      // than a guess from the text; keep it.
+      remote:
+        role.posting_id && role.remote_policy !== 'unknown'
+          ? {
+              remote_policy: role.remote_policy,
+              hiring_countries: role.hiring_countries ?? [],
+              hiring_regions: [],
+            }
+          : undefined,
+    });
     if ('error' in result) return json(422, { error: result.error });
 
     // A role the run filed keeps where it came from; only the scoring changes.
@@ -121,6 +106,7 @@ Deno.serve(
         previous: role.score,
         method: result.method,
         model: result.model,
+        provider: result.provider,
       },
     });
 
@@ -128,6 +114,7 @@ Deno.serve(
       role: updated,
       method: result.method,
       model: result.model,
+      provider: result.provider,
       aiError: result.aiError,
     });
   }),

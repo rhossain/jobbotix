@@ -1,16 +1,16 @@
 // POST /functions/v1/draft-message     (signed-in user)
 //   Authorization: Bearer <user JWT>
 //   { "contactId": "...", "kind": "outreach" | "referral" | "recruiter_reply" | "check_in",
-//     "roleId"?: "...", "incoming"?: "...", "ask"?: "...", "model"?: "claude-..." }
+//     "roleId"?: "...", "incoming"?: "...", "ask"?: "...", "model"?: "provider:model" }
 //
 // Drafts a short message to one of the user's people from their resume
 // headline, the person's notes, the role and the user's voice samples. With
-// an Anthropic key in Vault the model writes it (metered in ai_usage as
-// 'message'); without one the local template does. Nothing is stored: the
+// an AI connection the model writes it (metered in ai_usage as 'message');
+// without one, or when every connection fails, the local template does and
+// `aiNote` says why. Nothing is stored: the
 // user edits, copies and logs it as sent in the app.
 
-import { DEFAULT_MODEL } from '../_shared/models.ts';
-import { callMessages } from '../_shared/anthropic.ts';
+import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -25,7 +25,6 @@ import {
   type MessageKind,
 } from '../_shared/contacts.ts';
 import { requireAiJob } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -99,11 +98,7 @@ Deno.serve(
         .eq('voice_sample', true)
         .order('created_at', { ascending: true })
         .limit(3),
-      admin
-        .from('profiles')
-        .select('name, anthropic_key_ref, default_model')
-        .eq('id', userId)
-        .maybeSingle(),
+      admin.from('profiles').select('name').eq('id', userId).maybeSingle(),
     ]);
     if (!contact) return json(404, { error: 'Person not found' });
 
@@ -130,54 +125,33 @@ Deno.serve(
     let text = localMessage(ctx);
     let method: 'ai' | 'local' = 'local';
     let model = '';
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-    if (apiKey) {
-      model =
-        (typeof body.model === 'string' &&
-        /^claude-[a-z0-9-]+$/.test(body.model)
-          ? body.model
-          : '') ||
-        profile?.default_model ||
-        DEFAULT_MODEL;
-      try {
-        const ai = await callMessages(
-          apiKey,
-          {
-            model,
-            max_tokens: 500,
-            messages: [{ role: 'user', content: messagePrompt(ctx) }],
-          },
-          45_000,
-        );
-        const payload = await ai.json();
-        const reply = Array.isArray(payload?.content)
-          ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-          : '';
-        const cleaned = parseMessageReply(reply);
-        if (cleaned.split(/\s+/).length >= 20) {
-          text = cleaned;
-          method = 'ai';
-        }
-        const u = payload?.usage ?? {};
-        await admin.from('ai_usage').insert({
-          user_id: userId,
-          job: 'message',
-          model,
-          tokens_in: Number(u.input_tokens ?? 0),
-          tokens_out: Number(u.output_tokens ?? 0),
-          cost_usd: 0,
-        });
-      } catch {
-        /* the local draft stands */
-      }
+    let provider = '';
+    const ai = await runAi(
+      admin,
+      userId,
+      { prompt: messagePrompt(ctx), maxTokens: 500, timeoutMs: 45_000 },
+      {
+        job: 'message',
+        choice: body.model,
+        parse: (reply) => {
+          const cleaned = parseMessageReply(reply);
+          return cleaned.split(/\s+/).length >= 20 ? cleaned : null;
+        },
+      },
+    );
+    if (ai.ok) {
+      text = ai.value;
+      method = 'ai';
+      model = ai.model;
+      provider = ai.provider;
     }
 
     return json(200, {
       body: text,
       method,
       model: method === 'ai' ? model : undefined,
+      provider: method === 'ai' ? provider : undefined,
+      aiNote: aiNote(ai, 'This draft was written without a model.'),
     });
   }),
 );

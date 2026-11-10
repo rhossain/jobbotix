@@ -7,12 +7,12 @@
 //   - drops it if it is not their kind of job or already in their roles
 //   - stores it in excluded_roles with the reason if a rule rules it out
 //   - otherwise scores it with their weights; the strongest candidates are
-//     re-scored by the model when the user has an Anthropic key
+//     re-scored by the model when the user has an AI connection
 // and files the best as new roles (score, reasons, gaps, a link to the pool).
 // One "run" event per user summarises it for Today and the digest.
 
 import { FAST_MODEL } from '../_shared/models.ts';
-import { callMessages } from '../_shared/anthropic.ts';
+import { loadConnections, runAi } from '../_shared/ai.ts';
 import { alertWorthy, buildAlert, type AlertRole } from '../_shared/alert.ts';
 import { json, requireCronSecret, serviceClient } from '../_shared/auth.ts';
 import { normaliseUrl, pairKey } from '../_shared/dedupe.ts';
@@ -32,7 +32,6 @@ import {
 } from '../_shared/score.ts';
 import { can } from '../_shared/entitlements.ts';
 import { loadEntitlements } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
 const RESEND_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
@@ -76,7 +75,6 @@ type ProfileRow = MatchProfile & {
 };
 
 type ProfileBits = {
-  anthropic_key_ref: string | null;
   email: string;
   name: string;
 };
@@ -128,7 +126,7 @@ Deno.serve(async (req) => {
   let q = admin
     .from('search_profiles')
     .select(
-      'user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, alert_min_score, profiles!inner(anthropic_key_ref, email, name)',
+      'user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, alert_min_score, profiles!inner(email, name)',
     )
     .eq('active', true);
   if (body.userId) q = q.eq('user_id', body.userId);
@@ -296,45 +294,68 @@ async function matchForUser(
     havePairs.add(pairKey(post.company, post.title)); // one role per company+title per run
   }
 
-  // Strongest first; the model re-scores the top ones when the user has a key.
+  // Strongest first; the model re-scores the top ones when the user has an
+  // AI connection.
   candidates.sort((a, b) => b.scored.score - a.scored.score);
-  const keyRef = (Array.isArray(p.profiles) ? p.profiles[0] : p.profiles)
-    ?.anthropic_key_ref;
+  const top =
+    cfg.ai_scored_per_user_per_run > 0
+      ? candidates
+          .filter((c) => c.scored.score >= cfg.ai_min_heuristic_score)
+          .slice(0, cfg.ai_scored_per_user_per_run)
+      : [];
   // Model scoring only for accounts whose plan covers AI (everyone while
   // billing is off); the rule-based score above is never gated.
+  const connections = top.length ? await loadConnections(admin, p.user_id) : [];
   const mayUseAi =
-    !!keyRef && can(await loadEntitlements(admin, p.user_id), 'ai');
-  const apiKey = mayUseAi ? await readVaultSecret(admin, keyRef) : null;
-  if (apiKey && cfg.ai_scored_per_user_per_run > 0) {
-    const top = candidates
-      .filter((c) => c.scored.score >= cfg.ai_min_heuristic_score)
-      .slice(0, cfg.ai_scored_per_user_per_run);
-    for (let i = 0; i < top.length; i += 3) {
+    connections.length > 0 &&
+    can(await loadEntitlements(admin, p.user_id), 'ai');
+  if (mayUseAi) {
+    // Free tiers allow only a few calls a minute, so one at a time there;
+    // three at once when every connection is Anthropic.
+    const atOnce = connections.every((c) => c.provider === 'anthropic') ? 3 : 1;
+    let limited = false;
+    for (let i = 0; i < top.length && !limited; i += atOnce) {
       await Promise.all(
-        top.slice(i, i + 3).map(async (c) => {
-          const ai = await aiScore(
+        top.slice(i, i + atOnce).map(async (c) => {
+          const ai = await runAi(
             admin,
-            p,
-            apiKey,
-            cfg.triage_model,
-            weights,
-            profile,
-            c.post,
-            c.heuristic,
+            p.user_id,
+            {
+              prompt: scorePrompt(
+                { ...profile, min_seniority: p.min_seniority },
+                weights,
+                c.post,
+                c.heuristic,
+              ),
+              maxTokens: 400,
+              timeoutMs: 30_000,
+            },
+            {
+              job: 'score',
+              fast: true,
+              anthropicFastModel: cfg.triage_model,
+              parse: parseScoreReply,
+              connections,
+            },
           );
-          if ('failed' in ai) {
+          if (!ai.ok) {
+            // Every connection is at its rate limit: the rest of this run
+            // keeps the rule-based score and the next run tries again.
+            if (ai.reason === 'rate_limited') limited = true;
             summary.aiFailed++;
-            summary.aiError ??= ai.failed;
+            summary.aiError ??= ai.message;
             return;
           }
           summary.aiScored++;
           c.method = 'ai';
           c.scored = {
             ...c.scored,
-            score: ai.score,
-            reasons: ai.reasons.length ? ai.reasons : c.scored.reasons,
-            gaps: ai.gaps.length ? ai.gaps : c.scored.gaps,
-            aiMatch: ai.aiMatch || c.scored.aiMatch,
+            score: ai.value.score,
+            reasons: ai.value.reasons.length
+              ? ai.value.reasons
+              : c.scored.reasons,
+            gaps: ai.value.gaps.length ? ai.value.gaps : c.scored.gaps,
+            aiMatch: ai.value.aiMatch || c.scored.aiMatch,
           };
         }),
       );
@@ -471,64 +492,4 @@ async function matchForUser(
     .eq('active', true);
 
   return summary;
-}
-
-async function aiScore(
-  admin: SupabaseClient,
-  p: ProfileRow,
-  apiKey: string,
-  model: string,
-  weights: Weights,
-  profile: MatchProfile,
-  post: MatchPosting,
-  heuristic: number,
-): Promise<
-  NonNullable<ReturnType<typeof parseScoreReply>> | { failed: string }
-> {
-  try {
-    const res = await callMessages(
-      apiKey,
-      {
-        model,
-        max_tokens: 400,
-        messages: [
-          {
-            role: 'user',
-            content: scorePrompt(
-              { ...profile, min_seniority: p.min_seniority },
-              weights,
-              post,
-              heuristic,
-            ),
-          },
-        ],
-      },
-      30_000,
-    );
-    const payload = await res.json().catch(() => null);
-    if (!res.ok) {
-      // Anthropic error bodies name the problem ("invalid x-api-key", an
-      // unknown model, no credit); keep that, never the key.
-      const detail = payload?.error?.message ?? res.statusText;
-      return {
-        failed: `Anthropic ${res.status}: ${String(detail).slice(0, 200)}`,
-      };
-    }
-    const reply = Array.isArray(payload?.content)
-      ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-      : '';
-    const parsed = parseScoreReply(reply);
-    const u = payload?.usage ?? {};
-    await admin.from('ai_usage').insert({
-      user_id: p.user_id,
-      job: 'score',
-      model,
-      tokens_in: Number(u.input_tokens ?? 0),
-      tokens_out: Number(u.output_tokens ?? 0),
-      cost_usd: 0,
-    });
-    return parsed ?? { failed: 'The model reply had no usable score' };
-  } catch (e) {
-    return { failed: `Could not reach Anthropic: ${(e as Error).message}` };
-  }
 }

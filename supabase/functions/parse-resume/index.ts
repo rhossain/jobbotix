@@ -1,16 +1,16 @@
 // POST /functions/v1/parse-resume     (signed-in user)
 //   Authorization: Bearer <user JWT>
-//   { "text": "...resume text...", "model"?: "claude-..." }
+//   { "text": "...resume text...", "model"?: "provider:model" }
 //
-// Reads resume text into ResumeSections with the user's own Anthropic key
+// Reads resume text into ResumeSections on one of the user's AI connections
 // (metered in ai_usage). The browser already parsed the text locally; this
 // is the opt-in second opinion for layouts the built-in reader gets wrong.
 // Nothing is stored: the user reviews the result before it touches the
-// master. Without a key on file it answers 422 and the browser keeps its
-// local result.
+// master. Without a connection it answers 422, and 429 or 502 when
+// every connection is rate limited or fails; the browser keeps its local
+// result.
 
-import { DEFAULT_MODEL } from '../_shared/models.ts';
-import { callMessages } from '../_shared/anthropic.ts';
+import { runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -20,7 +20,6 @@ import {
   resumeImportPrompt,
 } from '../_shared/resume-ai.ts';
 import { requireAiJob } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -57,67 +56,34 @@ Deno.serve(
     const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'import');
     if (gate instanceof Response) return gate;
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('anthropic_key_ref, default_model')
-      .eq('id', userId)
-      .maybeSingle();
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-    if (!apiKey)
-      return json(422, {
-        error: 'Add your Anthropic key in Settings to read resumes with AI',
-      });
-
-    const model =
-      (typeof modelOverride === 'string' &&
-      /^claude-[a-z0-9-]+$/.test(modelOverride)
-        ? modelOverride
-        : '') ||
-      profile?.default_model ||
-      DEFAULT_MODEL;
-
-    let reply = '';
-    try {
-      const ai = await callMessages(
-        apiKey,
-        {
-          model,
-          max_tokens: 8000,
-          temperature: 0,
-          messages: [{ role: 'user', content: resumeImportPrompt(text) }],
-        },
-        90_000,
-      );
-      const payload = await ai.json();
-      if (!ai.ok)
-        return json(502, {
-          error:
-            payload?.error?.message ??
-            `The model could not be reached (${ai.status})`,
-        });
-      reply = Array.isArray(payload?.content)
-        ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-        : '';
-      const u = payload?.usage ?? {};
-      await admin.from('ai_usage').insert({
-        user_id: userId,
+    const ai = await runAi(
+      admin,
+      userId,
+      {
+        prompt: resumeImportPrompt(text),
+        maxTokens: 8000,
+        temperature: 0,
+        timeoutMs: 90_000,
+      },
+      {
         job: 'import',
-        model,
-        tokens_in: Number(u.input_tokens ?? 0),
-        tokens_out: Number(u.output_tokens ?? 0),
-        cost_usd: 0,
+        choice: modelOverride,
+        parse: (reply) => parseResumeImportReply(reply, text),
+      },
+    );
+    if (ai.ok)
+      return json(200, { ...ai.value, model: ai.model, provider: ai.provider });
+    if (ai.reason === 'no_connection')
+      return json(422, {
+        error: 'Add an AI connection in Settings to read resumes with AI',
       });
-    } catch {
-      return json(504, { error: 'The model took too long; try again' });
-    }
-
-    const result = parseResumeImportReply(reply, text);
-    if (!result)
-      return json(502, {
-        error: 'The model did not return a readable resume; try again',
-      });
-    return json(200, { ...result, model });
+    if (ai.reason === 'rate_limited')
+      return json(429, { error: ai.message, retryAt: ai.retryAt });
+    return json(502, {
+      error:
+        ai.reason === 'bad_output'
+          ? `${ai.message} Try again, or keep the built-in reading.`
+          : ai.message,
+    });
   }),
 );

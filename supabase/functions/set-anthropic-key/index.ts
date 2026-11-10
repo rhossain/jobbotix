@@ -2,13 +2,14 @@
 // DELETE /functions/v1/set-anthropic-key                              removes it
 //   Authorization: Bearer <user JWT>
 //
-// The key goes into Supabase Vault under a per-user secret name; profiles
-// only ever holds that name (anthropic_key_ref). The key is checked against
-// the Anthropic API once before it is stored so a typo is caught here.
+// Kept for app versions installed before AI connections existed: it saves or
+// removes the user's Anthropic connection through the same code as
+// set-ai-connection. New code calls set-ai-connection.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
+import { removeConnection, saveConnection } from '../_shared/connections.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -32,50 +33,22 @@ Deno.serve(
     if (!userData?.user)
       return json(401, { error: 'Session expired; sign in again' });
     const userId = userData.user.id;
-    const secretName = `anthropic_key_${userId}`;
     const admin = serviceClient();
 
     if (req.method === 'DELETE') {
-      const { error } = await admin.rpc('vault_delete_secret', {
-        p_name: secretName,
+      const removed = await removeConnection(admin, userId, {
+        provider: 'anthropic',
       });
-      if (error) return json(500, { error: error.message });
-      await admin
-        .from('profiles')
-        .update({ anthropic_key_ref: null })
-        .eq('id', userId);
+      if (!removed.ok) return json(removed.status, { error: removed.error });
       return json(200, { stored: false });
     }
 
     const { key } = (await req.json().catch(() => ({}))) as { key?: string };
-    const trimmed = (key ?? '').trim();
-    if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(trimmed))
-      return json(400, {
-        error:
-          'That does not look like an Anthropic API key (they start with sk-ant-).',
-      });
-
-    // Verify once with the cheapest possible request.
-    const probe = await fetch('https://api.anthropic.com/v1/models?limit=1', {
-      headers: { 'x-api-key': trimmed, 'anthropic-version': '2023-06-01' },
-      signal: AbortSignal.timeout(15_000),
-    }).catch(() => null);
-    if (!probe || probe.status === 401 || probe.status === 403)
-      return json(422, {
-        error:
-          'Anthropic rejected that key. Check it in the Anthropic console.',
-      });
-
-    const { error } = await admin.rpc('vault_upsert_secret', {
-      p_name: secretName,
-      p_secret: trimmed,
+    const saved = await saveConnection(admin, userId, {
+      provider: 'anthropic',
+      key,
     });
-    if (error) return json(500, { error: error.message });
-    const { error: pErr } = await admin
-      .from('profiles')
-      .update({ anthropic_key_ref: secretName })
-      .eq('id', userId);
-    if (pErr) return json(500, { error: pErr.message });
-    return json(200, { stored: true, last4: trimmed.slice(-4) });
+    if (!saved.ok) return json(saved.status, { error: saved.error });
+    return json(200, { stored: true, last4: (key ?? '').trim().slice(-4) });
   }),
 );

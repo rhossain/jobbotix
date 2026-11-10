@@ -1,15 +1,15 @@
 // POST /functions/v1/draft-thank-you     (signed-in user)
 //   Authorization: Bearer <user JWT>
-//   { "interviewId": "...", "model"?: "claude-..." }
+//   { "interviewId": "...", "model"?: "provider:model" }
 //
 // Drafts the thank-you note for one interview round from the user's debrief,
-// the interviewers' names and their voice samples. With an Anthropic key in
-// Vault the model writes it (metered in ai_usage as 'thank_you'); without one
-// the local template does, with one bracket for the user to fill in. The
+// the interviewers' names and their voice samples. With an AI connection the
+// model writes it (metered in ai_usage as 'thank_you'); without one, or when
+// every connection fails, the local template does, with one bracket for the
+// user to fill in, and `aiNote` says why. The
 // note lands on interviews.thank_you.
 
-import { DEFAULT_MODEL } from '../_shared/models.ts';
-import { callMessages } from '../_shared/anthropic.ts';
+import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -22,7 +22,6 @@ import {
   type ThankYouContext,
 } from '../_shared/interviews.ts';
 import { requireAiJob } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -89,11 +88,7 @@ Deno.serve(
         .eq('voice_sample', true)
         .order('created_at', { ascending: true })
         .limit(3),
-      admin
-        .from('profiles')
-        .select('name, anthropic_key_ref, default_model')
-        .eq('id', userId)
-        .maybeSingle(),
+      admin.from('profiles').select('name').eq('id', userId).maybeSingle(),
     ]);
     if (!role) return json(404, { error: 'Role not found' });
 
@@ -113,48 +108,25 @@ Deno.serve(
     let text = localThankYou(ctx);
     let method: 'ai' | 'local' = 'local';
     let model = '';
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-    if (apiKey) {
-      model =
-        (typeof body.model === 'string' &&
-        /^claude-[a-z0-9-]+$/.test(body.model)
-          ? body.model
-          : '') ||
-        profile?.default_model ||
-        DEFAULT_MODEL;
-      try {
-        const ai = await callMessages(
-          apiKey,
-          {
-            model,
-            max_tokens: 600,
-            messages: [{ role: 'user', content: thankYouPrompt(ctx) }],
-          },
-          45_000,
-        );
-        const payload = await ai.json();
-        const reply = Array.isArray(payload?.content)
-          ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-          : '';
-        const cleaned = parseThankYouReply(reply);
-        if (cleaned.split(/\s+/).length >= 30) {
-          text = cleaned;
-          method = 'ai';
-        }
-        const u = payload?.usage ?? {};
-        await admin.from('ai_usage').insert({
-          user_id: userId,
-          job: 'thank_you',
-          model,
-          tokens_in: Number(u.input_tokens ?? 0),
-          tokens_out: Number(u.output_tokens ?? 0),
-          cost_usd: 0,
-        });
-      } catch {
-        /* the local draft stands */
-      }
+    let provider = '';
+    const ai = await runAi(
+      admin,
+      userId,
+      { prompt: thankYouPrompt(ctx), maxTokens: 600, timeoutMs: 45_000 },
+      {
+        job: 'thank_you',
+        choice: body.model,
+        parse: (reply) => {
+          const cleaned = parseThankYouReply(reply);
+          return cleaned.split(/\s+/).length >= 30 ? cleaned : null;
+        },
+      },
+    );
+    if (ai.ok) {
+      text = ai.value;
+      method = 'ai';
+      model = ai.model;
+      provider = ai.provider;
     }
 
     const { error } = await admin
@@ -168,6 +140,8 @@ Deno.serve(
       body: text,
       method,
       model: method === 'ai' ? model : undefined,
+      provider: method === 'ai' ? provider : undefined,
+      aiNote: aiNote(ai, 'This note was written without a model.'),
     });
   }),
 );

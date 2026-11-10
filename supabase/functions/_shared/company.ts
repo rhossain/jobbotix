@@ -35,6 +35,8 @@ export interface CompanyResearch {
   researchedAt: string;
   method: 'ai' | 'local' | '';
   model?: string;
+  /** The AI provider that wrote it (a provider id), when a model did. */
+  provider?: string;
   /** Whether the model searched the web (false: posting and company site only). */
   webSearch?: boolean;
   /** Shown under the research when part of it could not be done. */
@@ -114,8 +116,9 @@ export function normaliseCompanyResearch(v: unknown): CompanyResearch {
     researchedAt: str(o['researchedAt'], 40),
     method: o['method'] === 'ai' || o['method'] === 'local' ? o['method'] : '',
     model: str(o['model'], 80) || undefined,
+    provider: str(o['provider'], 40) || undefined,
     webSearch: typeof o['webSearch'] === 'boolean' ? o['webSearch'] : undefined,
-    note: str(o['note'], 300) || undefined,
+    note: str(o['note'], 600) || undefined,
   };
 }
 

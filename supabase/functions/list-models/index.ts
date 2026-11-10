@@ -3,8 +3,9 @@
 //
 // The Claude models to offer in the app: the newest active model of each
 // family that the user's Anthropic key can use (GET /v1/models), plus the
-// model they already chose as default if it is older. Without a key, or
-// when Anthropic cannot be reached, the built-in list (models.ts).
+// model saved on their Anthropic connection if it is older. Without an
+// Anthropic connection, or when Anthropic cannot be reached, the built-in
+// list (models.ts). Other providers' models come from the catalog.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
@@ -39,12 +40,13 @@ Deno.serve(
       return json(401, { error: 'Session expired; sign in again' });
 
     const admin = serviceClient();
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('anthropic_key_ref, default_model')
-      .eq('id', userData.user.id)
+    const { data: conn } = await admin
+      .from('ai_connections')
+      .select('key_ref, model')
+      .eq('user_id', userData.user.id)
+      .eq('provider', 'anthropic')
       .maybeSingle();
-    const keep = [profile?.default_model];
+    const keep = [conn?.model];
     const fallback = (why: string) =>
       json(200, {
         models: withKept(FALLBACK_MODELS, keep),
@@ -52,8 +54,8 @@ Deno.serve(
         why,
       });
 
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
+    const apiKey = conn?.key_ref
+      ? await readVaultSecret(admin, conn.key_ref)
       : null;
     if (!apiKey) return fallback('no key');
 

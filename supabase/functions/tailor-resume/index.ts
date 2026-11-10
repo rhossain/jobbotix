@@ -1,14 +1,14 @@
 // POST /functions/v1/tailor-resume     (signed-in user)
 //   Authorization: Bearer <user JWT>
-//   { "roleId": "..." }
+//   { "roleId": "...", "model"?: "provider:model" }
 //
 // Proposes resume changes for one role from the user's master resume. With an
-// Anthropic key in Vault the model proposes them (metered in ai_usage);
-// without one the local heuristics do. Decisions already made on identical
+// AI connection the model proposes them (metered in ai_usage); without one,
+// or when every connection fails, the local heuristics do and `aiNote` says
+// why. Decisions already made on identical
 // proposals are kept, so a regenerate never throws the user's work away.
 
-import { DEFAULT_MODEL } from '../_shared/models.ts';
-import { callMessages } from '../_shared/anthropic.ts';
+import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -23,7 +23,6 @@ import {
   type VariantDiff,
 } from '../_shared/variant.ts';
 import { requireAiJob } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -58,36 +57,27 @@ Deno.serve(
     const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'tailor');
     if (gate instanceof Response) return gate;
-    const [
-      { data: role },
-      { data: master },
-      { data: existing },
-      { data: profile },
-    ] = await Promise.all([
-      admin
-        .from('roles')
-        .select('*')
-        .eq('id', roleId)
-        .eq('user_id', userId)
-        .maybeSingle(),
-      admin
-        .from('resumes')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('is_master', true)
-        .maybeSingle(),
-      admin
-        .from('resume_variants')
-        .select('*')
-        .eq('role_id', roleId)
-        .eq('user_id', userId)
-        .maybeSingle(),
-      admin
-        .from('profiles')
-        .select('anthropic_key_ref, default_model')
-        .eq('id', userId)
-        .maybeSingle(),
-    ]);
+    const [{ data: role }, { data: master }, { data: existing }] =
+      await Promise.all([
+        admin
+          .from('roles')
+          .select('*')
+          .eq('id', roleId)
+          .eq('user_id', userId)
+          .maybeSingle(),
+        admin
+          .from('resumes')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('is_master', true)
+          .maybeSingle(),
+        admin
+          .from('resume_variants')
+          .select('*')
+          .eq('role_id', roleId)
+          .eq('user_id', userId)
+          .maybeSingle(),
+      ]);
     if (!role) return json(404, { error: 'Role not found' });
     if (!master) return json(422, { error: 'Save a master resume first' });
 
@@ -109,50 +99,26 @@ Deno.serve(
 
     let proposals = localTailor(sections, posting);
     let method: 'ai' | 'local' = 'local';
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-    if (apiKey) {
-      const model =
-        (typeof modelOverride === 'string' &&
-        /^claude-[a-z0-9-]+$/.test(modelOverride)
-          ? modelOverride
-          : '') ||
-        profile?.default_model ||
-        DEFAULT_MODEL;
-      try {
-        const ai = await callMessages(
-          apiKey,
-          {
-            model,
-            max_tokens: 2500,
-            messages: [
-              { role: 'user', content: tailorPrompt(sections, posting) },
-            ],
-          },
-          60_000,
-        );
-        const payload = await ai.json();
-        const reply = Array.isArray(payload?.content)
-          ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-          : '';
-        const parsed = parseVariantReply(reply, sections);
-        if (parsed.length) {
-          proposals = parsed;
-          method = 'ai';
-        }
-        const u = payload?.usage ?? {};
-        await admin.from('ai_usage').insert({
-          user_id: userId,
-          job: 'tailor',
-          model,
-          tokens_in: Number(u.input_tokens ?? 0),
-          tokens_out: Number(u.output_tokens ?? 0),
-          cost_usd: 0,
-        });
-      } catch {
-        /* local proposals stand */
-      }
+    const ai = await runAi(
+      admin,
+      userId,
+      {
+        prompt: tailorPrompt(sections, posting),
+        maxTokens: 2500,
+        timeoutMs: 60_000,
+      },
+      {
+        job: 'tailor',
+        choice: modelOverride,
+        parse: (reply) => {
+          const parsed = parseVariantReply(reply, sections);
+          return parsed.length ? parsed : null;
+        },
+      },
+    );
+    if (ai.ok) {
+      proposals = ai.value;
+      method = 'ai';
     }
 
     const prior = ((existing?.diff as VariantDiff | null)?.changes ??
@@ -193,17 +159,19 @@ Deno.serve(
       user_id: userId,
       role_id: roleId,
       kind: 'generated',
-      payload: { what: 'resume variant', method },
+      payload: {
+        what: 'resume variant',
+        method,
+        model: ai.ok ? ai.model : undefined,
+        provider: ai.ok ? ai.provider : undefined,
+      },
     });
     return json(200, {
       variant: saved.data,
       method,
-      model:
-        method === 'ai'
-          ? (typeof modelOverride === 'string' && modelOverride) ||
-            profile?.default_model ||
-            DEFAULT_MODEL
-          : undefined,
+      model: ai.ok ? ai.model : undefined,
+      provider: ai.ok ? ai.provider : undefined,
+      aiNote: aiNote(ai, 'These changes were proposed without a model.'),
     });
   }),
 );

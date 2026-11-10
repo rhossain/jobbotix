@@ -3,15 +3,14 @@
 //   { "url": "https://..." }   or   { "url": "...", "text": "<pasted posting>" }
 //
 // Fetches the posting (or takes pasted text), extracts the fields, and
-// inserts a role for the caller. With an Anthropic key in Vault for this user
-// the extraction is done by the model and the call is metered in ai_usage;
-// without one the heuristic extractor fills what it can and the user edits
-// the rest. The role is then scored against the user's search profile the
+// inserts a role for the caller. With an AI connection the extraction is done
+// by the model and the call is metered in ai_usage; without one, or when
+// every connection fails, the heuristic extractor fills what it can and the
+// user edits the rest (`aiNote` says why). The role is then scored against the user's search profile the
 // same way the scheduled run scores what it finds (role-score.ts), so it
 // lands with a match score, reasons and things to watch.
 
-import { DEFAULT_MODEL } from '../_shared/models.ts';
-import { callMessages } from '../_shared/anthropic.ts';
+import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
@@ -24,7 +23,6 @@ import {
 } from '../_shared/extract.ts';
 import { scoreRole, type RoleScoreFields } from '../_shared/role-score.ts';
 import { requireAiJob } from '../_shared/gate.ts';
-import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -94,7 +92,7 @@ Deno.serve(
           'That page has almost no readable text. Paste the posting instead.',
       });
 
-    // 2. Extract: model if the user has a key, heuristics otherwise
+    // 2. Extract: the model on an AI connection, heuristics otherwise
     const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'extract');
     if (gate instanceof Response) return gate;
@@ -105,60 +103,36 @@ Deno.serve(
     let posted: string | null = null;
     let method: 'ai' | 'heuristic' = 'heuristic';
 
-    const { data: profile } = await admin
-      .from('profiles')
-      .select('anthropic_key_ref, default_model')
-      .eq('id', userId)
-      .maybeSingle();
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-
-    if (apiKey) {
-      const model = profile?.default_model || DEFAULT_MODEL;
-      try {
-        const ai = await callMessages(
-          apiKey,
-          {
-            model,
-            max_tokens: 800,
-            messages: [{ role: 'user', content: extractionPrompt(url, text) }],
-          },
-          40_000,
-        );
-        const payload = await ai.json();
-        const reply = Array.isArray(payload?.content)
-          ? payload.content.map((c: { text?: string }) => c.text ?? '').join('')
-          : '';
-        const parsed = parseExtraction(reply);
-        if (parsed) {
-          role = {
-            ...role,
-            company: parsed.company || role.company,
-            title: parsed.title || role.title,
-            location: parsed.location || role.location,
-            type: parsed.type ?? role.type,
-            salary: parsed.salary || role.salary,
-            stack: parsed.stack?.length ? parsed.stack : role.stack,
-          };
-          posted = /^\d{4}-\d{2}-\d{2}$/.test(parsed.posted ?? '')
-            ? parsed.posted!
-            : null;
-          method = 'ai';
-          const u = payload?.usage ?? {};
-          await admin.from('ai_usage').insert({
-            user_id: userId,
-            job: 'extract',
-            model,
-            tokens_in: Number(u.input_tokens ?? 0),
-            tokens_out: Number(u.output_tokens ?? 0),
-            cost_usd: 0,
-          });
-        }
-      } catch {
-        /* fall back to heuristics */
-      }
+    const ai = await runAi(
+      admin,
+      userId,
+      {
+        prompt: extractionPrompt(url, text),
+        maxTokens: 800,
+        timeoutMs: 40_000,
+      },
+      { job: 'extract', parse: parseExtraction },
+    );
+    if (ai.ok) {
+      const parsed = ai.value;
+      role = {
+        ...role,
+        company: parsed.company || role.company,
+        title: parsed.title || role.title,
+        location: parsed.location || role.location,
+        type: parsed.type ?? role.type,
+        salary: parsed.salary || role.salary,
+        stack: parsed.stack?.length ? parsed.stack : role.stack,
+      };
+      posted = /^\d{4}-\d{2}-\d{2}$/.test(parsed.posted ?? '')
+        ? parsed.posted!
+        : null;
+      method = 'ai';
     }
+    const note = aiNote(
+      ai,
+      'The posting was read without a model; check the fields.',
+    );
 
     // 3. Insert (unique on user_id + url; a repeat returns the existing row)
     const { data: existing } = await admin
@@ -186,7 +160,7 @@ Deno.serve(
           stack: role.stack,
           posted_at: posted,
         },
-        apiKey,
+        true,
       );
       if ('fields' in r) {
         scoring = r.fields;
@@ -235,6 +209,7 @@ Deno.serve(
       existed: false,
       method,
       score: scoring.score ?? null,
+      aiNote: note,
     });
   }),
 );

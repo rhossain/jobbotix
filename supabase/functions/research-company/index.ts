@@ -1,22 +1,27 @@
 // POST /functions/v1/research-company     (signed-in user)
 //   Authorization: Bearer <user JWT>
-//   { "roleId": "...", "model"?: "claude-...", "refresh"?: true }
+//   { "roleId": "...", "model"?: "provider:model", "refresh"?: true }
 //
 // Researches the employer behind one of the caller's roles and stores it on
 // the role (roles.company_research).
 //
-//   With an Anthropic key in Vault: the model searches the web (Anthropic's
+//   With an Anthropic connection: the model searches the web (Anthropic's
 //   web search tool, billed to that key per search) and returns the fields
 //   in company.ts, with sources. If web search is not enabled for the key's
 //   organisation, the model answers from the posting and what it knows, and
-//   the note says so. Metered in ai_usage as 'research'.
-//   Without a key: what the posting says about the company, plus the
+//   the note says so. Anthropic goes first for this job, whatever the order
+//   of the connections, because it is the one that can search; a model picked
+//   from another provider overrides that.
+//   With another provider only (or when Anthropic fails): that model answers
+//   from the posting and what it knows, without sources; the note says so.
+//   Without a connection: what the posting says about the company, plus the
 //   company site's own description when the posting lives on its site.
+//   Every model call is metered in ai_usage as 'research'.
 //
 // Research for the same company on another of the user's roles, less than
 // 30 days old, is reused unless "refresh" is set.
 
-import { DEFAULT_MODEL } from '../_shared/models.ts';
+import { loadConnections, runAi } from '../_shared/ai.ts';
 import { callMessages } from '../_shared/anthropic.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
@@ -30,6 +35,11 @@ import {
 import { withCors } from '../_shared/cors.ts';
 import { normaliseCompany } from '../_shared/sources/normalise.ts';
 import { requireAiJob } from '../_shared/gate.ts';
+import {
+  parseModelChoice,
+  providerName,
+  resolveModel,
+} from '../_shared/providers.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 const REUSE_DAYS = 30;
@@ -68,18 +78,14 @@ Deno.serve(
     const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'research');
     if (gate instanceof Response) return gate;
-    const [{ data: role }, { data: profile }] = await Promise.all([
+    const [{ data: role }, connections] = await Promise.all([
       admin
         .from('roles')
         .select('id, company, title, url, posting_text')
         .eq('id', roleId)
         .eq('user_id', userId)
         .maybeSingle(),
-      admin
-        .from('profiles')
-        .select('anthropic_key_ref, default_model')
-        .eq('id', userId)
-        .maybeSingle(),
+      loadConnections(admin, userId),
     ]);
     if (!role) return json(404, { error: 'Role not found' });
 
@@ -98,6 +104,7 @@ Deno.serve(
           what: 'company research',
           method: research.method,
           model: research.model,
+          provider: research.provider,
           reused,
         },
       });
@@ -133,65 +140,136 @@ Deno.serve(
       text,
     });
 
-    // 2. Model with web search on the user's key
-    const apiKey = profile?.anthropic_key_ref
-      ? await readVaultSecret(admin, profile.anthropic_key_ref)
-      : null;
-    if (apiKey) {
-      const model = body.model || profile?.default_model || DEFAULT_MODEL;
-      const withSearch = await askModel(
-        admin,
-        userId,
-        apiKey,
-        model,
-        role,
-        text,
-        true,
-      );
-      let result = withSearch;
-      let note: string | undefined;
-      if ('searchUnavailable' in withSearch) {
-        result = await askModel(
+    const merge = (
+      found: CompanyResearch,
+      by: {
+        provider: string;
+        model: string;
+        webSearch: boolean;
+        note?: string;
+      },
+    ): CompanyResearch => ({
+      ...found,
+      website: found.website || local.website,
+      remoteHiring: found.remoteHiring.length
+        ? found.remoteHiring
+        : local.remoteHiring,
+      redFlags: [
+        ...found.redFlags,
+        ...local.redFlags.filter((f) => !found.redFlags.includes(f)),
+      ].slice(0, 5),
+      sources: dedupeSources([
+        ...found.sources,
+        ...(role.url ? [{ title: 'The posting', url: role.url }] : []),
+      ]),
+      researchedAt: new Date().toISOString(),
+      method: 'ai',
+      ...by,
+    });
+    const picked = parseModelChoice(body.model);
+    const failures: string[] = [];
+
+    // 2. Anthropic with web search, unless a model of another provider was
+    //    picked for this run
+    const claude = connections.find((c) => c.provider === 'anthropic');
+    const claudeLimited =
+      !!claude?.limited_until && Date.parse(claude.limited_until) > Date.now();
+    if (
+      claude &&
+      !claudeLimited &&
+      (!picked || picked.provider === 'anthropic')
+    ) {
+      const apiKey = await readVaultSecret(admin, claude.key_ref);
+      if (apiKey) {
+        const model = resolveModel('anthropic', claude.model, {
+          choice: body.model,
+        });
+        const withSearch = await askModel(
           admin,
           userId,
           apiKey,
           model,
           role,
           text,
-          false,
+          true,
         );
-        note =
-          'Web search is not enabled for your Anthropic key, so this is from the posting and what the model already knows. Enable web search for your organisation in the Anthropic Console for fresh, sourced research.';
-      }
-      if ('research' in result) {
-        const merged: CompanyResearch = {
-          ...result.research,
-          website: result.research.website || local.website,
-          remoteHiring: result.research.remoteHiring.length
-            ? result.research.remoteHiring
-            : local.remoteHiring,
-          redFlags: [
-            ...result.research.redFlags,
-            ...local.redFlags.filter(
-              (f) => !result.research.redFlags.includes(f),
-            ),
-          ].slice(0, 5),
-          sources: dedupeSources([
-            ...result.research.sources,
-            ...(role.url ? [{ title: 'The posting', url: role.url }] : []),
-          ]),
-          researchedAt: new Date().toISOString(),
-          method: 'ai',
-          model,
-          webSearch: !('searchUnavailable' in withSearch),
-          note,
-        };
-        return await save(merged, false);
-      }
-      local.note = `${'failed' in result ? result.failed : 'The model call failed'}. Showing what the posting says instead.`;
+        let result = withSearch;
+        let note: string | undefined;
+        if ('searchUnavailable' in withSearch) {
+          result = await askModel(
+            admin,
+            userId,
+            apiKey,
+            model,
+            role,
+            text,
+            false,
+          );
+          note =
+            'Web search is not enabled for your Anthropic key, so this is from the posting and what the model already knows. Enable web search for your organisation in the Anthropic Console for fresh, sourced research.';
+        }
+        if ('research' in result)
+          return await save(
+            merge(result.research, {
+              provider: 'anthropic',
+              model,
+              webSearch: !('searchUnavailable' in withSearch),
+              note,
+            }),
+            false,
+          );
+        failures.push(
+          'failed' in result ? result.failed : 'The Anthropic call failed',
+        );
+      } else
+        failures.push(
+          'The saved Anthropic key could not be read. Add it again in Settings.',
+        );
     }
 
-    // 3. No key (or the model failed): the posting, plus the company's own site
+    // 3. Any other connection: the model answers without searching the web
+    const others = await runAi(
+      admin,
+      userId,
+      {
+        prompt: researchPrompt({
+          company: role.company,
+          title: role.title,
+          url: role.url,
+          text,
+          webSearch: false,
+        }),
+        maxTokens: 2500,
+        timeoutMs: 90_000,
+      },
+      {
+        job: 'research',
+        choice: body.model,
+        skip: ['anthropic'],
+        connections,
+        parse: parseResearchReply,
+      },
+    );
+    if (others.ok)
+      return await save(
+        merge(others.value, {
+          provider: others.provider,
+          model: others.model,
+          webSearch: false,
+          note: `${providerName(others.provider)} cannot search the web, so this is from the posting and what the model already knows; check anything that matters. ${
+            claude
+              ? ''
+              : 'Connect an Anthropic key in Settings for fresh, sourced research.'
+          }`.trim(),
+        }),
+        false,
+      );
+    if (others.reason !== 'no_connection') failures.push(others.message);
+    if (failures.length)
+      local.note = `${failures.join(' ')} Showing what the posting says instead.`;
+
+    // 4. No connection (or every model failed): the posting, plus the
+    //    company's own site
     if (local.website) {
       const site = await siteDescription(local.website);
       if (site) {
@@ -204,9 +282,9 @@ Deno.serve(
         ]);
       }
     }
-    if (!apiKey)
+    if (!connections.length)
       local.note ??=
-        'From the posting and the company site only. Add your Anthropic key in Settings for full web research (size, funding, reviews, news).';
+        'From the posting and the company site only. Add an AI connection in Settings for more; an Anthropic key gives full web research (size, funding, reviews, news).';
     return await save(local, false);
   }),
 );
@@ -291,6 +369,7 @@ async function askModel(
       await admin.from('ai_usage').insert({
         user_id: userId,
         job: 'research',
+        provider: 'anthropic',
         model,
         tokens_in: tokensIn,
         tokens_out: tokensOut,
