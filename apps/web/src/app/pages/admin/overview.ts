@@ -14,6 +14,7 @@ import {
 } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
+import { ErrorsPanel } from './errors-panel';
 import { CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
 
 /** Supabase free tier, as published; the bars below are against these. */
@@ -29,6 +30,7 @@ const LIMITS = {
 @Component({
   selector: 'jb-admin-overview',
   imports: [
+    ErrorsPanel,
     CopyButton,
     Icon,
     PageHeader,
@@ -149,6 +151,8 @@ const LIMITS = {
           Open sign-up
         </label>
       </section>
+
+      <jb-errors-panel />
 
       <section class="jb-card p-5 md:p-6">
         <h2 class="jb-section-title">Users</h2>

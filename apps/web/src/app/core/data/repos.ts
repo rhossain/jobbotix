@@ -32,6 +32,7 @@ import type {
   CompanyRow,
   PoolPostingFacts,
   InterviewRow,
+  AppErrorRow,
   ContactRow,
   RoleContactRow,
   ContactTouchRow,
@@ -331,6 +332,8 @@ export interface AdminTotals {
 
 export abstract class AdminRepo {
   abstract overview(): Promise<{ users: AdminUser[]; totals: AdminTotals }>;
+  /** Error reports from the last `days`, newest first (admins only). */
+  abstract errors(days: number): Promise<AppErrorRow[]>;
   abstract requests(): Promise<InviteRequestRow[]>;
   /** Creates an invite code for a request and links it; returns the code. */
   abstract inviteRequest(id: string): Promise<string>;

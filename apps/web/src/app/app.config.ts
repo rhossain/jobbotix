@@ -1,5 +1,6 @@
 import {
   ApplicationConfig,
+  ErrorHandler,
   Provider,
   isDevMode,
   provideBrowserGlobalErrorListeners,
@@ -71,6 +72,7 @@ import {
   SupabaseAccountDataRepo,
 } from './core/data/supabase-repos';
 import { DemoAuth } from './core/demo-auth';
+import { ReportingErrorHandler } from './core/error-report';
 
 /**
  * Demo mode: in-memory data and a signed-in demo user, no backend. Exported
@@ -124,6 +126,7 @@ const dataProviders: Provider[] = environment.demo
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    { provide: ErrorHandler, useClass: ReportingErrorHandler },
     provideRouter(
       appRoutes,
       withComponentInputBinding(),

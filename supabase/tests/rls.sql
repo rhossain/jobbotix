@@ -706,4 +706,45 @@ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Error reports: anyone can report, repeats group, only admins read, caps hold.
+-- ---------------------------------------------------------------------------
+update public.profiles set is_admin = true where id = '11111111-1111-1111-1111-111111111111';
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  perform public.report_error('{"fingerprint":"TypeError:x@/today","name":"TypeError","message":"x is undefined","path":"/today"}');
+  perform public.report_error('{"fingerprint":"TypeError:x@/today","name":"TypeError","message":"x is undefined","path":"/today"}');
+  perform public.report_error('{"fingerprint":""}');
+  if (select count(*) from public.app_errors) <> 1 then raise exception 'FAIL: admin should read one grouped error'; end if;
+  if (select count from public.app_errors) <> 2 then raise exception 'FAIL: repeat was not counted'; end if;
+  for i in 1..40 loop
+    perform public.report_error(jsonb_build_object('fingerprint', 'flood-' || i));
+  end loop;
+  if (select count(*) from public.app_errors where user_id = '11111111-1111-1111-1111-111111111111') <> 30 then
+    raise exception 'FAIL: per-user daily cap did not hold';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+update public.settings set value = '{"open_signup": true}' where key = 'signup';
+insert into auth.users (id, email, raw_user_meta_data)
+values ('33333333-3333-3333-3333-333333333333', 'c@example.com', '{}');
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  perform public.report_error('{"fingerprint":"user3-error","message":"boom"}');
+  if exists (select 1 from public.app_errors) then raise exception 'FAIL: a non-admin can read error reports'; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role anon;
+do $$ begin
+  perform public.report_error('{"fingerprint":"signed-out-error"}');
+end $$;
+reset role;
+do $$ begin
+  if not exists (select 1 from public.app_errors where fingerprint = 'signed-out-error' and user_id is null) then
+    raise exception 'FAIL: a signed-out report was not stored';
+  end if;
+end $$;
+
 \echo RLS tests passed

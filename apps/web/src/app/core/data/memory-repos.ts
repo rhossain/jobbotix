@@ -39,6 +39,7 @@ import type {
   PostingSeenOn,
   PoolPostingFacts,
   InterviewRow,
+  AppErrorRow,
   ContactRow,
   RoleContactRow,
   ContactTouchRow,
@@ -997,6 +998,30 @@ export class MemoryPrepRepo extends PrepRepo {
 @Injectable()
 export class MemoryAdminRepo extends AdminRepo {
   private readonly roles = inject(MemoryRolesRepo);
+
+  async errors(): Promise<AppErrorRow[]> {
+    // demo mode reports nothing; show what a grouped report looks like
+    const now = new Date().toISOString();
+    return [
+      {
+        id: 'e-demo',
+        fingerprint:
+          'TypeError: Cannot read properties of undefined (reading #) @ /roles/:id',
+        day: now.slice(0, 10),
+        user_id: DEMO_USER_ID,
+        source: 'web',
+        name: 'TypeError',
+        message: "Cannot read properties of undefined (reading 'score')",
+        stack:
+          'TypeError: Cannot read properties of undefined\n    at RoleDetail (role-detail.ts:812)',
+        path: '/roles/:id',
+        user_agent: 'Demo',
+        count: 3,
+        first_seen: now,
+        last_seen: now,
+      },
+    ];
+  }
 
   async overview() {
     const s = this.roles.snapshot();

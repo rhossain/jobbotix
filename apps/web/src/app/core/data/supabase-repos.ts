@@ -792,6 +792,18 @@ export class SupabasePrepRepo extends PrepRepo {
 export class SupabaseAdminRepo extends AdminRepo {
   private readonly supabase = injectSupabase();
 
+  async errors(days: number) {
+    const since = new Date(Date.now() - days * 86_400_000).toISOString();
+    const { data, error } = await this.supabase
+      .from('app_errors')
+      .select('*')
+      .gte('last_seen', since)
+      .order('last_seen', { ascending: false })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  }
+
   async overview() {
     const { data, error } = await this.supabase.rpc('admin_overview');
     if (error) throw new Error(error.message);

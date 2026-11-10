@@ -269,6 +269,22 @@ export type ScreeningAnswerRow = {
   created_at: string;
 };
 
+export type AppErrorRow = {
+  id: string;
+  fingerprint: string;
+  day: string;
+  user_id: string | null;
+  source: 'web' | 'function';
+  name: string;
+  message: string;
+  stack: string;
+  path: string;
+  user_agent: string;
+  count: number;
+  first_seen: string;
+  last_seen: string;
+};
+
 export type ContactRow = {
   id: string;
   user_id: string;
@@ -523,6 +539,7 @@ export type Database = {
         RoleEventRow,
         Insertable<RoleEventRow, 'id' | 'role_id' | 'payload' | 'created_at'>
       >;
+      app_errors: Table<AppErrorRow, Partial<AppErrorRow>>;
       contacts: Table<
         ContactRow,
         Insertable<
@@ -697,6 +714,7 @@ export type Database = {
       signup_is_open: { Args: Record<string, never>; Returns: boolean };
       shared_view: { Args: { p_token: string }; Returns: Json };
       market_signals: { Args: Record<string, never>; Returns: Json };
+      report_error: { Args: { p: Json }; Returns: undefined };
       posting_health: {
         Args: Record<string, never>;
         Returns: PoolPostingFacts[];
