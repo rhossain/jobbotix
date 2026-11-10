@@ -19,6 +19,8 @@ import {
   keywordReport,
   localTailor,
   normaliseResume,
+  OPEN_ENTITLEMENTS,
+  type Entitlements,
   type VariantDiff,
 } from '@jobbotix/shared-types';
 import type {
@@ -68,6 +70,8 @@ import {
   InterviewsRepo,
   PeopleRepo,
   AccountDataRepo,
+  PlanRepo,
+  type AdminPlan,
   type ImportRoleInput,
   type ContactInput,
   type MessageRequest,
@@ -995,6 +999,64 @@ export class MemoryPrepRepo extends PrepRepo {
   }
 }
 
+/**
+ * Demo mode has no backend, so the demo account's plan lives here. It starts
+ * open (billing off, every feature on); the admin page's plan actions change
+ * it, which lets the Plan card and the upgrade prompts be tried locally.
+ */
+@Injectable()
+export class MemoryPlanRepo extends PlanRepo {
+  private readonly state = signal({
+    plan: 'free' as 'free' | 'pro',
+    credits: 0,
+    note: '',
+    preview: false,
+  });
+  readonly entitlements = computed<Entitlements>(() => {
+    const s = this.state();
+    const pro = s.plan === 'pro';
+    return {
+      ...OPEN_ENTITLEMENTS,
+      enforced: s.preview,
+      plan: s.plan,
+      planName: pro ? 'Pro' : 'Free',
+      status: pro ? 'active' : 'none',
+      source: pro ? 'admin' : null,
+      features: s.preview && !pro ? ['ai'] : OPEN_ENTITLEMENTS.features,
+      limits: s.preview ? { search_profiles: pro ? 5 : 1 } : {},
+      monthlyCredits: pro ? 500 : 0,
+      credits: s.credits,
+    };
+  });
+  readonly loaded = signal(true).asReadonly();
+
+  async load() {
+    /* nothing to fetch */
+  }
+
+  /** The demo account as the admin page lists it. */
+  adminPlan(): AdminPlan {
+    const s = this.state();
+    return {
+      ...this.entitlements(),
+      id: DEMO_USER_ID,
+      note: s.note,
+      preview: s.preview,
+    };
+  }
+
+  patch(
+    change: Partial<{
+      plan: 'free' | 'pro';
+      credits: number;
+      note: string;
+      preview: boolean;
+    }>,
+  ) {
+    this.state.update((s) => ({ ...s, ...change }));
+  }
+}
+
 @Injectable()
 export class MemoryAdminRepo extends AdminRepo {
   private readonly roles = inject(MemoryRolesRepo);
@@ -1061,6 +1123,27 @@ export class MemoryAdminRepo extends AdminRepo {
         open_codes: 0,
       },
     };
+  }
+
+  private readonly plan = inject(MemoryPlanRepo);
+
+  async plans() {
+    return { enabled: false, users: [this.plan.adminPlan()] };
+  }
+
+  async setPlan(_userId: string, plan: 'free' | 'pro', reason: string) {
+    this.plan.patch({ plan, note: reason });
+  }
+
+  async addCredits(_userId: string, amount: number) {
+    const credits = this.plan.adminPlan().credits + amount;
+    if (credits < 0) throw new Error('That would take the balance below zero');
+    this.plan.patch({ credits });
+    return credits;
+  }
+
+  async setBillingPreview(_userId: string, on: boolean) {
+    this.plan.patch({ preview: on });
   }
 
   async requests() {

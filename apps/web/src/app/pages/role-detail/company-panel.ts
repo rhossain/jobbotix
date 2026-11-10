@@ -12,9 +12,11 @@ import {
   type RoleRow,
 } from '@jobbotix/shared-types';
 import { RolesRepo } from '../../core/data/repos';
+import { Plan } from '../../core/plan';
 import { RelativeDayPipe } from '../../shared/format';
 import { ModelPicker } from '../../shared/model-picker';
 import { Toast } from '../../shared/toast';
+import { UpgradeNote } from '../../shared/upgrade-note';
 import { Button, EmptyState, Icon } from '../../ui';
 import type { IconName } from '../../ui/icons.generated';
 
@@ -28,7 +30,14 @@ interface Section {
 /** The Company tab: what the employer does, how it hires remotely, what people say. */
 @Component({
   selector: 'jb-company-panel',
-  imports: [Button, EmptyState, Icon, ModelPicker, RelativeDayPipe],
+  imports: [
+    Button,
+    EmptyState,
+    Icon,
+    ModelPicker,
+    RelativeDayPipe,
+    UpgradeNote,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -82,22 +91,27 @@ interface Section {
               Researched {{ research().researchedAt | relativeDay }}
               {{ methodLine() }}
             </p>
-            <div class="flex flex-wrap items-center gap-2 md:justify-end">
-              @if (canPickModel()) {
-                <jb-model-picker [(value)]="model" />
-              }
-              <button
-                type="button"
-                jbButton
-                class="shrink-0"
-                [busy]="busy()"
-                [disabled]="busy()"
-                (click)="run(true)"
-              >
-                <jb-icon name="rotate-cw" /> Refresh
-              </button>
-            </div>
+            @if (allowed()) {
+              <div class="flex flex-wrap items-center gap-2 md:justify-end">
+                @if (canPickModel()) {
+                  <jb-model-picker [(value)]="model" />
+                }
+                <button
+                  type="button"
+                  jbButton
+                  class="shrink-0"
+                  [busy]="busy()"
+                  [disabled]="busy()"
+                  (click)="run(true)"
+                >
+                  <jb-icon name="rotate-cw" /> Refresh
+                </button>
+              </div>
+            }
           </div>
+          @if (!allowed()) {
+            <jb-upgrade-note class="mt-3" feature="company_research" />
+          }
           @if (research().note) {
             <p
               class="mt-3 flex items-start gap-2 rounded-control bg-sunken px-3.5 py-2.5 text-sm text-ink-muted"
@@ -186,20 +200,24 @@ interface Section {
         and how they are funded, where they hire remote people from, and what
         employees say.
         <div actions class="flex flex-col items-center gap-3">
-          <div class="flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              jbButton="primary"
-              [busy]="busy()"
-              [disabled]="busy()"
-              (click)="run(false)"
-            >
-              <jb-icon name="sparkles" /> Research the company
-            </button>
-            @if (canPickModel()) {
-              <jb-model-picker [(value)]="model" />
-            }
-          </div>
+          @if (allowed()) {
+            <div class="flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                jbButton="primary"
+                [busy]="busy()"
+                [disabled]="busy()"
+                (click)="run(false)"
+              >
+                <jb-icon name="sparkles" /> Research the company
+              </button>
+              @if (canPickModel()) {
+                <jb-model-picker [(value)]="model" />
+              }
+            </div>
+          } @else {
+            <jb-upgrade-note feature="company_research" />
+          }
           @if (busy()) {
             <p
               class="flex items-center gap-2 text-sm text-ink-muted"
@@ -216,6 +234,9 @@ interface Section {
 export class CompanyPanel {
   private readonly repo = inject(RolesRepo);
   private readonly toast = inject(Toast);
+  private readonly plan = inject(Plan);
+  /** False when the account's plan does not cover company research. */
+  readonly allowed = computed(() => this.plan.can('company_research'));
   readonly role = input.required<RoleRow>();
   /** False in places that have no key to pick a model for (demo). */
   readonly canPickModel = input(true);
@@ -294,6 +315,7 @@ export class CompanyPanel {
           : 'Company research ready',
       );
     } catch (e) {
+      if (await this.plan.handled(e)) return;
       this.toast.show((e as Error).message || 'Could not research the company');
     } finally {
       this.busy.set(false);

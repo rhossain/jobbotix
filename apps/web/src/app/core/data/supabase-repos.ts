@@ -3,11 +3,15 @@ import {
   ATS_LABEL,
   careersSystem,
   FALLBACK_MODELS,
+  isUpgradeRequired,
   normaliseCompanyResearch,
+  normaliseEntitlements,
   normaliseResume,
+  OPEN_ENTITLEMENTS,
   summariseRuns,
   type AtsKind,
   type CompanyRow,
+  type Entitlements,
 } from '@jobbotix/shared-types';
 import type {
   CompanyResearch,
@@ -62,6 +66,9 @@ import {
   InterviewsRepo,
   PeopleRepo,
   AccountDataRepo,
+  PlanRepo,
+  UpgradeRequiredError,
+  type AdminPlan,
   type ImportRoleInput,
   type ContactInput,
   type MessageRequest,
@@ -229,7 +236,7 @@ export class SupabaseRolesRepo extends RolesRepo {
     }>('extract-role', {
       body: text ? { url, text } : { url },
     });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.id) throw new Error(data?.error ?? 'Could not add the role');
     await this.load();
     return { id: data.id, existed: data.existed };
@@ -242,7 +249,7 @@ export class SupabaseRolesRepo extends RolesRepo {
       aiError?: string;
       error?: string;
     }>('score-role', { body: { roleId: id } });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.role) throw new Error(data?.error ?? 'Could not score the role');
     this.replace(data.role);
     return {
@@ -261,7 +268,7 @@ export class SupabaseRolesRepo extends RolesRepo {
       reused?: boolean;
       error?: string;
     }>('research-company', { body: { roleId: id, ...opts } });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.research)
       throw new Error(data?.error ?? 'Could not research the company');
     const research = normaliseCompanyResearch(data.research);
@@ -373,12 +380,19 @@ export class SupabaseSavedViewsRepo extends SavedViewsRepo {
 }
 
 /** supabase-js wraps non-2xx responses; surface the function's own message. */
-async function describeFunctionError(error: unknown): Promise<string> {
+/**
+ * Turns a failed functions.invoke into the Error to throw: the function's own
+ * message when it sent one, and an UpgradeRequiredError when the plan does
+ * not cover the call (402), so pages can offer the upgrade instead of a toast.
+ */
+async function functionError(error: unknown): Promise<Error> {
   const ctx = (error as { context?: Response }).context;
   if (ctx && typeof ctx.json === 'function') {
     try {
       const body = (await ctx.json()) as { error?: string };
-      if (body?.error) return body.error;
+      if (isUpgradeRequired(body))
+        return new UpgradeRequiredError(body.error, body.feature);
+      if (body?.error) return new Error(body.error);
     } catch {
       /* fall through */
     }
@@ -386,8 +400,10 @@ async function describeFunctionError(error: unknown): Promise<string> {
   // The request never got an answer (offline, blocked, or the function is
   // not deployed); supabase-js's own wording means nothing to a user.
   if ((error as Error)?.name === 'FunctionsFetchError')
-    return "Couldn't reach the server. Check your connection and try again.";
-  return (error as Error).message || 'Request failed';
+    return new Error(
+      "Couldn't reach the server. Check your connection and try again.",
+    );
+  return new Error((error as Error).message || 'Request failed');
 }
 
 @Injectable()
@@ -464,7 +480,7 @@ export class SupabaseResumesRepo extends ResumesRepo {
     const { data, error } = await this.supabase.functions.invoke<
       Partial<ResumeAiResult> & { model?: string; error?: string }
     >('parse-resume', { body: model ? { text, model } : { text } });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.resume)
       throw new Error(data?.error ?? 'Could not read the resume');
     return {
@@ -497,7 +513,7 @@ export class SupabaseVariantsRepo extends VariantsRepo {
     }>('tailor-resume', {
       body: model ? { roleId, model } : { roleId },
     });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.variant)
       throw new Error(data?.error ?? 'Could not generate the variant');
     return { ...data.variant, method: data.method, model: data.model };
@@ -635,7 +651,7 @@ export class SupabaseSettingsRepo extends SettingsRepo {
       last4?: string;
       error?: string;
     }>('set-anthropic-key', { body: { key } });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     await this.load();
     return data?.last4 ?? '';
   }
@@ -645,7 +661,7 @@ export class SupabaseSettingsRepo extends SettingsRepo {
       'set-anthropic-key',
       { method: 'DELETE' },
     );
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     await this.load();
   }
 
@@ -702,7 +718,7 @@ export class SupabaseLettersRepo extends LettersRepo {
       model?: string;
       error?: string;
     }>('draft-letter', { body: { roleId, ...opts } });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.body)
       throw new Error(data?.error ?? 'Could not draft the letter');
     return {
@@ -754,7 +770,7 @@ export class SupabaseScreeningRepo extends ScreeningRepo {
       model?: string;
       error?: string;
     }>('answer-screening', { body: { roleId, ...opts } });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (data?.error) throw new Error(data.error);
     return {
       answered: data?.answered ?? 0,
@@ -773,7 +789,7 @@ export class SupabasePrepRepo extends PrepRepo {
       prep?: PrepSheet;
       error?: string;
     }>('prep-role', { body: model ? { roleId, model } : { roleId } });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.prep)
       throw new Error(data?.error ?? 'Could not build the sheet');
     return data.prep;
@@ -785,6 +801,25 @@ export class SupabasePrepRepo extends PrepRepo {
       .update({ prep: prep as unknown as Json })
       .eq('id', roleId);
     if (error) throw new Error(error.message);
+  }
+}
+
+@Injectable()
+export class SupabasePlanRepo extends PlanRepo {
+  private readonly supabase = injectSupabase();
+  private readonly _entitlements = signal<Entitlements>(OPEN_ENTITLEMENTS);
+  private readonly _loaded = signal(false);
+  readonly entitlements = this._entitlements.asReadonly();
+  readonly loaded = this._loaded.asReadonly();
+
+  async load() {
+    // A failed lookup (offline, the migration not applied yet) leaves the
+    // account open: the server still decides every gated call.
+    const { data, error } = await this.supabase.rpc('entitlements');
+    if (!error) {
+      this._entitlements.set(normaliseEntitlements(data));
+      this._loaded.set(true);
+    }
   }
 }
 
@@ -821,6 +856,61 @@ export class SupabaseAdminRepo extends AdminRepo {
         open_codes: 0,
       },
     };
+  }
+
+  async plans() {
+    const { data, error } = await this.supabase.rpc('admin_plans');
+    if (error) throw new Error(error.message);
+    const v = (data ?? {}) as { enabled?: boolean; users?: unknown[] };
+    return {
+      enabled: v.enabled === true,
+      users: (v.users ?? []).map((u): AdminPlan => {
+        const o = (u ?? {}) as {
+          id?: string;
+          note?: string;
+          preview?: boolean;
+        };
+        return {
+          ...normaliseEntitlements(u),
+          id: String(o.id ?? ''),
+          note: typeof o.note === 'string' ? o.note : '',
+          preview: o.preview === true,
+        };
+      }),
+    };
+  }
+
+  async setPlan(
+    userId: string,
+    plan: 'free' | 'pro',
+    reason: string,
+    until: string | null = null,
+  ) {
+    const { error } = await this.supabase.rpc('admin_set_plan', {
+      p_user: userId,
+      p_plan: plan,
+      p_reason: reason,
+      p_until: until,
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  async addCredits(userId: string, amount: number, reason: string) {
+    const { data, error } = await this.supabase.rpc('admin_add_credits', {
+      p_user: userId,
+      p_amount: amount,
+      p_reason: reason,
+    });
+    if (error) throw new Error(error.message);
+    return Number(data ?? 0);
+  }
+
+  async setBillingPreview(userId: string, on: boolean) {
+    const { error } = await this.supabase.rpc('admin_set_billing_preview', {
+      p_user: userId,
+      p_on: on,
+    });
+    if (error) throw new Error(error.message);
   }
 
   async requests(): Promise<InviteRequestRow[]> {
@@ -1070,7 +1160,7 @@ export class SupabaseInterviewsRepo extends InterviewsRepo {
       model?: string;
       error?: string;
     }>('draft-thank-you', { body: { interviewId: id, model } });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.body) throw new Error(data?.error ?? 'Could not draft the note');
     this._interviews.update((l) =>
       l.map((i) =>
@@ -1227,7 +1317,7 @@ export class SupabasePeopleRepo extends PeopleRepo {
       model?: string;
       error?: string;
     }>('draft-message', { body: req });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.body)
       throw new Error(data?.error ?? 'Could not draft the message');
     return {
@@ -1316,7 +1406,7 @@ export class SupabaseAccountDataRepo extends AccountDataRepo {
       deleted?: boolean;
       error?: string;
     }>('delete-account', { body: { confirm: true } });
-    if (error) throw new Error(await describeFunctionError(error));
+    if (error) throw await functionError(error);
     if (!data?.deleted)
       throw new Error(data?.error ?? 'Could not delete the account');
     await this.auth.signOut().catch(() => undefined);

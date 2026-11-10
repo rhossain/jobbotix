@@ -21,6 +21,7 @@ import { Toast } from '../../shared/toast';
 import { Theme, type ThemePreference } from '../../core/theme';
 import { Tour } from '../../shell/tour';
 import { DataPanel } from './data-panel';
+import { PlanCard } from './plan-card';
 import {
   Button,
   Confirm,
@@ -35,6 +36,7 @@ import {
   selector: 'jb-settings',
   imports: [
     DataPanel,
+    PlanCard,
     Button,
     Icon,
     PageHeader,
@@ -104,6 +106,8 @@ import {
           </button>
         </div>
       </form>
+
+      <jb-plan-card />
 
       <!-- Appearance -->
       <section

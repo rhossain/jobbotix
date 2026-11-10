@@ -1,6 +1,8 @@
 import type { Signal } from '@angular/core';
 import type {
   CompanyResearch,
+  Entitlements,
+  Feature,
   MarketSignals,
   ModelChoice,
   PrepSheet,
@@ -330,8 +332,57 @@ export interface AdminTotals {
   open_codes: number;
 }
 
+/** One account's plan as an admin sees it. */
+export interface AdminPlan extends Entitlements {
+  id: string;
+  /** The reason given with the last grant or removal. */
+  note: string;
+  /** Billing gates are on for this account while off for everyone else. */
+  preview: boolean;
+}
+
+/**
+ * Thrown when the server refuses a call the plan does not cover (HTTP 402
+ * from an Edge Function). Carries the feature so the caller can say what to
+ * upgrade for.
+ */
+export class UpgradeRequiredError extends Error {
+  constructor(
+    message: string,
+    readonly feature: Feature,
+  ) {
+    super(message);
+    this.name = 'UpgradeRequiredError';
+  }
+}
+
+/** What the signed-in account may use (plan, features, credits). */
+export abstract class PlanRepo {
+  /** Open (everything on) until the server has answered. */
+  abstract readonly entitlements: Signal<Entitlements>;
+  abstract readonly loaded: Signal<boolean>;
+  abstract load(): Promise<void>;
+}
+
 export abstract class AdminRepo {
   abstract overview(): Promise<{ users: AdminUser[]; totals: AdminTotals }>;
+  /** Every account's plan and credits, and whether billing is switched on. */
+  abstract plans(): Promise<{ enabled: boolean; users: AdminPlan[] }>;
+  /** Puts an account on a plan by hand; `until` null means no end date. */
+  abstract setPlan(
+    userId: string,
+    plan: 'free' | 'pro',
+    reason: string,
+    until?: string | null,
+  ): Promise<void>;
+  /** Adds credits (negative takes them back); resolves with the new balance. */
+  abstract addCredits(
+    userId: string,
+    amount: number,
+    reason: string,
+  ): Promise<number>;
+  /** Turns the billing gates on or off for one account. */
+  abstract setBillingPreview(userId: string, on: boolean): Promise<void>;
   /** Error reports from the last `days`, newest first (admins only). */
   abstract errors(days: number): Promise<AppErrorRow[]>;
   abstract requests(): Promise<InviteRequestRow[]>;
