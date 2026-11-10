@@ -21,6 +21,7 @@ import {
   type InterviewKind,
   type ThankYouContext,
 } from '../_shared/interviews.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
@@ -53,6 +54,8 @@ Deno.serve(
       return json(400, { error: 'interviewId is required' });
 
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'thank_you');
+    if (gate instanceof Response) return gate;
     const { data: iv } = await admin
       .from('interviews')
       .select('id, role_id, kind, interviewers, debrief')

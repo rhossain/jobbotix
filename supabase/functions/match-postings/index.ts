@@ -30,6 +30,8 @@ import {
   type ScoredPosting,
   type Weights,
 } from '../_shared/score.ts';
+import { can } from '../_shared/entitlements.ts';
+import { loadEntitlements } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
@@ -298,7 +300,11 @@ async function matchForUser(
   candidates.sort((a, b) => b.scored.score - a.scored.score);
   const keyRef = (Array.isArray(p.profiles) ? p.profiles[0] : p.profiles)
     ?.anthropic_key_ref;
-  const apiKey = keyRef ? await readVaultSecret(admin, keyRef) : null;
+  // Model scoring only for accounts whose plan covers AI (everyone while
+  // billing is off); the rule-based score above is never gated.
+  const mayUseAi =
+    !!keyRef && can(await loadEntitlements(admin, p.user_id), 'ai');
+  const apiKey = mayUseAi ? await readVaultSecret(admin, keyRef) : null;
   if (apiKey && cfg.ai_scored_per_user_per_run > 0) {
     const top = candidates
       .filter((c) => c.scored.score >= cfg.ai_min_heuristic_score)

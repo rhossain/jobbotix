@@ -12,6 +12,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 import { scoreRole } from '../_shared/role-score.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
@@ -41,6 +42,8 @@ Deno.serve(
     const roleId = body.roleId;
 
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'score');
+    if (gate instanceof Response) return gate;
     const [{ data: role }, { data: profile }] = await Promise.all([
       admin
         .from('roles')

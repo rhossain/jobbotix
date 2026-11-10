@@ -23,6 +23,7 @@ import {
   type ExtractedRole,
 } from '../_shared/extract.ts';
 import { scoreRole, type RoleScoreFields } from '../_shared/role-score.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
@@ -95,6 +96,8 @@ Deno.serve(
 
     // 2. Extract: model if the user has a key, heuristics otherwise
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'extract');
+    if (gate instanceof Response) return gate;
     let role: ExtractedRole = html
       ? heuristicExtract(url, html)
       : heuristicExtract(url, `<title></title>${text}`);

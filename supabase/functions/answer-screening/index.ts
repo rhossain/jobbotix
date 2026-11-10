@@ -19,6 +19,7 @@ import {
   parseScreeningReply,
   screeningPrompt,
 } from '../_shared/screening.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
@@ -55,6 +56,8 @@ Deno.serve(
       : null;
 
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'answer');
+    if (gate instanceof Response) return gate;
     const [
       { data: role },
       { data: master },

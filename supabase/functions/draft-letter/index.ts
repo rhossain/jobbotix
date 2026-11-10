@@ -21,6 +21,7 @@ import {
   parseLetterReply,
   wordCount,
 } from '../_shared/letter.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
@@ -54,6 +55,8 @@ Deno.serve(
     const roleId = body.roleId;
 
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'letter');
+    if (gate instanceof Response) return gate;
     const [
       { data: role },
       { data: master },

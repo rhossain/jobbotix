@@ -29,6 +29,7 @@ import {
 } from '../_shared/company.ts';
 import { withCors } from '../_shared/cors.ts';
 import { normaliseCompany } from '../_shared/sources/normalise.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 const REUSE_DAYS = 30;
@@ -65,6 +66,8 @@ Deno.serve(
     const roleId = body.roleId;
 
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'research');
+    if (gate instanceof Response) return gate;
     const [{ data: role }, { data: profile }] = await Promise.all([
       admin
         .from('roles')

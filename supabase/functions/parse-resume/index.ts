@@ -19,6 +19,7 @@ import {
   RESUME_AI_MAX_CHARS,
   resumeImportPrompt,
 } from '../_shared/resume-ai.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
@@ -54,6 +55,8 @@ Deno.serve(
       });
 
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'import');
+    if (gate instanceof Response) return gate;
     const { data: profile } = await admin
       .from('profiles')
       .select('anthropic_key_ref, default_model')

@@ -20,6 +20,7 @@ import {
   prepPrompt,
   type PrepSheet,
 } from '../_shared/prep.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
@@ -52,6 +53,8 @@ Deno.serve(
     const roleId = body.roleId;
 
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'prep');
+    if (gate instanceof Response) return gate;
     const [{ data: role }, { data: master }, { data: profile }] =
       await Promise.all([
         admin

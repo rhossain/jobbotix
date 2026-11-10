@@ -22,6 +22,7 @@ import {
   type VariantChange,
   type VariantDiff,
 } from '../_shared/variant.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
@@ -55,6 +56,8 @@ Deno.serve(
     if (!roleId) return json(400, { error: 'roleId is required' });
 
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'tailor');
+    if (gate instanceof Response) return gate;
     const [
       { data: role },
       { data: master },

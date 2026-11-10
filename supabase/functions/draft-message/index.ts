@@ -24,6 +24,7 @@ import {
   type MessageContext,
   type MessageKind,
 } from '../_shared/contacts.ts';
+import { requireAiJob } from '../_shared/gate.ts';
 import { readVaultSecret } from '../_shared/vault.ts';
 
 Deno.serve(
@@ -62,6 +63,8 @@ Deno.serve(
       : 'outreach';
 
     const admin = serviceClient();
+    const gate = await requireAiJob(admin, userId, 'message');
+    if (gate instanceof Response) return gate;
     const [
       { data: contact },
       { data: role },
