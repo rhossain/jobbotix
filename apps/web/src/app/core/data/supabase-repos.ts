@@ -33,6 +33,7 @@ import type {
   RoleStatus,
   PostingSeenOn,
   PoolPostingFacts,
+  InterviewRow,
   RunSummary,
   SearchProfileRow,
 } from '@jobbotix/shared-types';
@@ -56,6 +57,9 @@ import {
   MarketRepo,
   SourcesRepo,
   WatchlistRepo,
+  InterviewsRepo,
+  type InterviewInput,
+  type LetterResult,
   type FollowedCompany,
   type AdminTotals,
   type AdminUser,
@@ -982,4 +986,81 @@ function withDefault(
   return current && !list.some((m) => m.id === current)
     ? [...list, { id: current, label: `${current} (older)` }]
     : list;
+}
+
+@Injectable()
+export class SupabaseInterviewsRepo extends InterviewsRepo {
+  private readonly supabase = injectSupabase();
+  private readonly rolesRepo = inject(RolesRepo);
+  private readonly _interviews = signal<InterviewRow[]>([]);
+  readonly interviews = this._interviews.asReadonly();
+  readonly loaded = signal(false);
+
+  async load() {
+    const { data, error } = await this.supabase
+      .from('interviews')
+      .select('*')
+      .order('scheduled_at', { ascending: true, nullsFirst: false })
+      .limit(500);
+    if (error) throw new Error(error.message);
+    this._interviews.set(data ?? []);
+    this.loaded.set(true);
+  }
+
+  async save(id: string | null, input: InterviewInput) {
+    if (id) {
+      const { data, error } = await this.supabase
+        .from('interviews')
+        .update(input)
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      this._interviews.update((l) => l.map((i) => (i.id === id ? data : i)));
+      return data;
+    }
+    const user = (await this.supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Sign in first');
+    if (!input.role_id) throw new Error('Pick a role first');
+    const { data, error } = await this.supabase
+      .from('interviews')
+      .insert({ ...input, role_id: input.role_id, user_id: user.id })
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    this._interviews.update((l) => [...l, data]);
+    // the database may have moved the role to Interview
+    void this.rolesRepo.load();
+    return data;
+  }
+
+  async remove(id: string) {
+    const { error } = await this.supabase
+      .from('interviews')
+      .delete()
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+    this._interviews.update((l) => l.filter((i) => i.id !== id));
+  }
+
+  async draftThankYou(id: string, model?: string): Promise<LetterResult> {
+    const { data, error } = await this.supabase.functions.invoke<{
+      body?: string;
+      method?: 'ai' | 'local';
+      model?: string;
+      error?: string;
+    }>('draft-thank-you', { body: { interviewId: id, model } });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.body) throw new Error(data?.error ?? 'Could not draft the note');
+    this._interviews.update((l) =>
+      l.map((i) =>
+        i.id === id ? { ...i, thank_you: data.body as string } : i,
+      ),
+    );
+    return {
+      body: data.body,
+      method: data.method ?? 'local',
+      model: data.model,
+    };
+  }
 }

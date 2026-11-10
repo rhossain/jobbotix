@@ -28,6 +28,7 @@ import {
   MemoryWatchlistRepo,
   MemorySettingsRepo,
   MemoryVariantsRepo,
+  MemoryInterviewsRepo,
 } from './core/data/memory-repos';
 import {
   ResumesRepo,
@@ -44,6 +45,7 @@ import {
   WatchlistRepo,
   SettingsRepo,
   VariantsRepo,
+  InterviewsRepo,
 } from './core/data/repos';
 import {
   SupabaseResumesRepo,
@@ -60,6 +62,7 @@ import {
   SupabaseWatchlistRepo,
   SupabaseSettingsRepo,
   SupabaseVariantsRepo,
+  SupabaseInterviewsRepo,
 } from './core/data/supabase-repos';
 import { DemoAuth } from './core/demo-auth';
 
@@ -84,6 +87,7 @@ export const demoDataProviders: Provider[] = [
   { provide: MarketRepo, useClass: MemoryMarketRepo },
   { provide: SourcesRepo, useClass: MemorySourcesRepo },
   { provide: WatchlistRepo, useClass: MemoryWatchlistRepo },
+  { provide: InterviewsRepo, useClass: MemoryInterviewsRepo },
 ];
 
 /** Demo mode swaps the backend for in-memory data and a signed-in demo user. */
@@ -104,6 +108,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: MarketRepo, useClass: SupabaseMarketRepo },
       { provide: SourcesRepo, useClass: SupabaseSourcesRepo },
       { provide: WatchlistRepo, useClass: SupabaseWatchlistRepo },
+      { provide: InterviewsRepo, useClass: SupabaseInterviewsRepo },
     ];
 
 export const appConfig: ApplicationConfig = {

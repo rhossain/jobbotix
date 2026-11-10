@@ -31,6 +31,7 @@ import type {
   AtsKind,
   CompanyRow,
   PoolPostingFacts,
+  InterviewRow,
 } from '@jobbotix/shared-types';
 
 /**
@@ -171,6 +172,32 @@ export abstract class LettersRepo {
     roleId: string,
     opts?: { model?: string; rewrite?: boolean },
   ): Promise<LetterResult>;
+}
+
+/** What the interview form sends; the role is required on create. */
+export type InterviewInput = Partial<
+  Omit<InterviewRow, 'id' | 'user_id' | 'created_at' | 'updated_at'>
+>;
+
+export abstract class InterviewsRepo {
+  /** Every interview round of the signed-in user, soonest first. */
+  abstract readonly interviews: Signal<InterviewRow[]>;
+  abstract readonly loaded: Signal<boolean>;
+  abstract load(): Promise<void>;
+  /**
+   * Creates (id null, role_id required) or updates a round. Scheduling a
+   * round moves a role still before Interview to Interview.
+   */
+  abstract save(
+    id: string | null,
+    input: InterviewInput,
+  ): Promise<InterviewRow>;
+  abstract remove(id: string): Promise<void>;
+  /**
+   * Drafts the thank-you note from the round's debrief and the voice samples
+   * (model with a key, local template otherwise) and stores it on the round.
+   */
+  abstract draftThankYou(id: string, model?: string): Promise<LetterResult>;
 }
 
 export abstract class ScreeningRepo {

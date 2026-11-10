@@ -8,6 +8,7 @@ import type {
   SearchProfileRow,
   SourceCatalogRow,
   CompanyRow,
+  InterviewRow,
 } from '@jobbotix/shared-types';
 
 /**
@@ -403,6 +404,52 @@ export function sampleEvents(): RoleEventRow[] {
       { from: 'applied', to: 'rejected' },
       daysAgo(1),
     ),
+  ];
+}
+
+/** Two rounds for Meridian (in Interview): one to debrief, one coming up. */
+export function sampleInterviews(now = Date.now()): InterviewRow[] {
+  const at = (h: number) => {
+    const d = new Date(now + h * 3_600_000);
+    d.setMinutes(0, 0, 0);
+    return d.toISOString();
+  };
+  const base = {
+    user_id: DEMO_USER_ID,
+    role_id: 'r-meridian',
+    title: '',
+    duration_min: 45,
+    outcome: '' as const,
+    notes: '',
+    debrief: '',
+    thank_you: '',
+    thank_you_sent_at: null,
+    created_at: at(-24 * 5),
+    updated_at: at(-24 * 5),
+  };
+  return [
+    {
+      ...base,
+      id: 'iv-meridian-1',
+      kind: 'technical',
+      scheduled_at: at(-26),
+      location: 'https://meet.example/meridian-tech',
+      interviewers: 'Priya Nair (Engineering Manager), Tom Becker',
+      status: 'scheduled',
+    },
+    {
+      ...base,
+      id: 'iv-meridian-2',
+      kind: 'final',
+      title: 'Final round with the Head of Product',
+      scheduled_at: at(50),
+      duration_min: 60,
+      location: 'https://meet.example/meridian-final',
+      interviewers: 'Lena Fischer',
+      status: 'scheduled',
+      notes:
+        'Bring two examples of design-system work and the accessibility audit story.',
+    },
   ];
 }
 

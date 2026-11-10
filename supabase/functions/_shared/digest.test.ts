@@ -143,3 +143,68 @@ Deno.test('summariseRuns sums the last day and labels the digest line', () => {
     null,
   );
 });
+
+Deno.test('buildDigest leads with interviews in the user time zone', () => {
+  const d = buildDigest({
+    name: 'Sazzad Hossain',
+    appUrl: 'https://app.jobbotix.com',
+    // 07:00 in Dhaka
+    now: new Date('2026-11-05T01:00:00Z'),
+    run: null,
+    newRoles: [],
+    stale: [],
+    timezone: 'Asia/Dhaka',
+    interviews: [
+      {
+        role_id: 'r9',
+        kind: 'technical',
+        title: '',
+        // 14:00 in Dhaka the same day
+        scheduled_at: '2026-11-05T08:00:00Z',
+        interviewers: 'Ana Ruiz',
+        company: 'Acme & Co',
+        role_title: 'Senior Angular Engineer',
+      },
+    ],
+  });
+  assertEquals(d.subject, 'Interview today · Job search: nothing new (5 Nov)');
+  assert(
+    d.text.includes(
+      'Interviews coming up:\n- Thu 5 Nov, 14:00 · Technical interview · Senior Angular Engineer at Acme & Co · with Ana Ruiz',
+    ),
+  );
+  assert(d.text.includes('https://app.jobbotix.com/roles/r9?tab=prep'));
+  assert(d.html.includes('Acme &amp; Co'));
+  assert(
+    d.html.indexOf('Interviews coming up') < d.html.indexOf('Nothing new'),
+  );
+});
+
+Deno.test('buildDigest leaves the subject alone for later interviews', () => {
+  const d = buildDigest({
+    name: '',
+    appUrl: 'https://app.jobbotix.com',
+    now: new Date('2026-11-05T01:00:00Z'),
+    run: null,
+    newRoles: [],
+    stale: [],
+    timezone: 'Asia/Dhaka',
+    interviews: [
+      {
+        role_id: 'r9',
+        kind: 'final',
+        title: 'Final with the CEO',
+        scheduled_at: '2026-11-06T08:00:00Z',
+        interviewers: '',
+        company: 'Acme',
+        role_title: 'Lead UI Engineer',
+      },
+    ],
+  });
+  assertEquals(d.subject, 'Job search: nothing new (5 Nov)');
+  assert(
+    d.text.includes(
+      'Fri 6 Nov, 14:00 · Final with the CEO · Lead UI Engineer at Acme',
+    ),
+  );
+});

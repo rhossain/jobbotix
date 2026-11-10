@@ -17,12 +17,17 @@ import {
   type SwipeAction,
 } from '../../ui';
 import {
+  formatInterviewTime,
+  interviewLabel,
+  needsDebrief,
+  upcomingInterviews,
+  type InterviewRow,
   type RoleEventRow,
   type RoleRow,
   type RoleStatus,
 } from '@jobbotix/shared-types';
 import { Auth } from '../../core/auth';
-import { RolesRepo } from '../../core/data/repos';
+import { InterviewsRepo, RolesRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
 import {
   clockTime,
@@ -83,6 +88,84 @@ interface Reminder {
     </jb-page-header>
 
     <div class="mt-8 flex flex-col gap-10 md:mt-12 md:gap-12">
+      @if (interviews().length) {
+        <section aria-labelledby="interviews-heading">
+          <h2
+            id="interviews-heading"
+            class="flex items-center gap-2 text-lg font-semibold text-ink"
+          >
+            Interviews
+            <span class="jb-count">{{ interviews().length }}</span>
+          </h2>
+          <ul class="mt-3 flex flex-col gap-2.5">
+            @for (x of interviews(); track x.iv.id) {
+              <li
+                class="jb-card flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-5 md:px-5"
+              >
+                <div
+                  class="flex min-w-0 flex-1 items-start gap-3 md:items-center md:gap-4"
+                >
+                  <span
+                    class="grid size-10 shrink-0 place-items-center rounded-full"
+                    [class.bg-brand-tint]="x.kind === 'upcoming'"
+                    [class.text-brand-ink]="x.kind === 'upcoming'"
+                    [class.bg-signal-tint]="x.kind === 'debrief'"
+                    [class.text-signal-ink]="x.kind === 'debrief'"
+                    aria-hidden="true"
+                  >
+                    <jb-icon
+                      [name]="x.kind === 'upcoming' ? 'calendar' : 'pencil'"
+                      [size]="19"
+                    />
+                  </span>
+                  <p class="min-w-0 flex-1 text-sm text-ink-muted">
+                    <a
+                      [routerLink]="['/roles', x.role.id]"
+                      [queryParams]="{ tab: 'interviews' }"
+                      class="font-semibold text-ink no-underline hover:underline"
+                      >{{ label(x.iv) }}</a
+                    >
+                    with {{ x.role.company }}
+                    @if (x.kind === 'upcoming') {
+                      <span class="font-medium text-ink">
+                        · {{ when(x.iv.scheduled_at) }}</span
+                      >
+                      @if (x.iv.interviewers) {
+                        · {{ x.iv.interviewers }}
+                      }
+                    } @else {
+                      ended {{ ago(x.iv.scheduled_at) }}. Write down what they
+                      asked while it is fresh, then send a thank-you note.
+                    }
+                  </p>
+                </div>
+                <div class="flex gap-2 md:shrink-0">
+                  @if (x.kind === 'upcoming' && isLink(x.iv.location)) {
+                    <a
+                      jbButton
+                      class="flex-1 md:flex-none"
+                      [href]="x.iv.location"
+                      target="_blank"
+                      rel="noopener"
+                      >Join link</a
+                    >
+                  }
+                  <a
+                    jbButton="primary"
+                    class="flex-1 md:flex-none"
+                    [routerLink]="['/roles', x.role.id]"
+                    [queryParams]="{
+                      tab: x.kind === 'upcoming' ? 'prep' : 'interviews',
+                    }"
+                    >{{ x.kind === 'upcoming' ? 'Prepare' : 'Debrief' }}</a
+                  >
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
       @if (reminders().length) {
         <section aria-labelledby="waiting-heading">
           <h2
@@ -243,7 +326,9 @@ interface Reminder {
 })
 export class Today {
   protected readonly repo = inject(RolesRepo);
+  private readonly interviewsRepo = inject(InterviewsRepo);
   private readonly auth = inject(Auth);
+  readonly label = interviewLabel;
   private readonly toast = inject(Toast);
   private readonly router = inject(Router);
   private readonly mover = inject(RoleMover);
@@ -358,8 +443,40 @@ export class Today {
     );
   });
 
+  /** Rounds in the next week, then ended rounds with no debrief yet. */
+  readonly interviews = computed(() => {
+    const byId = new Map(this.repo.roles().map((r) => [r.id, r]));
+    const now = new Date();
+    const all = this.interviewsRepo.interviews();
+    const pick = (list: InterviewRow[], kind: 'upcoming' | 'debrief') =>
+      list
+        .map((iv) => ({ iv, kind, role: byId.get(iv.role_id) }))
+        .filter(
+          (x): x is { iv: InterviewRow; kind: typeof kind; role: RoleRow } =>
+            !!x.role,
+        );
+    return [
+      ...pick(upcomingInterviews(all, now, 7), 'upcoming'),
+      ...pick(needsDebrief(all, now), 'debrief'),
+    ];
+  });
+
+  when(iso: string | null) {
+    return iso ? formatInterviewTime(iso) : '';
+  }
+
+  ago(iso: string | null) {
+    return iso ? relativeDay(iso) : '';
+  }
+
+  isLink(s: string) {
+    return /^https?:\/\//i.test(s.trim());
+  }
+
   constructor() {
     void this.repo.load();
+    if (!this.interviewsRepo.loaded())
+      void this.interviewsRepo.load().catch(() => undefined);
   }
 
   async dismiss(id: string) {

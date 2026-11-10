@@ -9,6 +9,7 @@ import {
   normalisePrep,
   type PrepSheet,
   localLetter,
+  localThankYou,
   applyVariant,
   DEFAULT_MODEL,
   FALLBACK_MODELS,
@@ -36,6 +37,7 @@ import type {
   RoleStatus,
   PostingSeenOn,
   PoolPostingFacts,
+  InterviewRow,
   RunSummary,
   SavedViewRow,
   ScreeningAnswerRow,
@@ -58,7 +60,10 @@ import {
   MarketRepo,
   SourcesRepo,
   WatchlistRepo,
+  InterviewsRepo,
   type FollowedCompany,
+  type InterviewInput,
+  type LetterResult,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -70,6 +75,7 @@ import {
   sampleFollows,
   sampleSources,
   sampleUsage,
+  sampleInterviews,
 } from './sample-data';
 
 const STORAGE_KEY = 'jobbotix.demo.v1';
@@ -87,6 +93,7 @@ interface DemoState {
   usage: AiUsageRow[];
   voiceSamples: CoverLetterRow[];
   shares: ShareRow[];
+  interviews: InterviewRow[];
 }
 
 /** Reads the demo state from localStorage; falls back to the sample data. */
@@ -110,6 +117,9 @@ function loadState(): DemoState {
             ? parsed.voiceSamples
             : [],
           shares: Array.isArray(parsed.shares) ? parsed.shares : [],
+          interviews: Array.isArray(parsed.interviews)
+            ? parsed.interviews
+            : sampleInterviews(),
         };
     }
   } catch {
@@ -128,6 +138,7 @@ function loadState(): DemoState {
     usage: [],
     voiceSamples: [],
     shares: [],
+    interviews: sampleInterviews(),
   };
 }
 
@@ -1234,5 +1245,87 @@ export class MemoryWatchlistRepo extends WatchlistRepo {
         .replace(/^-|-$/g, ''),
     };
     return found.slug ? { ...found, name: role.company } : null;
+  }
+}
+
+@Injectable()
+export class MemoryInterviewsRepo extends InterviewsRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+  readonly interviews = computed(() =>
+    [...this.roles.snapshot().interviews].sort((a, b) =>
+      (a.scheduled_at ?? '9999').localeCompare(b.scheduled_at ?? '9999'),
+    ),
+  );
+  readonly loaded = signal(true);
+
+  async load() {
+    /* nothing to fetch */
+  }
+
+  async save(id: string | null, input: InterviewInput) {
+    const now = new Date().toISOString();
+    let saved: InterviewRow | undefined;
+    if (id) {
+      this.roles.patch((s) => {
+        const row = s.interviews.find((i) => i.id === id);
+        if (row) {
+          Object.assign(row, input, { updated_at: now });
+          saved = { ...row };
+        }
+      });
+      if (!saved) throw new Error('Interview not found');
+      return saved;
+    }
+    if (!input.role_id) throw new Error('Pick a role first');
+    const row: InterviewRow = {
+      id: crypto.randomUUID(),
+      user_id: DEMO_USER_ID,
+      role_id: input.role_id,
+      kind: 'screen',
+      title: '',
+      scheduled_at: null,
+      duration_min: 45,
+      location: '',
+      interviewers: '',
+      status: 'scheduled',
+      outcome: '',
+      notes: '',
+      debrief: '',
+      thank_you: '',
+      thank_you_sent_at: null,
+      ...input,
+      created_at: now,
+      updated_at: now,
+    };
+    this.roles.patch((s) => s.interviews.push(row));
+    // what the database trigger does: an early-pipeline role moves to Interview
+    const role = this.roles.roles().find((r) => r.id === row.role_id);
+    if (role && ['new', 'shortlist', 'applied'].includes(role.status))
+      await this.roles.setStatus(role.id, 'interview');
+    return row;
+  }
+
+  async remove(id: string) {
+    this.roles.patch((s) => {
+      s.interviews = s.interviews.filter((i) => i.id !== id);
+    });
+  }
+
+  async draftThankYou(id: string): Promise<LetterResult> {
+    const st = this.roles.snapshot();
+    const iv = st.interviews.find((i) => i.id === id);
+    const role = iv && st.roles.find((r) => r.id === iv.role_id);
+    if (!iv || !role) throw new Error('Interview not found');
+    const master = st.resumes.find((r) => r.is_master);
+    const body = localThankYou({
+      candidate: master ? normaliseResume(master.sections).contact.name : '',
+      company: role.company,
+      roleTitle: role.title,
+      kind: iv.kind,
+      interviewers: iv.interviewers,
+      debrief: iv.debrief,
+    });
+    await this.save(id, { thank_you: body });
+    return { body, method: 'local' };
   }
 }

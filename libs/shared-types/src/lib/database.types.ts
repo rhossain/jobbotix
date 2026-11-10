@@ -1,3 +1,8 @@
+import type {
+  InterviewKind,
+  InterviewOutcome,
+  InterviewStatus,
+} from './interviews';
 import type { PoolPostingFacts } from './posting-health';
 /**
  * Database types for Jobbotix, in the shape `supabase gen types typescript`
@@ -37,7 +42,8 @@ export type AiJob =
   | 'answer'
   | 'prep'
   | 'import'
-  | 'research';
+  | 'research'
+  | 'thank_you';
 export type VariantStatus = 'draft' | 'approved';
 export type RemotePolicy =
   'worldwide' | 'region_locked' | 'hybrid' | 'onsite' | 'unknown';
@@ -261,6 +267,26 @@ export type ScreeningAnswerRow = {
   created_at: string;
 };
 
+export type InterviewRow = {
+  id: string;
+  user_id: string;
+  role_id: string;
+  kind: InterviewKind;
+  title: string;
+  scheduled_at: string | null;
+  duration_min: number;
+  location: string;
+  interviewers: string;
+  status: InterviewStatus;
+  outcome: InterviewOutcome;
+  notes: string;
+  debrief: string;
+  thank_you: string;
+  thank_you_sent_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type ExcludedRoleRow = {
   id: string;
   user_id: string;
@@ -458,6 +484,27 @@ export type Database = {
       role_events: Table<
         RoleEventRow,
         Insertable<RoleEventRow, 'id' | 'role_id' | 'payload' | 'created_at'>
+      >;
+      interviews: Table<
+        InterviewRow,
+        Insertable<
+          InterviewRow,
+          | 'id'
+          | 'kind'
+          | 'title'
+          | 'scheduled_at'
+          | 'duration_min'
+          | 'location'
+          | 'interviewers'
+          | 'status'
+          | 'outcome'
+          | 'notes'
+          | 'debrief'
+          | 'thank_you'
+          | 'thank_you_sent_at'
+          | 'created_at'
+          | 'updated_at'
+        >
       >;
       screening_answers: Table<
         ScreeningAnswerRow,

@@ -581,4 +581,49 @@ begin
   delete from public.search_profiles where name = 'types test';
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Interviews: own rows only, never on another user's role; scheduling one
+-- moves an early-pipeline role to Interview and logs the change.
+-- ---------------------------------------------------------------------------
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare v_role uuid; v_other uuid;
+begin
+  select id into v_role from public.roles where company = 'Opencorp';
+  update public.roles set status = 'applied' where id = v_role;
+  insert into public.interviews (user_id, role_id, kind, scheduled_at)
+  values ('11111111-1111-1111-1111-111111111111', v_role, 'technical', now() + interval '2 days');
+  if (select status from public.roles where id = v_role) <> 'interview' then
+    raise exception 'FAIL: scheduling an interview did not move the role to Interview';
+  end if;
+  if not exists (select 1 from public.role_events where role_id = v_role and kind = 'status_change'
+                   and payload->>'to' = 'interview') then
+    raise exception 'FAIL: the move to Interview was not logged';
+  end if;
+  -- an offer stays an offer
+  update public.roles set status = 'offer' where id = v_role;
+  insert into public.interviews (user_id, role_id, kind) values ('11111111-1111-1111-1111-111111111111', v_role, 'final');
+  if (select status from public.roles where id = v_role) <> 'offer' then
+    raise exception 'FAIL: a later status was moved back to Interview';
+  end if;
+  begin
+    insert into public.interviews (user_id, role_id, kind) values ('11111111-1111-1111-1111-111111111111', v_role, 'nonsense');
+    raise exception 'FAIL: unknown interview kind accepted';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role; reset request.jwt.claim.sub;
+select set_config('test.opencorp', (select id::text from public.roles where company = 'Opencorp'), false);
+set role authenticated;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if exists (select 1 from public.interviews) then raise exception 'FAIL: user 2 sees user 1 interviews'; end if;
+  insert into public.interviews (user_id, role_id)
+  values ('22222222-2222-2222-2222-222222222222', current_setting('test.opencorp')::uuid);
+  raise exception 'FAIL: user 2 attached an interview to user 1''s role';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

@@ -6,8 +6,13 @@ import {
   input,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { postingHealth, type RoleRow } from '@jobbotix/shared-types';
-import { RolesRepo } from '../core/data/repos';
+import {
+  formatInterviewTime,
+  nextInterviewByRole,
+  postingHealth,
+  type RoleRow,
+} from '@jobbotix/shared-types';
+import { InterviewsRepo, RolesRepo } from '../core/data/repos';
 import { Icon, MatchRing } from '../ui';
 import { Viewport } from '../core/viewport';
 import { RelativeDayPipe, TypeLabelPipe } from './format';
@@ -85,6 +90,10 @@ import { StatusSelect } from './status-select';
 
         <div class="mt-3 flex items-center justify-between gap-3">
           <p class="min-w-0 truncate text-xs text-ink-faint">
+            @if (nextInterview(); as at) {
+              <span class="font-medium text-brand-ink">Interview {{ at }}</span>
+              ·
+            }
             @if (role().posted_at) {
               Posted {{ role().posted_at | relativeDay }}
             } @else {
@@ -112,6 +121,15 @@ import { StatusSelect } from './status-select';
 export class RoleCard {
   protected readonly viewport = inject(Viewport);
   private readonly repo = inject(RolesRepo);
+  private readonly interviews = inject(InterviewsRepo);
+  /** "Wed 11 Nov, 12:00" for the next scheduled round, if any. */
+  protected readonly nextInterview = computed(() => {
+    const iv = nextInterviewByRole(
+      this.interviews.interviews(),
+      new Date(),
+    ).get(this.role().id);
+    return iv?.scheduled_at ? formatInterviewTime(iv.scheduled_at) : '';
+  });
   readonly role = input.required<RoleRow>();
   /** Age, relisting and closure warnings from the shared pool. */
   protected readonly health = computed(() =>

@@ -2,6 +2,11 @@
 // text and HTML, so it is unit-tested without a database or Resend.
 
 import { EMPLOYMENT_LABEL, type EmploymentType } from './employment.ts';
+import {
+  formatInterviewTime,
+  interviewLabel,
+  type InterviewKind,
+} from './interviews.ts';
 
 export interface DigestRole {
   id: string;
@@ -67,6 +72,16 @@ export function summariseRuns(
 const runLabel = (r: DigestRun) =>
   (r.runs ?? 1) > 1 ? `Last 24 hours (${r.runs} runs)` : 'Last run';
 
+export interface DigestInterview {
+  role_id: string;
+  kind: InterviewKind;
+  title: string;
+  scheduled_at: string;
+  interviewers: string;
+  company: string;
+  role_title: string;
+}
+
 export interface DigestInput {
   name: string;
   appUrl: string;
@@ -74,6 +89,22 @@ export interface DigestInput {
   run: DigestRun | null;
   newRoles: DigestRole[];
   stale: DigestRole[];
+  /** Scheduled rounds in the next few days, soonest first. */
+  interviews?: DigestInterview[];
+  /** The user's time zone, for interview times. */
+  timezone?: string;
+}
+
+/** True when the round is on the same calendar day as `now` in the zone. */
+function sameDay(iso: string, now: Date, timeZone?: string): boolean {
+  const f = (d: Date) => {
+    try {
+      return d.toLocaleDateString('en-CA', { timeZone });
+    } catch {
+      return d.toLocaleDateString('en-CA', { timeZone: 'UTC' });
+    }
+  };
+  return f(new Date(iso)) === f(now);
 }
 
 export interface DigestEmail {
@@ -107,15 +138,31 @@ export function buildDigest(input: DigestInput): DigestEmail {
   });
   const top = [...input.newRoles].sort((a, b) => b.score - a.score).slice(0, 8);
   const withLetter = top.filter((r) => r.cover_letter.trim()).length;
-  const subject = top.length
-    ? `Job search: ${top.length} new role${top.length === 1 ? '' : 's'} (${date})`
-    : `Job search: nothing new (${date})`;
+  const interviews = input.interviews ?? [];
+  const today = interviews.filter((i) =>
+    sameDay(i.scheduled_at, input.now, input.timezone),
+  ).length;
+  const subject =
+    (today ? `Interview${today === 1 ? '' : 's'} today · ` : '') +
+    (top.length
+      ? `Job search: ${top.length} new role${top.length === 1 ? '' : 's'} (${date})`
+      : `Job search: nothing new (${date})`);
+  const ivLine = (i: DigestInterview) =>
+    `${formatInterviewTime(i.scheduled_at, input.timezone)} · ${interviewLabel(i)} · ${i.role_title} at ${i.company}${i.interviewers ? ` · with ${i.interviewers}` : ''}`;
 
   const lines: string[] = [];
   lines.push(
     `Good morning${input.name ? `, ${input.name.split(' ')[0]}` : ''}.`,
   );
   lines.push('');
+  if (interviews.length) {
+    lines.push('Interviews coming up:');
+    for (const i of interviews) {
+      lines.push(`- ${ivLine(i)}`);
+      lines.push(`  Prep: ${input.appUrl}/roles/${i.role_id}?tab=prep`);
+    }
+    lines.push('');
+  }
   if (top.length) {
     lines.push('New roles, best match first:');
     for (const r of top) {
@@ -178,6 +225,14 @@ export function buildDigest(input: DigestInput): DigestEmail {
   <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #dde2df;border-radius:8px;padding:24px">
     <div style="font:600 18px/1 'IBM Plex Sans',Segoe UI,sans-serif;color:#0b5a5a">Jobbotix</div>
     <p style="font:15px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#1b2026;margin:16px 0 0">${esc(lines[0])}</p>
+    ${
+      interviews.length
+        ? `<h2 style="margin:20px 0 8px;font:600 12px/1 'IBM Plex Sans',Segoe UI,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#737373">Interviews coming up</h2>
+           <ul style="margin:0;padding-left:18px;font:14px/1.5 'IBM Plex Sans',Segoe UI,sans-serif;color:#1b2026">
+           ${interviews.map((i) => `<li style="margin-bottom:6px"><b>${esc(formatInterviewTime(i.scheduled_at, input.timezone))}</b> · ${esc(interviewLabel(i))} · <a href="${esc(input.appUrl)}/roles/${esc(i.role_id)}?tab=prep" style="color:#0b5a5a">${esc(i.role_title)}</a> at ${esc(i.company)}${i.interviewers ? ` · with ${esc(i.interviewers)}` : ''}</li>`).join('')}
+           </ul>`
+        : ''
+    }
     ${
       top.length
         ? `<h2 style="margin:20px 0 4px;font:600 12px/1 'IBM Plex Sans',Segoe UI,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#737373">New roles</h2>

@@ -8,7 +8,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   ATS_LABEL,
   ROLE_STATUS_LABELS,
@@ -52,10 +52,12 @@ import {
 } from '../../ui';
 import { CompanyPanel } from './company-panel';
 import { PrepPanel } from './prep-panel';
+import { InterviewsPanel } from './interviews-panel';
 import { VariantPanel } from './variant-panel';
 import { wordCount } from '@jobbotix/shared-types';
 
-type Tab = 'fit' | 'company' | 'resume' | 'prep' | 'posting' | 'activity';
+type Tab =
+  'fit' | 'company' | 'resume' | 'prep' | 'interviews' | 'posting' | 'activity';
 
 @Component({
   selector: 'jb-role-detail',
@@ -70,6 +72,7 @@ type Tab = 'fit' | 'company' | 'resume' | 'prep' | 'posting' | 'activity';
     MatchRing,
     ModelPicker,
     PrepPanel,
+    InterviewsPanel,
     RelativeDayPipe,
     RouterLink,
     ShareButton,
@@ -539,6 +542,9 @@ type Tab = 'fit' | 'company' | 'resume' | 'prep' | 'posting' | 'activity';
                 @case ('prep') {
                   <jb-prep-panel [role]="r" />
                 }
+                @case ('interviews') {
+                  <jb-interviews-panel [role]="r" />
+                }
                 @case ('posting') {
                   <div class="flex flex-col gap-5">
                     <section class="jb-card p-5">
@@ -796,6 +802,7 @@ export class RoleDetail {
     { id: 'company', label: 'Company', icon: 'building' },
     { id: 'resume', label: 'Resume', icon: 'file-text' },
     { id: 'prep', label: 'Prep', icon: 'lightbulb' },
+    { id: 'interviews', label: 'Interviews', icon: 'calendar' },
     { id: 'posting', label: 'Posting', icon: 'briefcase' },
     { id: 'activity', label: 'Activity', icon: 'clock' },
   ];
@@ -899,6 +906,10 @@ export class RoleDetail {
 
   constructor() {
     if (!this.profileRepo.loaded()) void this.profileRepo.load();
+    // ?tab=interviews (from Today and the digest) opens that tab
+    const wanted = inject(ActivatedRoute).snapshot.queryParamMap.get('tab');
+    if (wanted && this.tabs.some((t) => t.id === wanted))
+      this.tab.set(wanted as Tab);
     inject(ShellState).usePageAction({
       label: 'Open posting',
       icon: 'arrow-up-right',

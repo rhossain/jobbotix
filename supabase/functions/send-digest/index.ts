@@ -13,6 +13,7 @@ import {
   digestDue,
   summariseRuns,
   type DigestRole,
+  type DigestInterview,
   type DigestRun,
 } from '../_shared/digest.ts';
 
@@ -85,7 +86,7 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    const [newRoles, stale, run] = await Promise.all([
+    const [newRoles, stale, run, interviews] = await Promise.all([
       admin
         .from('roles')
         .select('*')
@@ -112,7 +113,33 @@ Deno.serve(async (req) => {
         .eq('kind', 'run')
         .order('created_at', { ascending: false })
         .limit(60),
+      admin
+        .from('interviews')
+        .select(
+          'role_id, kind, title, scheduled_at, interviewers, roles(company, title)',
+        )
+        .eq('user_id', userId)
+        .eq('status', 'scheduled')
+        .gte('scheduled_at', now.toISOString())
+        .lte(
+          'scheduled_at',
+          new Date(now.getTime() + 3 * 86_400_000).toISOString(),
+        )
+        .order('scheduled_at', { ascending: true })
+        .limit(10),
     ]);
+    const upcoming: DigestInterview[] = (
+      (interviews.data ?? []) as unknown as (Omit<
+        DigestInterview,
+        'company' | 'role_title'
+      > & {
+        roles: { company: string; title: string } | null;
+      })[]
+    ).map(({ roles, ...i }) => ({
+      ...i,
+      company: roles?.company ?? '',
+      role_title: roles?.title ?? '',
+    }));
 
     const digestRun: DigestRun | null = summariseRuns(run.data ?? [], now);
 
@@ -123,6 +150,8 @@ Deno.serve(async (req) => {
       run: digestRun,
       newRoles: (newRoles.data ?? []) as DigestRole[],
       stale: (stale.data ?? []) as DigestRole[],
+      interviews: upcoming,
+      timezone: p.timezone,
     });
 
     const res = await fetch('https://api.resend.com/emails', {
