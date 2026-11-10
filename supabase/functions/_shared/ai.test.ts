@@ -10,6 +10,11 @@ import {
   runAi,
   type ConnectionRow,
 } from './ai.ts';
+import {
+  creditNote,
+  readReservation,
+  setPlatformKeyForTests,
+} from './credits.ts';
 import { PROVIDERS } from './providers.ts';
 
 // --- a provider on the other end of fetch -----------------------------------
@@ -84,6 +89,8 @@ function db(rows: Partial<ConnectionRow>[], keys: Record<string, string> = {}) {
   })) as ConnectionRow[];
   const usage: Record<string, unknown>[] = [];
   const patches: { id: string; values: Record<string, unknown> }[] = [];
+  const credits: { fn: string; args: Record<string, unknown> }[] = [];
+  const reservations: Record<string, unknown>[] = [];
   const admin = {
     from(table: string) {
       if (table === 'ai_usage')
@@ -111,14 +118,34 @@ function db(rows: Partial<ConnectionRow>[], keys: Record<string, string> = {}) {
         }),
       };
     },
-    rpc: (_fn: string, args: { p_name: string }) =>
-      Promise.resolve({
-        data: keys[args.p_name] ?? `key-for-${args.p_name}`,
+    rpc: (fn: string, args: Record<string, unknown>) => {
+      if (fn === 'ai_reserve_credits') {
+        credits.push({ fn, args });
+        const next = reservations.shift() ?? { ok: false, reason: 'off' };
+        return Promise.resolve({ data: next, error: null });
+      }
+      if (fn === 'ai_settle_credits' || fn === 'ai_release_credits') {
+        credits.push({ fn, args });
+        return Promise.resolve({ data: 41, error: null });
+      }
+      const name = String(args['p_name']);
+      return Promise.resolve({
+        data: keys[name] ?? `key-for-${name}`,
         error: null,
-      }),
+      });
+    },
   };
-  // deno-lint-ignore no-explicit-any
-  return { admin: admin as any, usage, patches, connections };
+  return {
+    // deno-lint-ignore no-explicit-any
+    admin: admin as any,
+    usage,
+    patches,
+    connections,
+    /** Calls to the credit functions, in order. */
+    credits,
+    /** What ai_reserve_credits answers, one per call ("off" when empty). */
+    reservations,
+  };
 }
 
 // --- durations and retry times ----------------------------------------------
@@ -485,6 +512,7 @@ Deno.test(
         value: 'Dear team',
         text: 'Dear team',
         provider: 'gemini',
+        route: 'own',
         model: 'gemini-3.8-flash',
       });
       assertEquals(p.sent.length, 1);
@@ -745,3 +773,276 @@ Deno.test(
     }
   },
 );
+
+// --- the Pro route: Jobbotix's own key, paid for with credits ----------------
+
+const HOLD = {
+  ok: true,
+  hold: 'h1',
+  credits: 3,
+  model: 'claude-sonnet-5-5',
+  first: true,
+  balance: 44,
+};
+const fns = (d: { credits: { fn: string }[] }) => d.credits.map((c) => c.fn);
+
+Deno.test(
+  'runAi: without a platform key the credit functions are never called',
+  async () => {
+    const d = db([{ provider: 'gemini' }]);
+    const p = provider(openAiOk('hello'));
+    try {
+      const r = await runAi(d.admin, 'u', call, { job: 'letter' });
+      assert(r.ok && r.route === 'own');
+      assertEquals(d.credits, []);
+    } finally {
+      p.restore();
+    }
+  },
+);
+
+Deno.test(
+  'runAi: a paying account spends credits first, on the model the hold names',
+  async () => {
+    setPlatformKeyForTests('sk-ant-platform');
+    const d = db([{ provider: 'gemini' }]);
+    d.reservations.push(HOLD);
+    const p = provider(claudeOk('Dear team'));
+    try {
+      const r = await runAi(d.admin, 'u', call, { job: 'letter' });
+      assert(r.ok);
+      assertEquals(
+        r.ok && [r.route, r.provider, r.model, r.credits, r.balance],
+        ['platform', 'anthropic', 'claude-sonnet-5-5', 3, 41],
+      );
+      assertEquals(p.sent.length, 1);
+      assertEquals(p.sent[0].headers['x-api-key'], 'sk-ant-platform');
+      assertEquals(fns(d), ['ai_reserve_credits', 'ai_settle_credits']);
+      assertEquals(d.credits[0].args, {
+        p_user: 'u',
+        p_job: 'letter',
+        p_first_only: true,
+      });
+      assertEquals(d.credits[1].args, {
+        p_hold: 'h1',
+        p_tokens_in: 50,
+        p_tokens_out: 10,
+        p_web_searches: 0,
+        p_charge: true,
+      });
+      // the usage row is written by the settle, not here
+      assertEquals(d.usage, []);
+    } finally {
+      p.restore();
+      setPlatformKeyForTests(null);
+    }
+  },
+);
+
+Deno.test(
+  'runAi: when the platform call fails the credits go back and the own key answers',
+  async () => {
+    setPlatformKeyForTests('sk-ant-platform');
+    const d = db([{ provider: 'groq' }]);
+    d.reservations.push(HOLD);
+    const p = provider(
+      { status: 529, body: { error: { message: 'Overloaded' } } },
+      openAiOk('from groq'),
+    );
+    try {
+      const r = await runAi(d.admin, 'u', call, { job: 'letter' });
+      assert(r.ok && r.route === 'own' && r.provider === 'groq');
+      assertEquals(fns(d), ['ai_reserve_credits', 'ai_release_credits']);
+    } finally {
+      p.restore();
+      setPlatformKeyForTests(null);
+    }
+  },
+);
+
+Deno.test(
+  'runAi: an unreadable platform answer is costed but not charged',
+  async () => {
+    setPlatformKeyForTests('sk-ant-platform');
+    const d = db([]);
+    d.reservations.push(HOLD);
+    const p = provider(claudeOk('not json'), claudeOk('still not json'));
+    try {
+      const r = await runAi(d.admin, 'u', call, {
+        job: 'tailor',
+        parse: () => null,
+      });
+      assert(
+        !r.ok &&
+          r.reason === 'failed' &&
+          r.message.includes('no credits were used'),
+      );
+      assertEquals(fns(d), ['ai_reserve_credits', 'ai_settle_credits']);
+      assertEquals(d.credits[1].args['p_charge'], false);
+      assertEquals(d.credits[1].args['p_tokens_in'], 100); // both attempts
+    } finally {
+      p.restore();
+      setPlatformKeyForTests(null);
+    }
+  },
+);
+
+Deno.test(
+  'runAi: a Free account uses its own key first and trial credits as the fallback',
+  async () => {
+    setPlatformKeyForTests('sk-ant-platform');
+    const d = db([{ provider: 'gemini' }]);
+    d.reservations.push(
+      { ok: false, reason: 'fallback', first: false },
+      { ...HOLD, first: false },
+    );
+    const p = provider(
+      { status: 500, body: { error: { message: 'boom' } } },
+      claudeOk('from credits'),
+    );
+    try {
+      const r = await runAi(d.admin, 'u', call, { job: 'letter' });
+      assert(r.ok && r.route === 'platform');
+      assertEquals(fns(d), [
+        'ai_reserve_credits',
+        'ai_reserve_credits',
+        'ai_settle_credits',
+      ]);
+      assertEquals(d.credits[1].args['p_first_only'], false);
+    } finally {
+      p.restore();
+      setPlatformKeyForTests(null);
+    }
+  },
+);
+
+Deno.test(
+  'runAi: a Free account whose own key answers never holds credits',
+  async () => {
+    setPlatformKeyForTests('sk-ant-platform');
+    const d = db([{ provider: 'gemini' }]);
+    d.reservations.push({ ok: false, reason: 'fallback', first: false });
+    const p = provider(openAiOk('mine'));
+    try {
+      const r = await runAi(d.admin, 'u', call, { job: 'letter' });
+      assert(r.ok && r.route === 'own');
+      assertEquals(fns(d), ['ai_reserve_credits']);
+    } finally {
+      p.restore();
+      setPlatformKeyForTests(null);
+    }
+  },
+);
+
+Deno.test(
+  "runAi: a picked model is the account's own, so its connection goes before credits",
+  async () => {
+    setPlatformKeyForTests('sk-ant-platform');
+    const d = db([{ provider: 'groq' }]);
+    const p = provider(openAiOk('picked'));
+    try {
+      const r = await runAi(d.admin, 'u', call, {
+        job: 'letter',
+        choice: 'groq:llama-3.3-70b-versatile',
+      });
+      assert(r.ok && r.route === 'own');
+      assertEquals(d.credits, []);
+    } finally {
+      p.restore();
+      setPlatformKeyForTests(null);
+    }
+  },
+);
+
+Deno.test(
+  'runAi: out of credits with no key says so; with a failing key it is added to the story',
+  async () => {
+    setPlatformKeyForTests('sk-ant-platform');
+    const refusal = {
+      ok: false,
+      reason: 'no_credits',
+      first: true,
+      needed: 15,
+      balance: 2,
+    };
+    const none = db([]);
+    none.reservations.push(refusal);
+    const p = provider({ status: 500, body: { error: { message: 'boom' } } });
+    try {
+      const r = await runAi(none.admin, 'u', call, { job: 'research' });
+      assertEquals(r, {
+        ok: false,
+        reason: 'no_credits',
+        message:
+          'This needs 15 AI credits and you have 2. Add credits, or connect your own key in Settings.',
+      });
+      assertEquals(p.sent.length, 0);
+      assertEquals(fns(none), ['ai_reserve_credits']); // not asked twice
+
+      const failing = db([{ provider: 'groq' }]);
+      failing.reservations.push(refusal);
+      const s = await runAi(failing.admin, 'u', call, { job: 'research' });
+      assert(!s.ok && s.reason === 'failed');
+      assert(!s.ok && s.message.startsWith('Groq could not answer (500)'));
+      assert(!s.ok && s.message.endsWith('connect your own key in Settings.'));
+    } finally {
+      p.restore();
+      setPlatformKeyForTests(null);
+    }
+  },
+);
+
+Deno.test('runAi: the route being off or own-key-only is silent', async () => {
+  setPlatformKeyForTests('sk-ant-platform');
+  for (const reason of ['off', 'own_only']) {
+    const d = db([]);
+    d.reservations.push({ ok: false, reason, first: false });
+    assertEquals(await runAi(d.admin, 'u', call, { job: 'letter' }), {
+      ok: false,
+      reason: 'no_connection',
+      message: '',
+    });
+  }
+  setPlatformKeyForTests(null);
+});
+
+Deno.test(
+  'runAi: platform false never touches credits (a caller with its own plan)',
+  async () => {
+    setPlatformKeyForTests('sk-ant-platform');
+    const d = db([]);
+    const r = await runAi(d.admin, 'u', call, {
+      job: 'research',
+      platform: false,
+    });
+    assert(!r.ok && r.reason === 'no_connection');
+    assertEquals(d.credits, []);
+    setPlatformKeyForTests(null);
+  },
+);
+
+Deno.test('creditNote: says what is missing and what to do', () => {
+  assertEquals(creditNote(readReservation({ ok: false, reason: 'off' })), '');
+  assert(
+    creditNote(
+      readReservation({ ok: false, reason: 'daily_cap', resets_at: 'x' }),
+    ).includes('resets at midnight UTC'),
+  );
+  assert(
+    creditNote(readReservation({ ok: false, reason: 'budget' })).includes(
+      'paused',
+    ),
+  );
+  assert(
+    creditNote(
+      readReservation({ ok: false, reason: 'no_credits', needed: 0 }),
+    ).startsWith('You have no AI credits left'),
+  );
+  // anything unexpected from the database counts as off
+  assertEquals(readReservation(null), {
+    ok: false,
+    reason: 'off',
+    first: false,
+  });
+  assertEquals(readReservation({ ok: true }).ok, false);
+});

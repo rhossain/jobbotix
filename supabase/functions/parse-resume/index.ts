@@ -79,6 +79,13 @@ Deno.serve(
       });
     if (ai.reason === 'rate_limited')
       return json(429, { error: ai.message, retryAt: ai.retryAt });
+    // No key of its own, and credits could not be used: nothing was tried.
+    if (
+      ai.reason === 'no_credits' ||
+      ai.reason === 'daily_cap' ||
+      ai.reason === 'budget'
+    )
+      return json(422, { error: ai.message });
     return json(502, {
       error:
         ai.reason === 'bad_output'

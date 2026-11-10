@@ -21,6 +21,14 @@ import {
   type ProviderId,
   type ProviderInfo,
 } from './providers.ts';
+import {
+  creditNote,
+  platformKey,
+  release,
+  reserve,
+  settle,
+  type Reservation,
+} from './credits.ts';
 import { readVaultSecret } from './vault.ts';
 
 export type AiJobName =
@@ -376,6 +384,8 @@ export interface RunOptions<T> {
   skip?: ProviderId[];
   /** Connections loaded earlier in the request, to save a query. */
   connections?: ConnectionRow[];
+  /** false: never use Jobbotix's own key and the account's credits. */
+  platform?: boolean;
   now?: () => number;
 }
 
@@ -386,11 +396,28 @@ export type RunResult<T> =
       text: string;
       provider: ProviderId;
       model: string;
+      /** Whose key answered: the account's own, or Jobbotix's (on credits). */
+      route: 'own' | 'platform';
+      /** Credits the call cost (platform route). */
+      credits?: number;
+      /** Credits left after it, when known. */
+      balance?: number | null;
     }
   | {
       ok: false;
-      /** no_connection: nothing to try. Otherwise every connection failed. */
-      reason: 'no_connection' | 'rate_limited' | 'bad_output' | 'failed';
+      /**
+       * no_connection: nothing to try. no_credits, daily_cap, budget: the
+       * account has no key of its own and credits could not be used.
+       * Otherwise every route that was tried failed.
+       */
+      reason:
+        | 'no_connection'
+        | 'rate_limited'
+        | 'bad_output'
+        | 'failed'
+        | 'no_credits'
+        | 'daily_cap'
+        | 'budget';
       /** One plain sentence for the user; '' when there is no connection. */
       message: string;
       retryAt?: number;
@@ -424,7 +451,135 @@ function failureMessage(
  * Never throws; a caller without a usable reply falls back to its local
  * draft and can show `message`.
  */
+/**
+ * One AI job for one account. A paying account's credits go first (on
+ * Jobbotix's own key), then the account's own connections in order, then
+ * credits as the fallback of an account that has no working key (a Free
+ * account's trial credits). A model picked for this generation is the
+ * account's own, so its connection goes before any credits.
+ */
 export async function runAi<T = string>(
+  admin: Admin,
+  userId: string,
+  call: AiCall,
+  opts: RunOptions<T>,
+): Promise<RunResult<T>> {
+  const key = opts.platform === false ? '' : platformKey();
+  if (!key) return await runOwn(admin, userId, call, opts);
+
+  const picked = parseModelChoice(opts.choice);
+  const notes: string[] = [];
+  let refused: Reservation | null = null;
+  let triedCredits = false;
+
+  if (!picked) {
+    const r = await reserve(admin, userId, opts.job, true);
+    if (r.ok) {
+      triedCredits = true;
+      const res = await runPlatform(admin, key, r, call, opts);
+      if (res.ok) return res;
+      notes.push(res.message);
+    } else if (r.reason !== 'fallback') {
+      // Asked and refused: asking again after the own keys changes nothing.
+      triedCredits = true;
+      refused = r;
+    }
+  }
+
+  const own = await runOwn(admin, userId, call, opts);
+  if (own.ok) return own;
+
+  if (!triedCredits) {
+    const r = await reserve(admin, userId, opts.job);
+    if (r.ok) {
+      const res = await runPlatform(admin, key, r, call, opts);
+      if (res.ok) return res;
+      notes.push(res.message);
+    } else refused = r;
+  }
+
+  const credit = refused ? creditNote(refused) : '';
+  if (own.reason === 'no_connection') {
+    // No key of its own: what happened to the credits is the whole story.
+    if (notes.length)
+      return { ok: false, reason: 'failed', message: notes.join(' ') };
+    if (credit && refused && !refused.ok)
+      return {
+        ok: false,
+        reason: refused.reason as 'no_credits' | 'daily_cap' | 'budget',
+        message: credit,
+      };
+    return own;
+  }
+  return {
+    ...own,
+    message: [...notes, own.message, credit].filter(Boolean).join(' '),
+  };
+}
+
+/** The call on Jobbotix's own key, against a hold of the account's credits. */
+async function runPlatform<T>(
+  admin: Admin,
+  key: string,
+  hold: Extract<Reservation, { ok: true }>,
+  call: AiCall,
+  opts: RunOptions<T>,
+): Promise<RunResult<T>> {
+  const now = opts.now ?? Date.now;
+  let tokensIn = 0;
+  let tokensOut = 0;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const answer = await callProvider(
+      'anthropic',
+      key,
+      hold.model,
+      attempt === 0 ? call : { ...call, prompt: call.prompt + RETRY_NOTE },
+      now(),
+    );
+    if (!answer.ok) {
+      // What went wrong with Jobbotix's own key is for the logs, not the user.
+      console.error(
+        `platform ${opts.job} on ${hold.model} failed (${answer.kind} ${answer.status}): ${answer.message}`,
+      );
+      if (tokensIn || tokensOut)
+        await settle(admin, hold.hold, { tokensIn, tokensOut }, false);
+      else await release(admin, hold.hold);
+      return {
+        ok: false,
+        reason: 'failed',
+        message: 'Jobbotix AI could not answer just now; no credits were used.',
+      };
+    }
+    tokensIn += answer.tokensIn;
+    tokensOut += answer.tokensOut;
+    const value = opts.parse
+      ? opts.parse(answer.text)
+      : (answer.text as unknown as T);
+    if (value !== null && value !== undefined && value !== '') {
+      const balance = await settle(admin, hold.hold, { tokensIn, tokensOut });
+      return {
+        ok: true,
+        value: value as T,
+        text: answer.text,
+        provider: 'anthropic',
+        model: hold.model,
+        route: 'platform',
+        credits: hold.credits,
+        balance,
+      };
+    }
+  }
+  await settle(admin, hold.hold, { tokensIn, tokensOut }, false);
+  return {
+    ok: false,
+    reason: 'bad_output',
+    message:
+      'Jobbotix AI did not answer in a form that could be used; no credits were used.',
+  };
+}
+
+/** The account's own connections, in order. */
+async function runOwn<T>(
   admin: Admin,
   userId: string,
   call: AiCall,
@@ -539,6 +694,7 @@ export async function runAi<T = string>(
           text: answer.text,
           provider: answer.provider,
           model: answer.model,
+          route: 'own',
         };
       if (attempt === 1) {
         unreadable = true;

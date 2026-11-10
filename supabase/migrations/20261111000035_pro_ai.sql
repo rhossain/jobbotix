@@ -124,12 +124,15 @@ create trigger profiles_trial_credits
 --   budget       this month's platform budget is used up
 --   no_credits   not enough credits for this job
 --   daily_cap    the account reached its daily limit
+--   fallback     asked with p_first_only, and credits are this account's
+--                fallback rather than its first choice
 -- `first` says whether credits should be tried before the account's own
 -- connections: yes on a paid plan, no on Free (where trial credits are the
 -- fallback for an account without a working key).
 -- ---------------------------------------------------------------------------
-create or replace function public.ai_reserve_credits(p_user uuid, p_job public.ai_job)
-returns jsonb language plpgsql security definer set search_path = public as $$
+create or replace function public.ai_reserve_credits(
+  p_user uuid, p_job public.ai_job, p_first_only boolean default false
+) returns jsonb language plpgsql security definer set search_path = public as $$
 declare
   v_cfg jsonb := coalesce((select value from public.settings where key = 'pro_ai'), '{}'::jsonb);
   v_price int := coalesce((v_cfg -> 'credit_prices' ->> p_job::text)::int, -1);
@@ -162,6 +165,11 @@ begin
   v_paid := (public.entitlements_for(p_user) ->> 'plan') <> 'free';
   if v_route = 'own' then
     return jsonb_build_object('ok', false, 'reason', 'own_only', 'first', false);
+  end if;
+  -- The caller is asking before it tries the account's own keys, and this
+  -- account's credits are the fallback: nothing is held yet.
+  if p_first_only and not v_paid then
+    return jsonb_build_object('ok', false, 'reason', 'fallback', 'first', false);
   end if;
 
   -- Holds whose call never came back are given back.
@@ -209,15 +217,18 @@ begin
     'ok', true, 'hold', v_hold, 'credits', v_price, 'model', v_model,
     'first', v_paid, 'balance', v_balance - v_price);
 end $$;
-revoke execute on function public.ai_reserve_credits(uuid, public.ai_job) from public, anon, authenticated;
-grant execute on function public.ai_reserve_credits(uuid, public.ai_job) to service_role;
+revoke execute on function public.ai_reserve_credits(uuid, public.ai_job, boolean) from public, anon, authenticated;
+grant execute on function public.ai_reserve_credits(uuid, public.ai_job, boolean) to service_role;
 
 -- ---------------------------------------------------------------------------
 -- Settle: the model answered. Logs the call (with its cost, for the budget),
 -- turns the hold into a spend, and returns the balance. Safe to call twice.
+-- With p_charge false the call is logged and costed but the credits go back:
+-- the model was paid for an answer Jobbotix could not use.
 -- ---------------------------------------------------------------------------
 create or replace function public.ai_settle_credits(
-  p_hold uuid, p_tokens_in int, p_tokens_out int, p_web_searches int default 0
+  p_hold uuid, p_tokens_in int, p_tokens_out int, p_web_searches int default 0,
+  p_charge boolean default true
 ) returns int language plpgsql security definer set search_path = public as $$
 declare
   v_cfg jsonb := coalesce((select value from public.settings where key = 'pro_ai'), '{}'::jsonb);
@@ -254,6 +265,7 @@ begin
   -- back) is still paid for as far as the credits are there, since the answer
   -- was delivered; the balance never goes below zero.
   v_charge := case
+    when not coalesce(p_charge, true) then 0
     when v_h.status = 'held' and v_h.expires_at > now() then v_h.credits
     else least(v_h.credits, greatest(public.credit_balance(v_h.user_id), 0)) end;
   if v_charge > 0 then
@@ -263,8 +275,8 @@ begin
   update public.credit_holds set status = 'settled', closed_at = now() where id = p_hold;
   return public.credit_balance(v_h.user_id);
 end $$;
-revoke execute on function public.ai_settle_credits(uuid, int, int, int) from public, anon, authenticated;
-grant execute on function public.ai_settle_credits(uuid, int, int, int) to service_role;
+revoke execute on function public.ai_settle_credits(uuid, int, int, int, boolean) from public, anon, authenticated;
+grant execute on function public.ai_settle_credits(uuid, int, int, int, boolean) to service_role;
 
 -- Release: the call failed, the credits go back. Safe to call twice, and a
 -- settled hold stays settled.

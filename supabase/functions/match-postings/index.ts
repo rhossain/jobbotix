@@ -13,6 +13,7 @@
 
 import { FAST_MODEL } from '../_shared/models.ts';
 import { loadConnections, runAi } from '../_shared/ai.ts';
+import { platformKey } from '../_shared/credits.ts';
 import { alertWorthy, buildAlert, type AlertRole } from '../_shared/alert.ts';
 import { json, requireCronSecret, serviceClient } from '../_shared/auth.ts';
 import { normaliseUrl, pairKey } from '../_shared/dedupe.ts';
@@ -306,8 +307,11 @@ async function matchForUser(
   // Model scoring only for accounts whose plan covers AI (everyone while
   // billing is off); the rule-based score above is never gated.
   const connections = top.length ? await loadConnections(admin, p.user_id) : [];
+  // (An account without a key can still be scored on credits, where the Pro
+  // route exists; runAi finds out.)
   const mayUseAi =
-    connections.length > 0 &&
+    top.length > 0 &&
+    (connections.length > 0 || !!platformKey()) &&
     can(await loadEntitlements(admin, p.user_id), 'ai');
   if (mayUseAi) {
     // Free tiers allow only a few calls a minute, so one at a time there;
@@ -339,9 +343,15 @@ async function matchForUser(
             },
           );
           if (!ai.ok) {
-            // Every connection is at its rate limit: the rest of this run
-            // keeps the rule-based score and the next run tries again.
-            if (ai.reason === 'rate_limited') limited = true;
+            // Nothing can answer for this account right now (every
+            // connection at its rate limit, or no key and no credits to
+            // use): the rest of this run keeps the rule-based score and
+            // the next run tries again.
+            if (ai.reason !== 'failed' && ai.reason !== 'bad_output')
+              limited = true;
+            // Having no key and no credits is not a failure to report.
+            if (ai.reason === 'no_connection' || ai.reason === 'no_credits')
+              return;
             summary.aiFailed++;
             summary.aiError ??= ai.message;
             return;

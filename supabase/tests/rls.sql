@@ -1297,7 +1297,24 @@ begin
   if public.ai_settle_credits(h, 100, 100) <> 0 then raise exception 'FAIL: a late answer overdrew the account'; end if;
   if (select sum(delta) from public.credit_ledger where user_id = pro) <> 0 then raise exception 'FAIL: ledger below or above zero'; end if;
 
+  -- An answer Jobbotix could not read: logged and costed, not charged.
+  perform public.admin_set_pro_ai_as_service('{"credit_prices": {"message": 0}}');
+  insert into public.credit_ledger (user_id, delta, kind, reason) values (pro, 10, 'admin', 'test');
+  r := public.ai_reserve_credits(pro, 'letter');
+  if public.ai_settle_credits((r ->> 'hold')::uuid, 900, 50, 0, false) <> 10 then raise exception 'FAIL: an unusable answer was charged'; end if;
+  if (select count(*) from public.ai_usage where user_id = pro and route = 'platform' and tokens_in = 900 and cost_usd > 0) <> 1 then
+    raise exception 'FAIL: an unusable answer was not costed';
+  end if;
+  insert into public.credit_ledger (user_id, delta, kind, reason) values (pro, -10, 'expire', 'test');
+
   -- Free: trial credits are the fallback, not the first choice.
+  r := public.ai_reserve_credits(free, 'letter', true);
+  if (r ->> 'ok')::boolean or r ->> 'reason' <> 'fallback' or exists (select 1 from public.credit_holds where user_id = free) then
+    raise exception 'FAIL: a Free account was offered credits first: %', r;
+  end if;
+  r := public.ai_reserve_credits(pro, 'score', true);
+  if not (r ->> 'ok')::boolean then raise exception 'FAIL: a Pro account was not offered credits first: %', r; end if;
+  perform public.ai_release_credits((r ->> 'hold')::uuid);
   r := public.ai_reserve_credits(free, 'letter');
   if not (r ->> 'ok')::boolean or (r ->> 'first')::boolean then raise exception 'FAIL: Free reserve: %', r; end if;
   perform public.ai_release_credits((r ->> 'hold')::uuid);

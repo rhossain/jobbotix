@@ -34,6 +34,13 @@ import {
 } from '../_shared/company.ts';
 import { withCors } from '../_shared/cors.ts';
 import { normaliseCompany } from '../_shared/sources/normalise.ts';
+import {
+  creditNote,
+  platformKey,
+  release,
+  reserve,
+  settle,
+} from '../_shared/credits.ts';
 import { requireAiJob } from '../_shared/gate.ts';
 import {
   parseModelChoice,
@@ -169,8 +176,84 @@ Deno.serve(
     const picked = parseModelChoice(body.model);
     const failures: string[] = [];
 
-    // 2. Anthropic with web search, unless a model of another provider was
-    //    picked for this run
+    const logOwn = (model: string, u: Usage) =>
+      u.tokensIn || u.tokensOut || u.webSearches
+        ? admin.from('ai_usage').insert({
+            user_id: userId,
+            job: 'research',
+            provider: 'anthropic',
+            model,
+            tokens_in: u.tokensIn,
+            tokens_out: u.tokensOut,
+            web_searches: u.webSearches,
+            cost_usd: 0,
+          })
+        : Promise.resolve();
+
+    /** Claude with web search; without it when the key's organisation has none. */
+    const withClaude = async (apiKey: string, model: string) => {
+      const first = await askModel(apiKey, model, role, text, true);
+      const noSearch = 'searchUnavailable' in first.result;
+      const second = noSearch
+        ? await askModel(apiKey, model, role, text, false)
+        : null;
+      const result = second ? second.result : first.result;
+      const usage: Usage = {
+        tokensIn: first.usage.tokensIn + (second?.usage.tokensIn ?? 0),
+        tokensOut: first.usage.tokensOut + (second?.usage.tokensOut ?? 0),
+        webSearches: first.usage.webSearches + (second?.usage.webSearches ?? 0),
+      };
+      return { result, usage, webSearch: !noSearch };
+    };
+
+    // 2. Credits: Jobbotix's own key with web search. First for a paying
+    //    account (unless a model of its own was picked); the fallback, in
+    //    step 5, for an account on trial credits.
+    const platform = platformKey();
+    let creditsAsked = false;
+    let refusal = '';
+    const onCredits = async (firstOnly: boolean): Promise<Response | null> => {
+      const hold = await reserve(admin, userId, 'research', firstOnly);
+      if (!hold.ok) {
+        if (hold.reason !== 'fallback') {
+          creditsAsked = true;
+          refusal = creditNote(hold);
+        }
+        return null;
+      }
+      creditsAsked = true;
+      const out = await withClaude(platform, hold.model);
+      if ('research' in out.result) {
+        await settle(admin, hold.hold, out.usage);
+        return await save(
+          merge(out.result.research, {
+            provider: 'anthropic',
+            model: hold.model,
+            webSearch: out.webSearch,
+          }),
+          false,
+        );
+      }
+      // The reason is about Jobbotix's own key: for the logs, not the user.
+      console.error(
+        'platform research failed:',
+        'failed' in out.result ? out.result.failed : 'web search unavailable',
+      );
+      if (out.usage.tokensIn || out.usage.tokensOut)
+        await settle(admin, hold.hold, out.usage, false);
+      else await release(admin, hold.hold);
+      failures.push(
+        'Jobbotix AI could not finish the research just now; no credits were used.',
+      );
+      return null;
+    };
+    if (platform && !picked) {
+      const done = await onCredits(true);
+      if (done) return done;
+    }
+
+    // 3. The account's own Anthropic key with web search, unless a model of
+    //    another provider was picked for this run
     const claude = connections.find((c) => c.provider === 'anthropic');
     const claudeLimited =
       !!claude?.limited_until && Date.parse(claude.limited_until) > Date.now();
@@ -184,42 +267,24 @@ Deno.serve(
         const model = resolveModel('anthropic', claude.model, {
           choice: body.model,
         });
-        const withSearch = await askModel(
-          admin,
-          userId,
-          apiKey,
-          model,
-          role,
-          text,
-          true,
-        );
-        let result = withSearch;
-        let note: string | undefined;
-        if ('searchUnavailable' in withSearch) {
-          result = await askModel(
-            admin,
-            userId,
-            apiKey,
-            model,
-            role,
-            text,
-            false,
-          );
-          note =
-            'Web search is not enabled for your Anthropic key, so this is from the posting and what the model already knows. Enable web search for your organisation in the Anthropic Console for fresh, sourced research.';
-        }
-        if ('research' in result)
+        const out = await withClaude(apiKey, model);
+        await logOwn(model, out.usage);
+        if ('research' in out.result)
           return await save(
-            merge(result.research, {
+            merge(out.result.research, {
               provider: 'anthropic',
               model,
-              webSearch: !('searchUnavailable' in withSearch),
-              note,
+              webSearch: out.webSearch,
+              note: out.webSearch
+                ? undefined
+                : 'Web search is not enabled for your Anthropic key, so this is from the posting and what the model already knows. Enable web search for your organisation in the Anthropic Console for fresh, sourced research.',
             }),
             false,
           );
         failures.push(
-          'failed' in result ? result.failed : 'The Anthropic call failed',
+          'failed' in out.result
+            ? out.result.failed
+            : 'The Anthropic call failed',
         );
       } else
         failures.push(
@@ -227,7 +292,7 @@ Deno.serve(
         );
     }
 
-    // 3. Any other connection: the model answers without searching the web
+    // 4. Any other connection: the model answers without searching the web
     const others = await runAi(
       admin,
       userId,
@@ -247,6 +312,8 @@ Deno.serve(
         choice: body.model,
         skip: ['anthropic'],
         connections,
+        // credits are handled here, with web search (steps 2 and 5)
+        platform: false,
         parse: parseResearchReply,
       },
     );
@@ -265,10 +332,17 @@ Deno.serve(
         false,
       );
     if (others.reason !== 'no_connection') failures.push(others.message);
+
+    // 5. Credits as the fallback (trial credits, or a picked model that failed)
+    if (platform && !creditsAsked) {
+      const done = await onCredits(false);
+      if (done) return done;
+    }
+    if (refusal) failures.push(refusal);
     if (failures.length)
       local.note = `${failures.join(' ')} Showing what the posting says instead.`;
 
-    // 4. No connection (or every model failed): the posting, plus the
+    // 6. No connection (or every model failed): the posting, plus the
     //    company's own site
     if (local.website) {
       const site = await siteDescription(local.website);
@@ -282,7 +356,7 @@ Deno.serve(
         ]);
       }
     }
-    if (!connections.length)
+    if (!connections.length && !creditsAsked)
       local.note ??=
         'From the posting and the company site only. Add an AI connection in Settings for more; an Anthropic key gives full web research (size, funding, reviews, news).';
     return await save(local, false);
@@ -294,14 +368,34 @@ type ModelResult =
   | { failed: string }
   | { searchUnavailable: true };
 
+interface Usage {
+  tokensIn: number;
+  tokensOut: number;
+  webSearches: number;
+}
+
+/** One research call; the caller logs or settles what it used. */
 async function askModel(
-  admin: ReturnType<typeof serviceClient>,
-  userId: string,
   apiKey: string,
   model: string,
   role: { company: string; title: string; url: string },
   text: string,
   webSearch: boolean,
+): Promise<{ result: ModelResult; usage: Usage }> {
+  const usage: Usage = { tokensIn: 0, tokensOut: 0, webSearches: 0 };
+  return {
+    result: await research(apiKey, model, role, text, webSearch, usage),
+    usage,
+  };
+}
+
+async function research(
+  apiKey: string,
+  model: string,
+  role: { company: string; title: string; url: string },
+  text: string,
+  webSearch: boolean,
+  usage: Usage,
 ): Promise<ModelResult> {
   const messages: { role: 'user' | 'assistant'; content: unknown }[] = [
     {
@@ -365,17 +459,9 @@ async function askModel(
   } catch (e) {
     return { failed: (e as Error).message || 'Model call failed' };
   } finally {
-    if (tokensIn || tokensOut || searches)
-      await admin.from('ai_usage').insert({
-        user_id: userId,
-        job: 'research',
-        provider: 'anthropic',
-        model,
-        tokens_in: tokensIn,
-        tokens_out: tokensOut,
-        web_searches: searches,
-        cost_usd: 0,
-      });
+    usage.tokensIn = tokensIn;
+    usage.tokensOut = tokensOut;
+    usage.webSearches = searches;
   }
 
   // A search that errored for the whole account (not enabled) shows up as a

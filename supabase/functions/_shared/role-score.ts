@@ -310,7 +310,10 @@ export async function scoreRole(
         gaps: ai.value.gaps.length ? ai.value.gaps : keyword.gaps,
         aiMatch: ai.value.aiMatch || keyword.aiMatch,
       };
-    } else if (ai.reason !== 'no_connection') aiError = ai.message;
+    } else if (ai.reason !== 'no_connection' && ai.reason !== 'no_credits')
+      // (no key and no credits is not an error: scoring was never asked
+      // to cost anything)
+      aiError = ai.message;
   }
 
   // The model reads the location rules itself; the keyword score gets the
