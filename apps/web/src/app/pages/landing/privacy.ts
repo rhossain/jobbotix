@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
 
 @Component({
   selector: 'jb-privacy',
@@ -49,9 +50,9 @@ import { RouterLink } from '@angular/router';
           Your password (handled by Supabase Auth; we only ever see a hash).
         </li>
         <li>
-          Your Anthropic API key in plain text. If you add one, it is kept in
-          Supabase Vault and read only by the function that makes a request on
-          your behalf.
+          Your AI provider keys in plain text. A key you connect is kept in
+          Supabase Vault, read only by the function that makes a request on your
+          behalf, and never sent back to your browser.
         </li>
         <li>
           Anything from job boards beyond the posting itself: no cookies, no
@@ -63,24 +64,52 @@ import { RouterLink } from '@angular/router';
         </li>
       </ul>
 
+      <h2 id="ai" class="mt-10 text-xl font-semibold">AI providers</h2>
+      <p class="mt-2">
+        Jobbotix calls a model only with a key you connected yourself in
+        Settings, and only for the work you ask for or switched on: scoring the
+        strongest postings in your runs, reading a posting you add, tailoring a
+        resume, drafting letters, screening answers, messages and interview
+        prep, reading a resume file, and company research. For those calls the
+        provider receives the posting text and your resume as you saved it
+        (including the contact details on it), plus your voice samples for
+        drafts. Nothing else from your account is sent.
+      </p>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        @for (p of providers; track p.id) {
+          <li>
+            <span class="font-medium">{{ p.name }}.</span> {{ p.dataNote }}
+          </li>
+        }
+      </ul>
+      <p class="mt-2">
+        Each provider's own terms cover what it receives. Without a connection
+        nothing is sent to any model: scoring and drafting use Jobbotix's
+        built-in rules and templates.
+      </p>
+
       <h2 class="mt-10 text-xl font-semibold">Who can see what</h2>
       <p class="mt-2">
-        Only you can see your data. The admin can see the list of accounts and
-        invite codes, not your roles, notes or letters. Aggregate market
-        signals, if we ever show them, are counts across users with nothing
-        identifying.
+        Only you can see your data. The admin can see the list of accounts
+        (email, plan, how many AI calls each made and which AI providers are
+        connected) and invite codes, not your roles, notes, letters or keys.
+        Aggregate market signals, if we ever show them, are counts across users
+        with nothing identifying.
       </p>
 
       <h2 class="mt-10 text-xl font-semibold">Deleting your account</h2>
       <p class="mt-2">
         Settings → Delete your account removes your account and everything above
-        straight away, including your saved Anthropic key; the database cascades
-        from your user row, so nothing is left behind. Settings → Your data
-        downloads a copy first.
+        straight away, including your saved AI keys; the database cascades from
+        your user row, so nothing is left behind. Settings → Your data downloads
+        a copy first.
       </p>
 
       <p class="mt-8 text-sm text-ink-muted">Last updated November 2026.</p>
     </article>
   `,
 })
-export class Privacy {}
+export class Privacy {
+  /** The providers a user can connect, with what each does with data. */
+  protected readonly providers = PROVIDER_ORDER.map((id) => PROVIDERS[id]);
+}

@@ -209,7 +209,7 @@ describe('rate-limit wording', () => {
 });
 
 describe('modelOptions', () => {
-  it("groups each connection's models as provider:model values", () => {
+  it("groups each connection's models as picker values", () => {
     const groups = modelOptions([
       { provider: 'gemini', model: '' },
       { provider: 'anthropic', model: 'claude-old-1' },
@@ -223,10 +223,23 @@ describe('modelOptions', () => {
       label: 'Gemini 3.8 Flash (default)',
     });
     // a saved model that is not a suggestion stays selectable
+    // (a Claude model goes as its bare id, which older functions read too)
     expect(groups[1].models.at(-1)).toEqual({
-      id: 'anthropic:claude-old-1',
+      id: 'claude-old-1',
       label: 'claude-old-1',
     });
+  });
+
+  it('every option parses back to its provider and model', () => {
+    const groups = modelOptions([
+      { provider: 'gemini', model: '' },
+      { provider: 'groq', model: '' },
+      { provider: 'anthropic', model: 'Custom.Model' },
+    ]);
+    for (const g of groups)
+      for (const m of g.models)
+        expect(parseModelChoice(m.id)?.provider).toBe(g.provider);
+    expect(groups[2].models.at(-1)?.id).toBe('anthropic:Custom.Model');
   });
 
   it('uses the live Claude list when the key could fetch one', () => {
@@ -235,7 +248,7 @@ describe('modelOptions', () => {
       [{ id: 'claude-sonnet-6', label: 'Sonnet 6 (default)' }],
     );
     expect(g.models).toEqual([
-      { id: 'anthropic:claude-sonnet-6', label: 'Sonnet 6 (default)' },
+      { id: 'claude-sonnet-6', label: 'Sonnet 6 (default)' },
     ]);
   });
 });

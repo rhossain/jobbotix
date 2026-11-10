@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   ATS_LABEL,
   careersSystem,
+  connectionView,
   FALLBACK_MODELS,
   isUpgradeRequired,
   normaliseCompanyResearch,
@@ -9,6 +10,7 @@ import {
   normaliseResume,
   OPEN_ENTITLEMENTS,
   summariseRuns,
+  type AiConnectionView,
   type AtsKind,
   type CompanyRow,
   type Entitlements,
@@ -44,6 +46,7 @@ import type {
   SearchProfileRow,
 } from '@jobbotix/shared-types';
 import type { ResumeAiResult } from '@jobbotix/shared-types/resume-import';
+import { AiNotes } from '../ai-notes';
 import { Auth } from '../auth';
 import { injectSupabase } from '../supabase';
 import {
@@ -78,6 +81,7 @@ import {
   type FollowedCompany,
   type AdminTotals,
   type AdminUser,
+  type NewAiConnection,
 } from './repos';
 
 /**
@@ -88,6 +92,7 @@ import {
 @Injectable()
 export class SupabaseRolesRepo extends RolesRepo {
   private readonly supabase = injectSupabase();
+  private readonly notes = inject(AiNotes);
   private readonly _roles = signal<RoleRow[]>([]);
   private readonly _reminders = signal<RoleEventRow[]>([]);
   private readonly _lastRun = signal<RunSummary | null>(null);
@@ -237,6 +242,7 @@ export class SupabaseRolesRepo extends RolesRepo {
       body: text ? { url, text } : { url },
     });
     if (error) throw await functionError(error);
+    this.notes.report(data);
     if (!data?.id) throw new Error(data?.error ?? 'Could not add the role');
     await this.load();
     return { id: data.id, existed: data.existed };
@@ -494,6 +500,7 @@ export class SupabaseResumesRepo extends ResumesRepo {
 @Injectable()
 export class SupabaseVariantsRepo extends VariantsRepo {
   private readonly supabase = injectSupabase();
+  private readonly notes = inject(AiNotes);
 
   async variantFor(roleId: string) {
     const { data } = await this.supabase
@@ -514,6 +521,7 @@ export class SupabaseVariantsRepo extends VariantsRepo {
       body: model ? { roleId, model } : { roleId },
     });
     if (error) throw await functionError(error);
+    this.notes.report(data);
     if (!data?.variant)
       throw new Error(data?.error ?? 'Could not generate the variant');
     return { ...data.variant, method: data.method, model: data.model };
@@ -549,6 +557,10 @@ export class SupabaseVariantsRepo extends VariantsRepo {
   }
 }
 
+/** Everything the app may read of an AI connection (never key_ref). */
+const CONNECTION_COLUMNS =
+  'id, provider, key_hint, model, position, status, last_error, last_checked_at, limited_until';
+
 @Injectable()
 export class SupabaseSettingsRepo extends SettingsRepo {
   private readonly supabase = injectSupabase();
@@ -557,6 +569,8 @@ export class SupabaseSettingsRepo extends SettingsRepo {
   private readonly _models = signal<ModelChoice[]>([]);
   private readonly _usage = signal<AiUsageRow[]>([]);
   private readonly _keys = signal<IngestKeyRow[]>([]);
+  private readonly _connections = signal<AiConnectionView[]>([]);
+  readonly connections = this._connections.asReadonly();
   readonly profile = this._profile.asReadonly();
   readonly models = this._models.asReadonly();
   readonly usage = this._usage.asReadonly();
@@ -565,7 +579,7 @@ export class SupabaseSettingsRepo extends SettingsRepo {
   async load() {
     const userId = this.auth.user()?.id;
     if (!userId) return;
-    const [profile, usage, keys] = await Promise.all([
+    const [profile, usage, keys, connections] = await Promise.all([
       this.supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
       this.supabase
         .from('ai_usage')
@@ -576,8 +590,30 @@ export class SupabaseSettingsRepo extends SettingsRepo {
         .from('ingest_keys')
         .select('*')
         .order('created_at', { ascending: false }),
+      this.supabase
+        .from('ai_connections')
+        .select(CONNECTION_COLUMNS)
+        .order('position', { ascending: true })
+        .order('created_at', { ascending: true }),
     ]);
     this._profile.set(profile.data ?? null);
+    if (!connections.error) this.setConnections(connections.data);
+    // A database from before connections existed: the Anthropic key on the
+    // profile is the one connection.
+    else if (profile.data?.anthropic_key_ref)
+      this._connections.set([
+        {
+          id: 'legacy',
+          provider: 'anthropic',
+          keyHint: '',
+          model: profile.data.default_model ?? '',
+          position: 0,
+          status: 'ok',
+          lastError: '',
+          lastCheckedAt: null,
+          limitedUntil: null,
+        },
+      ]);
     this._usage.set(usage.data ?? []);
     this._keys.set(keys.data ?? []);
     // The built-in list right away, then the models the user's key can use
@@ -645,24 +681,52 @@ export class SupabaseSettingsRepo extends SettingsRepo {
     await this.auth.refreshProfile();
   }
 
-  async setAnthropicKey(key: string) {
-    const { data, error } = await this.supabase.functions.invoke<{
-      stored: boolean;
-      last4?: string;
-      error?: string;
-    }>('set-anthropic-key', { body: { key } });
-    if (error) throw await functionError(error);
-    await this.load();
-    return data?.last4 ?? '';
+  private setConnections(rows: unknown) {
+    this._connections.set(
+      (Array.isArray(rows) ? rows : [])
+        .map(connectionView)
+        .filter((c): c is AiConnectionView => !!c)
+        .sort((a, b) => a.position - b.position),
+    );
   }
 
-  async clearAnthropicKey() {
-    const { error } = await this.supabase.functions.invoke(
-      'set-anthropic-key',
-      { method: 'DELETE' },
-    );
-    if (error) throw await functionError(error);
-    await this.load();
+  /** One set-ai-connection call; the reply carries the connections as they now stand. */
+  private async connection(body: Record<string, unknown>): Promise<string> {
+    const { data, error } = await this.supabase.functions.invoke<{
+      connections?: unknown[];
+      message?: string;
+    }>('set-ai-connection', { body });
+    if (error) {
+      const failure = await functionError(error);
+      // A failed test still changed the connection's status.
+      await this.load().catch(() => undefined);
+      throw failure;
+    }
+    this.setConnections(data?.connections);
+    // The Claude model list depends on the Anthropic key.
+    if (body['provider'] === 'anthropic') void this.loadModels();
+    return data?.message ?? '';
+  }
+
+  saveConnection(input: NewAiConnection) {
+    return this.connection({ action: 'save', ...input });
+  }
+
+  testConnection(id: string) {
+    return this.connection({ action: 'test', id });
+  }
+
+  setConnectionModel(id: string, model: string) {
+    return this.connection({ action: 'update', id, model });
+  }
+
+  async reorderConnections(ids: string[]) {
+    await this.connection({ action: 'reorder', ids });
+  }
+
+  async removeConnection(id: string) {
+    await this.connection({ action: 'remove', id });
+    await this.auth.refreshProfile();
   }
 
   async revokeIngestKey(id: string) {
@@ -678,6 +742,7 @@ export class SupabaseSettingsRepo extends SettingsRepo {
 @Injectable()
 export class SupabaseLettersRepo extends LettersRepo {
   private readonly supabase = injectSupabase();
+  private readonly notes = inject(AiNotes);
   readonly voiceSamples = signal<CoverLetterRow[]>([]);
 
   async load() {
@@ -719,6 +784,7 @@ export class SupabaseLettersRepo extends LettersRepo {
       error?: string;
     }>('draft-letter', { body: { roleId, ...opts } });
     if (error) throw await functionError(error);
+    this.notes.report(data);
     if (!data?.body)
       throw new Error(data?.error ?? 'Could not draft the letter');
     return {
@@ -732,6 +798,7 @@ export class SupabaseLettersRepo extends LettersRepo {
 @Injectable()
 export class SupabaseScreeningRepo extends ScreeningRepo {
   private readonly supabase = injectSupabase();
+  private readonly notes = inject(AiNotes);
 
   async addQuestion(roleId: string, question: string) {
     const q = question.trim();
@@ -771,6 +838,7 @@ export class SupabaseScreeningRepo extends ScreeningRepo {
       error?: string;
     }>('answer-screening', { body: { roleId, ...opts } });
     if (error) throw await functionError(error);
+    this.notes.report(data);
     if (data?.error) throw new Error(data.error);
     return {
       answered: data?.answered ?? 0,
@@ -783,6 +851,7 @@ export class SupabaseScreeningRepo extends ScreeningRepo {
 @Injectable()
 export class SupabasePrepRepo extends PrepRepo {
   private readonly supabase = injectSupabase();
+  private readonly notes = inject(AiNotes);
 
   async generate(roleId: string, model?: string) {
     const { data, error } = await this.supabase.functions.invoke<{
@@ -790,6 +859,7 @@ export class SupabasePrepRepo extends PrepRepo {
       error?: string;
     }>('prep-role', { body: model ? { roleId, model } : { roleId } });
     if (error) throw await functionError(error);
+    this.notes.report(data);
     if (!data?.prep)
       throw new Error(data?.error ?? 'Could not build the sheet');
     return data.prep;
@@ -1101,6 +1171,7 @@ function withDefault(
 @Injectable()
 export class SupabaseInterviewsRepo extends InterviewsRepo {
   private readonly supabase = injectSupabase();
+  private readonly notes = inject(AiNotes);
   private readonly rolesRepo = inject(RolesRepo);
   private readonly _interviews = signal<InterviewRow[]>([]);
   readonly interviews = this._interviews.asReadonly();
@@ -1161,6 +1232,7 @@ export class SupabaseInterviewsRepo extends InterviewsRepo {
       error?: string;
     }>('draft-thank-you', { body: { interviewId: id, model } });
     if (error) throw await functionError(error);
+    this.notes.report(data);
     if (!data?.body) throw new Error(data?.error ?? 'Could not draft the note');
     this._interviews.update((l) =>
       l.map((i) =>
@@ -1178,6 +1250,7 @@ export class SupabaseInterviewsRepo extends InterviewsRepo {
 @Injectable()
 export class SupabasePeopleRepo extends PeopleRepo {
   private readonly supabase = injectSupabase();
+  private readonly notes = inject(AiNotes);
   private readonly _contacts = signal<ContactRow[]>([]);
   private readonly _links = signal<RoleContactRow[]>([]);
   readonly contacts = this._contacts.asReadonly();
@@ -1318,6 +1391,7 @@ export class SupabasePeopleRepo extends PeopleRepo {
       error?: string;
     }>('draft-message', { body: req });
     if (error) throw await functionError(error);
+    this.notes.report(data);
     if (!data?.body)
       throw new Error(data?.error ?? 'Could not draft the message');
     return {

@@ -20,6 +20,7 @@ import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { Theme, type ThemePreference } from '../../core/theme';
 import { Tour } from '../../shell/tour';
+import { AiConnections } from './ai-connections';
 import { DataPanel } from './data-panel';
 import { PlanCard } from './plan-card';
 import {
@@ -31,10 +32,11 @@ import {
   type TabItem,
 } from '../../ui';
 
-/** Account, AI key and model, usage, ingest keys. */
+/** Account, AI connections, usage, voice samples, ingest keys. */
 @Component({
   selector: 'jb-settings',
   imports: [
+    AiConnections,
     DataPanel,
     PlanCard,
     Button,
@@ -49,7 +51,7 @@ import {
   template: `
     <jb-page-header
       title="Settings"
-      lead="Your account, appearance, AI key and the keys your scheduled runs use."
+      lead="Your account, appearance, AI connections and the keys your scheduled runs use."
     >
       <div actions>
         <button type="button" jbButton (click)="tour.start()">
@@ -130,94 +132,12 @@ import {
         />
       </section>
 
-      <!-- AI -->
-      <section
-        class="jb-card flex flex-col gap-4 p-5 md:p-6"
-        data-tour="settings-ai"
-      >
-        <h2 class="jb-section-title">AI</h2>
-        <p class="text-sm text-ink-muted">
-          Jobbotix scores every new role on keywords at no cost. With your own
-          Anthropic API key it also re-scores the strongest matches each run and
-          drafts letters, answers and prep inside the app; calls are billed to
-          your key.
-        </p>
-        @if (hasKey()) {
-          <div
-            class="flex flex-wrap items-center justify-between gap-3 rounded-control bg-brand-tint p-3.5 text-sm text-brand-ink"
-          >
-            <span
-              >Anthropic key on file{{ last4() ? ' · ending ' + last4() : '' }}.
-              Stored server-side in Vault; never shown again.</span
-            >
-            <button
-              type="button"
-              class="jb-btn"
-              (click)="clearKey()"
-              [disabled]="busy()"
-            >
-              Remove key
-            </button>
-          </div>
-        } @else {
-          <form
-            [formGroup]="keyForm"
-            (ngSubmit)="saveKey()"
-            class="flex flex-wrap items-end gap-2"
-            novalidate
-          >
-            <label class="flex min-w-0 flex-1 basis-72 flex-col gap-1 text-sm">
-              <span>Anthropic API key</span>
-              <input
-                id="st-key"
-                type="password"
-                class="jb-input font-mono"
-                formControlName="key"
-                autocomplete="off"
-                placeholder="sk-ant-…"
-              />
-            </label>
-            <button
-              type="submit"
-              class="jb-btn-primary"
-              [disabled]="keyForm.invalid || busy()"
-            >
-              {{ busy() ? 'Checking…' : 'Save key' }}
-            </button>
-          </form>
-          @if (keyError()) {
-            <p class="text-sm text-bad" role="alert">
-              {{ keyError() }}
-            </p>
-          }
-        }
-        <label class="flex flex-wrap items-center gap-2 text-sm">
-          Default model
-          <select
-            id="st-model"
-            class="jb-input jb-input-inline"
-            [value]="repo.profile()?.default_model"
-            (change)="setModel($any($event.target).value)"
-          >
-            @for (m of repo.models(); track m.id) {
-              <option
-                [value]="m.id"
-                [selected]="m.id === repo.profile()?.default_model"
-              >
-                {{ m.label }}
-              </option>
-            }
-          </select>
-          <span class="text-ink-muted"
-            >Every Generate button can override it.</span
-          >
-        </label>
-      </section>
+      <jb-ai-connections />
 
       <!-- Usage -->
       <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
         <div class="flex flex-wrap items-center justify-between gap-3">
-          <h2 class="jb-section-title">AI usage on your key</h2>
+          <h2 class="jb-section-title">AI usage on your keys</h2>
           <a jbButton="ghost" size="sm" routerLink="/usage"
             >See usage <jb-icon name="arrow-up-right" [size]="16"
           /></a>
@@ -356,9 +276,6 @@ export class Settings {
   private readonly toast = inject(Toast);
 
   readonly busy = signal(false);
-  readonly keyError = signal('');
-  readonly last4 = signal('');
-  readonly hasKey = computed(() => !!this.repo.profile()?.anthropic_key_ref);
   readonly timezones: string[] =
     (
       Intl as unknown as { supportedValuesOf?: (k: string) => string[] }
@@ -371,16 +288,6 @@ export class Settings {
       validators: [Validators.required],
     }),
   });
-  readonly keyForm = new FormGroup({
-    key: new FormControl('', {
-      nonNullable: true,
-      validators: [
-        Validators.required,
-        Validators.pattern(/^sk-ant-[A-Za-z0-9_-]{20,}$/),
-      ],
-    }),
-  });
-
   readonly usageMonth = computed(() => {
     const t = summariseUsage(this.repo.usage(), 30).total;
     return { calls: t.calls, cost: formatUsd(t.cost) };
@@ -407,52 +314,6 @@ export class Settings {
       this.toast.show('Saved');
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not save');
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
-  async setModel(model: string) {
-    try {
-      await this.repo.updateProfile({ default_model: model });
-      this.toast.show('Default model updated');
-    } catch {
-      this.toast.show('Could not save the model');
-    }
-  }
-
-  async saveKey() {
-    if (this.keyForm.invalid || this.busy()) return;
-    this.busy.set(true);
-    this.keyError.set('');
-    try {
-      this.last4.set(
-        await this.repo.setAnthropicKey(
-          this.keyForm.controls.key.getRawValue(),
-        ),
-      );
-      this.keyForm.reset();
-      this.toast.show('Key stored');
-    } catch (e) {
-      this.keyError.set((e as Error).message || 'Could not store the key');
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
-  async clearKey() {
-    const ok = await this.confirm.ask({
-      title: 'Remove your Anthropic key?',
-      body: 'In-app generation falls back to local drafts until you add a key again. Your scheduled runs are not affected.',
-      action: 'Remove key',
-      danger: true,
-    });
-    if (!ok) return;
-    this.busy.set(true);
-    try {
-      await this.repo.clearAnthropicKey();
-      this.last4.set('');
-      this.toast.show('Key removed');
     } finally {
       this.busy.set(false);
     }

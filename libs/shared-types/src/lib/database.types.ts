@@ -400,10 +400,39 @@ export type ShareRow = {
   views: number;
 };
 
+/**
+ * One AI provider a user connected with their own key. The key is in Vault;
+ * the app can read every column but key_ref (column grants, migration 0034).
+ */
+export type AiConnectionRow = {
+  id: string;
+  user_id: string;
+  /** A provider id from the catalog in providers.ts. */
+  provider: string;
+  /** Vault secret name; service role only. */
+  key_ref?: string;
+  /** Last four characters of the key. */
+  key_hint: string;
+  /** '' means the provider's default model. */
+  model: string;
+  /** The order connections are tried in, lowest first. */
+  position: number;
+  status: 'untested' | 'ok' | 'error';
+  last_error: string;
+  last_checked_at: string | null;
+  /** The provider's rate limit holds until then. */
+  limited_until: string | null;
+  consented_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type AiUsageRow = {
   id: string;
   user_id: string;
   job: AiJob;
+  /** The provider that answered ('anthropic' for rows from before 0034). */
+  provider?: string;
   model: string;
   tokens_in: number;
   tokens_out: number;
@@ -737,11 +766,18 @@ export type Database = {
       posting_sources: Table<PostingSourceRow, Partial<PostingSourceRow>>;
       companies: Table<CompanyRow, Partial<CompanyRow>>;
       company_follows: Table<CompanyFollowRow, Partial<CompanyFollowRow>>;
+      // Read-only for users; set-ai-connection writes them.
+      ai_connections: Table<AiConnectionRow, Partial<AiConnectionRow>>;
       ai_usage: Table<
         AiUsageRow,
         Insertable<
           AiUsageRow,
-          'id' | 'tokens_in' | 'tokens_out' | 'cost_usd' | 'created_at'
+          | 'id'
+          | 'provider'
+          | 'tokens_in'
+          | 'tokens_out'
+          | 'cost_usd'
+          | 'created_at'
         >
       >;
     };

@@ -145,7 +145,9 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
 export const PROVIDER_ORDER: ProviderId[] = ['gemini', 'groq', 'anthropic'];
 
 export function isProviderId(v: unknown): v is ProviderId {
-  return typeof v === 'string' && Object.hasOwn(PROVIDERS, v);
+  return (
+    typeof v === 'string' && Object.prototype.hasOwnProperty.call(PROVIDERS, v)
+  );
 }
 
 export function providerOf(id: string): ProviderInfo | null {
@@ -265,8 +267,18 @@ export function limitMessage(
 }
 
 /**
+ * The value the picker sends for a model: "provider:model", except a Claude
+ * model, which goes as its bare id so functions deployed before connections
+ * existed read it too.
+ */
+export const pickerValue = (provider: ProviderId, model: string) =>
+  provider === 'anthropic' && /^claude-[a-z0-9-]+$/.test(model)
+    ? model
+    : modelChoice(provider, model);
+
+/**
  * The model picker's options for a set of connections: each connection's
- * suggested models, grouped by provider, as "provider:model" values.
+ * suggested models, grouped by provider, as picker values.
  */
 export function modelOptions(
   connections: Pick<AiConnectionView, 'provider' | 'model'>[],
@@ -285,7 +297,7 @@ export function modelOptions(
       provider: c.provider,
       name: info.name,
       models: models.map((m) => ({
-        id: modelChoice(c.provider, m.id),
+        id: pickerValue(c.provider, m.id),
         label: m.label,
       })),
     };

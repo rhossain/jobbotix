@@ -160,7 +160,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
               <span class="text-xs text-ink-muted"
                 >Unusual layout?
                 <a routerLink="/settings" class="text-brand-ink underline"
-                  >Add an AI key</a
+                  >Connect an AI provider</a
                 >
                 to read it with a model.</span
               >
@@ -281,9 +281,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
 export class ResumeImportPanel {
   private readonly resumes = inject(ResumesRepo);
   private readonly settings = inject(SettingsRepo);
-  readonly hasKey = computed(
-    () => !!this.settings.profile()?.anthropic_key_ref,
-  );
+  readonly hasKey = computed(() => this.settings.connections().length > 0);
   readonly dragging = signal(false);
   readonly imported = output<{
     sections: ResumeSections;

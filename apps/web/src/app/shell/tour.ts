@@ -77,8 +77,8 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     route: '/settings',
     target: 'settings-ai',
-    title: 'Optional: your own AI key',
-    body: 'The morning run already writes letters and answers. Add an Anthropic API key here only if you also want to rewrite them inside the app; those calls are billed to your key.',
+    title: 'Optional: connect an AI provider',
+    body: 'Jobbotix scores roles on keywords and drafts from templates without one. Connect your own key here for model scoring and model-written drafts: Gemini and Groq have free tiers, and an Anthropic key is billed to you per call.',
   },
   {
     route: '/today',

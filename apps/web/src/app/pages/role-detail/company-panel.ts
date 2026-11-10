@@ -294,7 +294,7 @@ export class CompanyPanel {
   readonly busyLine = computed(() =>
     this.research().researchedAt
       ? 'Refreshing. A web search takes up to a minute.'
-      : 'Researching. With your key this searches the web and takes up to a minute.',
+      : 'Researching. With an Anthropic key this searches the web and takes up to a minute.',
   );
 
   host(url: string) {

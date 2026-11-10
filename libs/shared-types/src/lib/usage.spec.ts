@@ -117,6 +117,42 @@ describe('summariseUsage', () => {
   });
 });
 
+describe('providers', () => {
+  it('counts free-tier calls at no cost, and old rows as Anthropic', () => {
+    expect(
+      estimateCost(
+        row({ provider: 'gemini', model: 'gemini-3.8-flash', tokens_in: 9e6 }),
+      ),
+    ).toBe(0);
+    expect(
+      estimateCost(row({ provider: 'groq', model: 'openai/gpt-oss-120b' })),
+    ).toBe(0);
+    // An unknown Claude model is still unpriced, not free.
+    expect(
+      estimateCost(row({ provider: 'anthropic', model: 'claude-next' })),
+    ).toBeNull();
+    expect(estimateCost(row({ provider: null }))).toBeGreaterThan(0);
+  });
+
+  it('groups by provider, the paid one first', () => {
+    const s = summariseUsage(
+      [
+        row({ provider: 'gemini', model: 'gemini-3.8-flash' }),
+        row({ provider: 'gemini', model: 'gemini-3.5-flash-lite' }),
+        row({}),
+      ],
+      7,
+      new Date('2026-11-10T00:00:00Z'),
+    );
+    expect(s.byProvider.map((g) => [g.key, g.label, g.calls])).toEqual([
+      ['anthropic', 'Anthropic (Claude)', 1],
+      ['gemini', 'Google Gemini', 2],
+    ]);
+    expect(s.byProvider[1].cost).toBe(0);
+    expect(s.total.unpriced).toBe(0);
+  });
+});
+
 describe('formatting', () => {
   it('shows small costs and large token counts readably', () => {
     expect(formatUsd(0)).toBe('$0.00');

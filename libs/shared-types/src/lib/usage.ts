@@ -1,11 +1,14 @@
-// AI usage on the user's Anthropic key: totals, breakdowns and an estimated
-// cost for the Usage page, from the ai_usage rows the Edge Functions write.
+// AI usage on the user's own keys: totals, breakdowns and an estimated cost
+// for the Usage page, from the ai_usage rows the Edge Functions write.
 //
 // Costs are estimates at Anthropic's standard list prices (Nov 2026), without
 // prompt-caching or batch discounts. The bill itself is in the Anthropic
-// Console. A model missing from PRICES shows no cost rather than a guess.
+// Console. A Claude model missing from PRICES shows no cost rather than a
+// guess. Calls on a provider with a free tier (Gemini, Groq) count as $0: the
+// app cannot see whether the key is on a paid tier there.
 
 import type { AiJob } from './database.types';
+import { providerName, providerOf } from './providers';
 
 /** USD per million tokens. */
 interface Price {
@@ -66,8 +69,19 @@ function priceOf(model: string): Price | null {
   return PRICES[id] ?? null;
 }
 
+/** The provider of a usage row; rows from before providers are Anthropic's. */
+export const usageProvider = (r: { provider?: string | null }) =>
+  r.provider || 'anthropic';
+
+/** True for a call on a provider whose free tier needs no card. */
+export function isFreeTier(r: { provider?: string | null }): boolean {
+  return providerOf(usageProvider(r))?.free === true;
+}
+
 export interface UsageRow {
   job: AiJob;
+  /** Missing on rows from before providers existed: Anthropic. */
+  provider?: string | null;
   model: string;
   tokens_in: number;
   tokens_out: number;
@@ -77,6 +91,7 @@ export interface UsageRow {
 
 /** Estimated USD for one call, or null when the model's price is unknown. */
 export function estimateCost(r: UsageRow): number | null {
+  if (isFreeTier(r)) return 0;
   const p = priceOf(r.model);
   if (!p) return null;
   const rate = p.long && r.tokens_in > p.long.over ? p.long : p;
@@ -109,6 +124,8 @@ export interface UsageBucket {
 
 export interface UsageSummary {
   total: UsageGroup;
+  /** One group per provider that answered a call. */
+  byProvider: UsageGroup[];
   byModel: UsageGroup[];
   byJob: UsageGroup[];
   /** Calls and cost per day (periods up to 31 days) or per week (longer). */
@@ -170,8 +187,13 @@ export function summariseUsage(
   const total = group('all', 'All');
   const models = new Map<string, UsageGroup>();
   const jobs = new Map<string, UsageGroup>();
+  const providers = new Map<string, UsageGroup>();
   for (const r of inRange) {
     add(total, r);
+    const pid = usageProvider(r);
+    const pg = providers.get(pid) ?? group(pid, providerName(pid));
+    add(pg, r);
+    providers.set(pid, pg);
     const m = models.get(r.model) ?? group(r.model, r.model);
     add(m, r);
     models.set(r.model, m);
@@ -210,6 +232,7 @@ export function summariseUsage(
     b.cost - a.cost || b.calls - a.calls;
   return {
     total,
+    byProvider: [...providers.values()].sort(byCost),
     byModel: [...models.values()].sort(byCost),
     byJob: [...jobs.values()].sort(byCost),
     buckets,

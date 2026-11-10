@@ -22,6 +22,9 @@ import {
   OPEN_ENTITLEMENTS,
   type Entitlements,
   type VariantDiff,
+  type AiConnectionView,
+  PROVIDERS,
+  MODEL_ID,
 } from '@jobbotix/shared-types';
 import type {
   SourceCatalogRow,
@@ -79,6 +82,7 @@ import {
   type FollowedCompany,
   type InterviewInput,
   type LetterResult,
+  type NewAiConnection,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -107,6 +111,8 @@ interface DemoState {
   profileRow: ProfileRow;
   ingestKeys: IngestKeyRow[];
   usage: AiUsageRow[];
+  /** AI connections added in the demo (no key is ever kept). */
+  connections?: AiConnectionView[];
   voiceSamples: CoverLetterRow[];
   shares: ShareRow[];
   interviews: InterviewRow[];
@@ -444,7 +450,7 @@ export class MemoryRolesRepo extends RolesRepo {
       text: role.posting_text,
     });
     research.note =
-      'Demo mode reads only the posting. With your Anthropic key, the live app searches the web for size, funding, reviews and news.';
+      'Demo mode reads only the posting. With an Anthropic key connected, the live app searches the web for size, funding, reviews and news.';
     const now = new Date().toISOString();
     this.patch((s) => {
       const r = s.roles.find((x) => x.id === id);
@@ -735,6 +741,11 @@ export class MemorySettingsRepo extends SettingsRepo {
   );
   readonly models = signal<ModelChoice[]>([...FALLBACK_MODELS]);
   readonly usage = computed(() => this.roles.snapshot().usage);
+  readonly connections = computed<AiConnectionView[]>(() =>
+    [...(this.roles.snapshot().connections ?? [])].sort(
+      (a, b) => a.position - b.position,
+    ),
+  );
 
   async loadUsage(days: number | null): Promise<AiUsageRow[]> {
     void days;
@@ -768,29 +779,76 @@ export class MemorySettingsRepo extends SettingsRepo {
     });
   }
 
-  async setAnthropicKey(key: string) {
-    if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(key.trim()))
+  // The demo keeps no key and calls no provider: a connection here only
+  // shows how the screens behave. Drafts are still written locally.
+  async saveConnection(input: NewAiConnection) {
+    const info = PROVIDERS[input.provider];
+    const key = input.key.trim();
+    if (!info.keyPattern.test(key))
       throw new Error(
-        'That does not look like an Anthropic API key (they start with sk-ant-).',
+        `That does not look like a ${info.name} API key (expected something like ${info.keyPlaceholder}).`,
       );
-    // demo never stores the key; only the fact that one was set
+    if (info.needsConsent && !input.consent)
+      throw new Error(
+        `Confirm that you accept ${info.name}'s data terms first.`,
+      );
+    const model = (input.model ?? '').trim();
+    if (model && !MODEL_ID.test(model))
+      throw new Error('That is not a valid model name');
     this.roles.patch((s) => {
-      s.profileRow = {
-        ...s.profileRow,
-        anthropic_key_ref: 'demo',
-        updated_at: new Date().toISOString(),
+      const list = (s.connections ??= []);
+      const existing = list.find((c) => c.provider === input.provider);
+      const values = {
+        keyHint: key.slice(-4),
+        model,
+        status: 'ok' as const,
+        lastError: '',
+        lastCheckedAt: new Date().toISOString(),
+        limitedUntil: null,
       };
+      if (existing) Object.assign(existing, values);
+      else
+        list.push({
+          id: `demo-conn-${input.provider}`,
+          provider: input.provider,
+          position: list.length,
+          ...values,
+        });
     });
-    return key.trim().slice(-4);
+    return 'Demo mode: the key was checked for shape only and not kept. Drafts here are still written locally.';
   }
 
-  async clearAnthropicKey() {
+  async testConnection(id: string) {
+    const c = this.connections().find((x) => x.id === id);
+    if (!c) throw new Error('Connection not found');
+    return 'Demo mode does not call the provider.';
+  }
+
+  async setConnectionModel(id: string, model: string) {
+    if (model && !MODEL_ID.test(model))
+      throw new Error('That is not a valid model name');
     this.roles.patch((s) => {
-      s.profileRow = {
-        ...s.profileRow,
-        anthropic_key_ref: null,
-        updated_at: new Date().toISOString(),
-      };
+      const c = (s.connections ?? []).find((x) => x.id === id);
+      if (c) c.model = model;
+    });
+    return '';
+  }
+
+  async reorderConnections(ids: string[]) {
+    this.roles.patch((s) => {
+      for (const c of s.connections ?? []) {
+        const at = ids.indexOf(c.id);
+        if (at >= 0) c.position = at;
+      }
+    });
+  }
+
+  async removeConnection(id: string) {
+    this.roles.patch((s) => {
+      s.connections = (s.connections ?? [])
+        .filter((c) => c.id !== id)
+        .sort((a, b) => a.position - b.position)
+        .map((c, position) => ({ ...c, position }));
     });
   }
 
@@ -1095,7 +1153,8 @@ export class MemoryAdminRepo extends AdminRepo {
       is_admin: true,
       created_at: s.profileRow.created_at,
       timezone: s.profileRow.timezone,
-      has_ai_key: !!s.profileRow.anthropic_key_ref,
+      has_ai_key: (s.connections ?? []).length > 0,
+      ai_providers: (s.connections ?? []).map((c) => c.provider),
       roles: s.roles.length,
       applied: s.roles.filter((r) =>
         ['applied', 'interview', 'offer', 'rejected'].includes(r.status),

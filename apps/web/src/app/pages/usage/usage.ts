@@ -14,7 +14,10 @@ import {
   estimateCost,
   formatTokens,
   formatUsd,
+  isFreeTier,
+  providerName,
   summariseUsage,
+  usageProvider,
   type AiUsageRow,
 } from '@jobbotix/shared-types';
 import { SettingsRepo } from '../../core/data/repos';
@@ -33,7 +36,7 @@ import {
 
 type Period = '7' | '30' | '90' | 'all';
 
-/** Calls Jobbotix made to Claude on the user's key, with an estimated cost. */
+/** Calls Jobbotix made to a model on the user's own keys, with an estimated cost. */
 @Component({
   selector: 'jb-usage',
   imports: [
@@ -52,7 +55,7 @@ type Period = '7' | '30' | '90' | 'all';
   template: `
     <jb-page-header
       title="AI usage"
-      lead="Every call Jobbotix made to Claude on your Anthropic key, with what it cost at list prices."
+      lead="Every call Jobbotix made to a model on your own keys, with what it cost at list prices."
     />
 
     <div class="mt-6 flex flex-col gap-6 md:gap-8">
@@ -79,8 +82,8 @@ type Period = '7' | '30' | '90' | 'all';
       } @else if (!summary().total.calls) {
         <jb-empty-state title="No AI calls in this period" icon="gauge">
           Scoring, letters, screening answers, interview prep and company
-          research use Claude when your Anthropic key is in Settings. Each call
-          shows up here with its tokens and cost.
+          research use a model once an AI provider is connected in Settings.
+          Each call shows up here with its tokens and cost.
           <div actions>
             <a jbButton routerLink="/settings"
               ><jb-icon name="settings" /> Settings</a
@@ -119,9 +122,11 @@ type Period = '7' | '30' | '90' | 'all';
         <section class="jb-card p-5 md:p-6">
           <div class="flex flex-wrap items-end justify-between gap-3">
             <h2 class="text-lg font-semibold text-ink">
-              Cost per {{ s.bucket }}
+              {{ byCalls() ? 'Calls' : 'Cost' }} per {{ s.bucket }}
             </h2>
-            <p class="text-xs text-ink-muted">Highest {{ usd(maxCost()) }}</p>
+            <p class="text-xs text-ink-muted">
+              Highest {{ byCalls() ? maxCalls() : usd(maxCost()) }}
+            </p>
           </div>
           <div
             class="mt-6 flex h-44 items-stretch"
@@ -136,7 +141,11 @@ type Period = '7' | '30' | '90' | 'all';
                   <span
                     class="jb-bar w-full max-w-6 bg-brand"
                     [class.opacity-30]="!b.calls"
-                    [style.height.%]="pct(b.cost, maxCost())"
+                    [style.height.%]="
+                      byCalls()
+                        ? pct(b.calls, maxCalls())
+                        : pct(b.cost, maxCost())
+                    "
                     [attr.title]="
                       bucketLabel(b.start) +
                       ': ' +
@@ -156,6 +165,30 @@ type Period = '7' | '30' | '90' | 'all';
           </div>
         </section>
 
+        @if (s.byProvider.length > 1) {
+          <section class="jb-card p-5 md:p-6">
+            <h2 class="text-lg font-semibold text-ink">By provider</h2>
+            <div class="mt-4 flex flex-col gap-3">
+              @for (g of s.byProvider; track g.key) {
+                <jb-bar-row
+                  [label]="g.label"
+                  [value]="g.calls"
+                  [max]="maxProviderCalls()"
+                  [display]="
+                    (isFree(g.key) ? 'free tier' : usd(g.cost)) +
+                    ' · ' +
+                    g.calls
+                  "
+                  [tone]="isFree(g.key) ? 'good' : 'brand'"
+                />
+              }
+            </div>
+            <p class="mt-4 text-xs text-ink-muted">
+              Cost, then number of calls. Bars show calls.
+            </p>
+          </section>
+        }
+
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
           <section class="jb-card p-5 md:p-6">
             <h2 class="text-lg font-semibold text-ink">By feature</h2>
@@ -163,8 +196,8 @@ type Period = '7' | '30' | '90' | 'all';
               @for (j of s.byJob; track j.key) {
                 <jb-bar-row
                   [label]="j.label"
-                  [value]="j.cost"
-                  [max]="s.byJob[0].cost || 1"
+                  [value]="byCalls() ? j.calls : j.cost"
+                  [max]="(byCalls() ? s.byJob[0].calls : s.byJob[0].cost) || 1"
                   [display]="usd(j.cost) + ' · ' + j.calls"
                 />
               }
@@ -180,8 +213,10 @@ type Period = '7' | '30' | '90' | 'all';
               @for (m of s.byModel; track m.key) {
                 <jb-bar-row
                   [label]="modelName(m.key)"
-                  [value]="m.cost"
-                  [max]="s.byModel[0].cost || 1"
+                  [value]="byCalls() ? m.calls : m.cost"
+                  [max]="
+                    (byCalls() ? s.byModel[0].calls : s.byModel[0].cost) || 1
+                  "
                   [display]="
                     (m.unpriced === m.calls ? 'no price' : usd(m.cost)) +
                     ' · ' +
@@ -257,7 +292,7 @@ type Period = '7' | '30' | '90' | 'all';
                     {{ jobLabel(r) }}
                   </p>
                   <p class="truncate text-xs text-ink-muted">
-                    {{ modelName(r.model) }} · {{ tokens(r.tokens_in) }} in,
+                    {{ callModel(r) }} · {{ tokens(r.tokens_in) }} in,
                     {{ tokens(r.tokens_out) }} out{{
                       r.web_searches
                         ? ' · ' +
@@ -290,9 +325,11 @@ type Period = '7' | '30' | '90' | 'all';
         </section>
 
         <p class="text-xs text-ink-muted">
-          Estimates use Anthropic's list prices as of {{ pricesAsOf }}, plus
-          {{ usd(webSearchUsd) }} per web search, without caching or batch
-          discounts. Your actual bill is in the
+          Claude estimates use Anthropic's list prices as of {{ pricesAsOf }},
+          plus {{ usd(webSearchUsd) }} per web search, without caching or batch
+          discounts. Calls on Gemini and Groq count as free tier ($0); if you
+          pay either of them, their console has the bill. Your Anthropic bill is
+          in the
           <a
             href="https://platform.claude.com/settings/usage"
             target="_blank"
@@ -331,6 +368,14 @@ export class UsagePage {
   readonly maxCost = computed(() =>
     Math.max(0, ...this.summary().buckets.map((b) => b.cost)),
   );
+  readonly maxCalls = computed(() =>
+    Math.max(0, ...this.summary().buckets.map((b) => b.calls)),
+  );
+  readonly maxProviderCalls = computed(() =>
+    Math.max(1, ...this.summary().byProvider.map((g) => g.calls)),
+  );
+  /** Nothing in the period cost anything (free tiers only): chart calls instead. */
+  readonly byCalls = computed(() => this.summary().total.cost === 0);
 
   readonly costSub = computed(() => {
     const s = this.summary();
@@ -348,7 +393,9 @@ export class UsagePage {
 
   readonly chartLabel = computed(() => {
     const s = this.summary();
-    return `Estimated cost per ${s.bucket}, ${s.buckets.length} ${s.bucket}s, highest ${formatUsd(this.maxCost())}`;
+    return this.byCalls()
+      ? `Calls per ${s.bucket}, ${s.buckets.length} ${s.bucket}s, highest ${this.maxCalls()}`
+      : `Estimated cost per ${s.bucket}, ${s.buckets.length} ${s.bucket}s, highest ${formatUsd(this.maxCost())}`;
   });
 
   constructor() {
@@ -381,8 +428,19 @@ export class UsagePage {
     return max > 0 ? Math.max(v > 0 ? 2 : 0, (v / max) * 100) : 0;
   }
   callCost(r: AiUsageRow) {
+    if (isFreeTier(r)) return 'free tier';
     const c = estimateCost(r);
     return c === null ? '–' : formatUsd(c);
+  }
+  isFree(provider: string) {
+    return isFreeTier({ provider });
+  }
+  /** "Sonnet 5.5" for Claude; "Google Gemini · gemini-3.8-flash" for the rest. */
+  callModel(r: AiUsageRow) {
+    const p = usageProvider(r);
+    return p === 'anthropic'
+      ? this.modelName(r.model)
+      : `${providerName(p)} · ${r.model}`;
   }
   jobLabel(r: AiUsageRow) {
     return JOB_LABELS[r.job] ?? r.job;

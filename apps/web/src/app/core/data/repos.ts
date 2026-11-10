@@ -1,11 +1,13 @@
 import type { Signal } from '@angular/core';
 import type {
+  AiConnectionView,
   CompanyResearch,
   Entitlements,
   Feature,
   MarketSignals,
   ModelChoice,
   PrepSheet,
+  ProviderId,
   SharedView,
   VariantDiff,
 } from '@jobbotix/shared-types';
@@ -313,6 +315,8 @@ export interface AdminUser {
   created_at: string;
   timezone: string;
   has_ai_key: boolean;
+  /** Provider ids of the user's AI connections, in their order. */
+  ai_providers?: string[];
   roles: number;
   applied: number;
   last_run: string | null;
@@ -430,8 +434,20 @@ export abstract class SourcesRepo {
 
 export type { ModelChoice };
 
+/** A key being connected in Settings. */
+export interface NewAiConnection {
+  provider: ProviderId;
+  key: string;
+  /** '' or missing: the provider's default model. */
+  model?: string;
+  /** The user ticked the provider's data terms (needed where the catalog says so). */
+  consent?: boolean;
+}
+
 export abstract class SettingsRepo {
   abstract readonly profile: Signal<ProfileRow | null>;
+  /** The user's AI connections in the order they are tried (never the keys). */
+  abstract readonly connections: Signal<AiConnectionView[]>;
   abstract readonly models: Signal<ModelChoice[]>;
   abstract readonly usage: Signal<AiUsageRow[]>;
   abstract readonly ingestKeys: Signal<IngestKeyRow[]>;
@@ -446,8 +462,18 @@ export abstract class SettingsRepo {
     timezone?: string;
     default_model?: string;
   }): Promise<void>;
-  /** Stores the key server-side (Vault). Resolves with the last 4 characters for display. */
-  abstract setAnthropicKey(key: string): Promise<string>;
-  abstract clearAnthropicKey(): Promise<void>;
+  /**
+   * Checks the key with its provider and stores it server-side (Vault).
+   * Resolves with a note for the user ('' when there is nothing to add).
+   */
+  abstract saveConnection(input: NewAiConnection): Promise<string>;
+  /** Runs the provider check again; resolves with how it went. */
+  abstract testConnection(id: string): Promise<string>;
+  /** Changes the connection's model ('' = the provider's default) once it answers. */
+  abstract setConnectionModel(id: string, model: string): Promise<string>;
+  /** The order connections are tried in: every id, first one first. */
+  abstract reorderConnections(ids: string[]): Promise<void>;
+  /** Deletes the stored key and the connection. */
+  abstract removeConnection(id: string): Promise<void>;
   abstract revokeIngestKey(id: string): Promise<void>;
 }

@@ -146,8 +146,8 @@ const today = () => new Date().toISOString().slice(0, 10);
       </h2>
       <p class="text-sm text-ink-muted">
         Removes your account and everything in it straight away: roles, resumes,
-        letters, interviews, people, keys and your saved Anthropic key. It
-        cannot be undone; download your data first if you want a copy.
+        letters, interviews, people, keys and your saved AI keys. It cannot be
+        undone; download your data first if you want a copy.
       </p>
       <label class="flex flex-col gap-1.5 text-sm font-medium">
         Type your email to confirm

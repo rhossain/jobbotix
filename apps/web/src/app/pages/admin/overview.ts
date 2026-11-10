@@ -210,7 +210,13 @@ const LIMITS = {
                     <td class="py-2 pr-4 tabular-nums">
                       {{ u.ai_calls_30d }}
                       @if (u.has_ai_key) {
-                        <span class="text-xs text-ink-muted">(own key)</span>
+                        <span class="text-xs text-ink-muted"
+                          >({{
+                            u.ai_providers?.length
+                              ? u.ai_providers!.join(', ')
+                              : 'own key'
+                          }})</span
+                        >
                       }
                     </td>
                     <td class="py-2 tabular-nums">{{ u.ingest_keys }}</td>

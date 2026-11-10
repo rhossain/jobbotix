@@ -2,12 +2,18 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
   signal,
+  untracked,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
-import { ResumesRepo, SearchProfileRepo } from '../../core/data/repos';
+import {
+  ResumesRepo,
+  SearchProfileRepo,
+  SettingsRepo,
+} from '../../core/data/repos';
 import { Button, Icon } from '../../ui';
 
 const DISMISS_KEY = 'jb-setup-dismissed';
@@ -101,6 +107,7 @@ export class SetupChecklist {
   private readonly auth = inject(Auth);
   private readonly resumes = inject(ResumesRepo);
   private readonly profiles = inject(SearchProfileRepo);
+  private readonly settings = inject(SettingsRepo);
   private readonly dismissed = signal(readDismissed());
 
   readonly steps = computed<Step[]>(() => {
@@ -132,11 +139,13 @@ export class SetupChecklist {
       },
       {
         id: 'key',
-        label: 'Add your Anthropic key',
-        why: 'Model scoring, letters and research run on your own key; without one Jobbotix uses local templates.',
+        label: 'Connect an AI provider',
+        why: 'Model scoring, letters and research run on your own key; Gemini and Groq have free tiers. Without one Jobbotix uses local templates.',
         link: '/settings',
-        action: 'Add key',
-        done: !!this.auth.profile()?.anthropic_key_ref,
+        action: 'Connect',
+        done:
+          this.settings.connections().length > 0 ||
+          !!this.auth.profile()?.anthropic_key_ref,
         optional: true,
       },
     ];
@@ -155,6 +164,14 @@ export class SetupChecklist {
   constructor() {
     if (!this.resumes.loaded()) void this.resumes.load();
     if (!this.profiles.loaded()) void this.profiles.load();
+    // The AI step reads the connections; fetch them once, and only while the
+    // list is on screen.
+    let asked = false;
+    effect(() => {
+      if (!this.show() || asked) return;
+      asked = true;
+      untracked(() => void this.settings.load());
+    });
   }
 
   dismiss() {
