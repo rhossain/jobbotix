@@ -747,4 +747,245 @@ do $$ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Plans and entitlements (migration 0033). User 1 is the admin, user 3 is not.
+-- ---------------------------------------------------------------------------
+-- Billing is off: every feature is on for everyone, whatever the plan.
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$
+declare e jsonb := public.entitlements();
+begin
+  if (e ->> 'enforced')::boolean then raise exception 'FAIL: billing is enforced by default'; end if;
+  if e ->> 'plan' <> 'free' then raise exception 'FAIL: default plan is %', e ->> 'plan'; end if;
+  if not (e -> 'features') ? 'company_research' then raise exception 'FAIL: features are gated while billing is off'; end if;
+  if e -> 'limits' <> '{}'::jsonb then raise exception 'FAIL: limits apply while billing is off'; end if;
+  if (e ->> 'credits')::int <> 0 then raise exception 'FAIL: a new account has credits'; end if;
+  if (select count(*) from public.plans) <> 2 then raise exception 'FAIL: plans are not readable'; end if;
+end $$;
+
+-- A user cannot give themselves a plan, a payment or credits.
+do $$ begin
+  insert into public.subscriptions (user_id, plan_id) values ('33333333-3333-3333-3333-333333333333', 'pro');
+  raise exception 'FAIL: a user created their own subscription';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  insert into public.credit_ledger (user_id, delta, kind) values ('33333333-3333-3333-3333-333333333333', 500, 'topup');
+  raise exception 'FAIL: a user granted themselves credits';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  insert into public.payments (user_id, provider_ref, kind, amount_cents)
+  values ('33333333-3333-3333-3333-333333333333', 'fake', 'subscription', 1500);
+  raise exception 'FAIL: a user recorded their own payment';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  update public.plans set features = array_append(features, 'company_research') where id = 'free';
+  if exists (select 1 from public.plans where id = 'free' and 'company_research' = any (features)) then
+    raise exception 'FAIL: a user edited a plan';
+  end if;
+end $$;
+do $$ begin
+  perform public.admin_set_plan('33333333-3333-3333-3333-333333333333', 'pro', 'me');
+  raise exception 'FAIL: a non-admin set a plan';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_add_credits('33333333-3333-3333-3333-333333333333', 100, 'me');
+  raise exception 'FAIL: a non-admin added credits';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_set_billing(false);
+  raise exception 'FAIL: a non-admin changed the billing switch';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_plans();
+  raise exception 'FAIL: a non-admin read every account''s plan';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.entitlements_for('11111111-1111-1111-1111-111111111111');
+  raise exception 'FAIL: a user read another account''s entitlements';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.credit_balance('11111111-1111-1111-1111-111111111111');
+  raise exception 'FAIL: a user read another account''s credit balance';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role anon;
+do $$ begin
+  if (select count(*) from public.plans) <> 2 then raise exception 'FAIL: the pricing page cannot read plans'; end if;
+  perform public.entitlements();
+  raise exception 'FAIL: entitlements answered a signed-out caller';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+
+-- Preview: the gates apply to one account while billing stays off for the rest.
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.admin_set_billing_preview('33333333-3333-3333-3333-333333333333', true);
+select public.admin_set_billing_preview('33333333-3333-3333-3333-333333333333', true);  -- twice: still listed once
+do $$ begin
+  if (public.entitlements() ->> 'enforced')::boolean then raise exception 'FAIL: preview leaked to another account'; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+do $$ begin
+  if jsonb_array_length((select value -> 'preview_users' from public.settings where key = 'billing')) <> 1 then
+    raise exception 'FAIL: preview list holds duplicates';
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$
+declare e jsonb := public.entitlements();
+begin
+  if not (e ->> 'enforced')::boolean then raise exception 'FAIL: preview did not enforce billing'; end if;
+  if (e -> 'features') ? 'company_research' then raise exception 'FAIL: Free has a Pro feature'; end if;
+  if not (e -> 'features') ? 'ai' then raise exception 'FAIL: Free lost AI on its own key'; end if;
+  if (e -> 'limits' ->> 'search_profiles')::int <> 1 then raise exception 'FAIL: Free limit missing'; end if;
+end $$;
+
+-- An admin grants Pro with a reason; the account sees it at once.
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  perform public.admin_set_plan('33333333-3333-3333-3333-333333333333', 'pro', '   ');
+  raise exception 'FAIL: a plan was set without a reason';
+exception when invalid_parameter_value then null;
+end $$;
+do $$ begin
+  perform public.admin_set_plan('33333333-3333-3333-3333-333333333333', 'gold', 'x');
+  raise exception 'FAIL: an unknown plan was accepted';
+exception when invalid_parameter_value then null;
+end $$;
+select public.admin_set_plan('33333333-3333-3333-3333-333333333333', 'pro', 'beta tester');
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$
+declare e jsonb := public.entitlements();
+begin
+  if e ->> 'plan' <> 'pro' or e ->> 'status' <> 'active' then raise exception 'FAIL: grant did not take: %', e; end if;
+  if not (e -> 'features') ? 'company_research' then raise exception 'FAIL: Pro lacks its feature'; end if;
+  if (e ->> 'monthly_credits')::int <> 500 then raise exception 'FAIL: Pro monthly credits'; end if;
+  if (select count(*) from public.subscriptions) <> 1 then raise exception 'FAIL: user cannot read own subscription'; end if;
+  if (select note from public.subscriptions) <> 'beta tester' then raise exception 'FAIL: reason not stored'; end if;
+  update public.subscriptions set plan_id = 'free';
+  delete from public.subscriptions;
+  if (public.entitlements() ->> 'plan') <> 'pro' then raise exception 'FAIL: a user changed their own subscription'; end if;
+end $$;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if (select count(*) from public.subscriptions) <> 0 then raise exception 'FAIL: subscriptions leak across accounts'; end if;
+end $$;
+
+-- A grant with an end date lapses; cancelled and past-due follow their dates.
+select public.admin_set_plan('33333333-3333-3333-3333-333333333333', 'pro', 'expired grant', now() - interval '3 days');
+reset role; reset request.jwt.claim.sub;
+do $$
+declare u uuid := '33333333-3333-3333-3333-333333333333';
+begin
+  if public.entitlements_for(u) ->> 'plan' <> 'free' then raise exception 'FAIL: an expired grant still counts'; end if;
+  if public.entitlements_for(u) ->> 'status' <> 'none' then raise exception 'FAIL: lapsed status'; end if;
+
+  update public.subscriptions set current_period_end = now() - interval '1 day' where user_id = u;
+  if public.entitlements_for(u) ->> 'plan' <> 'pro' then raise exception 'FAIL: no slack for a late renewal'; end if;
+
+  update public.subscriptions set status = 'canceled', current_period_end = now() + interval '5 days' where user_id = u;
+  if public.entitlements_for(u) ->> 'plan' <> 'pro' then raise exception 'FAIL: cancelled lost the paid period'; end if;
+  update public.subscriptions set current_period_end = now() - interval '1 hour' where user_id = u;
+  if public.entitlements_for(u) ->> 'plan' <> 'free' then raise exception 'FAIL: cancelled kept Pro past the period'; end if;
+
+  update public.subscriptions set status = 'past_due', grace_until = now() + interval '2 days' where user_id = u;
+  if public.entitlements_for(u) ->> 'plan' <> 'pro' then raise exception 'FAIL: past due lost its grace'; end if;
+  update public.subscriptions set grace_until = now() - interval '1 hour' where user_id = u;
+  if public.entitlements_for(u) ->> 'plan' <> 'free' then raise exception 'FAIL: past due kept Pro after grace'; end if;
+
+  -- a subscription billed through the provider is not an admin's to change
+  update public.subscriptions set source = 'polar', status = 'active', current_period_end = now() + interval '20 days' where user_id = u;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  perform public.admin_set_plan('33333333-3333-3333-3333-333333333333', 'free', 'downgrade');
+  raise exception 'FAIL: an admin overrode a provider-billed subscription';
+exception when invalid_parameter_value then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+update public.subscriptions set source = 'admin' where user_id = '33333333-3333-3333-3333-333333333333';
+
+-- Credits: an admin adds them with a reason; the balance never goes below zero.
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if public.admin_add_credits('33333333-3333-3333-3333-333333333333', 50, 'beta') <> 50 then
+    raise exception 'FAIL: balance after a grant';
+  end if;
+  if public.admin_add_credits('33333333-3333-3333-3333-333333333333', -20, 'correction') <> 30 then
+    raise exception 'FAIL: balance after a correction';
+  end if;
+end $$;
+do $$ begin
+  perform public.admin_add_credits('33333333-3333-3333-3333-333333333333', -31, 'too much');
+  raise exception 'FAIL: balance went below zero';
+exception when invalid_parameter_value then null;
+end $$;
+do $$ begin
+  perform public.admin_add_credits('33333333-3333-3333-3333-333333333333', 0, 'nothing');
+  raise exception 'FAIL: a zero adjustment was accepted';
+exception when invalid_parameter_value then null;
+end $$;
+do $$ begin
+  perform public.admin_add_credits('33333333-3333-3333-3333-333333333333', 10, '');
+  raise exception 'FAIL: credits were added without a reason';
+exception when invalid_parameter_value then null;
+end $$;
+do $$
+declare v jsonb := public.admin_plans(); u jsonb;
+begin
+  if (v ->> 'enabled')::boolean then raise exception 'FAIL: admin_plans reports billing on'; end if;
+  select x into u from jsonb_array_elements(v -> 'users') x where x ->> 'id' = '33333333-3333-3333-3333-333333333333';
+  if u is null then raise exception 'FAIL: admin_plans misses an account'; end if;
+  if (u ->> 'credits')::int <> 30 or u ->> 'plan' <> 'pro' or not (u ->> 'preview')::boolean then
+    raise exception 'FAIL: admin_plans row is wrong: %', u;
+  end if;
+  if (select count(*) from public.credit_ledger) <> 0 then raise exception 'FAIL: the ledger leaks across accounts'; end if;
+end $$;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  if (public.entitlements() ->> 'credits')::int <> 30 then raise exception 'FAIL: entitlements credits'; end if;
+  if (select count(*) from public.credit_ledger) <> 2 then raise exception 'FAIL: user cannot read own ledger'; end if;
+  update public.credit_ledger set delta = 9999;
+  delete from public.credit_ledger;
+  if (public.entitlements() ->> 'credits')::int <> 30 then raise exception 'FAIL: a user edited the ledger'; end if;
+end $$;
+
+-- Removing Pro keeps the reason; preview off and the global switch both work.
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.admin_set_plan('33333333-3333-3333-3333-333333333333', 'free', 'beta over');
+select public.admin_set_billing_preview('33333333-3333-3333-3333-333333333333', false);
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$
+declare e jsonb := public.entitlements();
+begin
+  if e ->> 'plan' <> 'free' then raise exception 'FAIL: Pro was not removed'; end if;
+  if (e ->> 'enforced')::boolean then raise exception 'FAIL: preview was not switched off'; end if;
+  if (select note from public.subscriptions) <> 'beta over' then raise exception 'FAIL: removal reason not stored'; end if;
+end $$;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.admin_set_billing(true);
+do $$ begin
+  if not (public.entitlements() ->> 'enforced')::boolean then raise exception 'FAIL: the billing switch did not enforce'; end if;
+  if (public.entitlements() -> 'features') ? 'company_research' then raise exception 'FAIL: billing on, Free still has Pro features'; end if;
+end $$;
+select public.admin_set_billing(false);
+do $$ begin
+  if (public.entitlements() ->> 'enforced')::boolean then raise exception 'FAIL: the billing switch did not switch off'; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed
