@@ -20,6 +20,7 @@ import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { Theme, type ThemePreference } from '../../core/theme';
 import { Tour } from '../../shell/tour';
+import { DataPanel } from './data-panel';
 import {
   Button,
   Confirm,
@@ -33,6 +34,7 @@ import {
 @Component({
   selector: 'jb-settings',
   imports: [
+    DataPanel,
     Button,
     Icon,
     PageHeader,
@@ -324,6 +326,8 @@ import {
           </ul>
         }
       </section>
+
+      <jb-data-panel />
     </section>
   `,
 })

@@ -675,4 +675,35 @@ exception when insufficient_privilege then null;
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- ---------------------------------------------------------------------------
+-- Account deletion: removing the auth user removes every row they own.
+-- ---------------------------------------------------------------------------
+do $$
+declare v_role uuid; v_c uuid; t text; n int;
+begin
+  insert into public.roles (user_id, company, title, url)
+  values ('22222222-2222-2222-2222-222222222222', 'Leaving Co', 'Dev', 'https://leaving.example/1')
+  returning id into v_role;
+  insert into public.contacts (user_id, name) values ('22222222-2222-2222-2222-222222222222', 'Bye')
+  returning id into v_c;
+  insert into public.role_contacts (role_id, contact_id, user_id)
+  values (v_role, v_c, '22222222-2222-2222-2222-222222222222');
+  insert into public.interviews (user_id, role_id) values ('22222222-2222-2222-2222-222222222222', v_role);
+  insert into public.contact_touches (user_id, contact_id) values ('22222222-2222-2222-2222-222222222222', v_c);
+
+  delete from auth.users where id = '22222222-2222-2222-2222-222222222222';
+
+  for t in
+    select c.table_name from information_schema.columns c
+    join information_schema.tables tb on tb.table_name = c.table_name and tb.table_schema = c.table_schema
+    where c.table_schema = 'public' and c.column_name = 'user_id' and tb.table_type = 'BASE TABLE'
+  loop
+    execute format('select count(*) from public.%I where user_id = %L', t, '22222222-2222-2222-2222-222222222222') into n;
+    if n > 0 then raise exception 'FAIL: % still has % rows after account deletion', t, n; end if;
+  end loop;
+  if exists (select 1 from public.profiles where id = '22222222-2222-2222-2222-222222222222') then
+    raise exception 'FAIL: profile survived account deletion';
+  end if;
+end $$;
+
 \echo RLS tests passed

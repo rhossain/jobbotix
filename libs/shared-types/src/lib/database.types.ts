@@ -514,6 +514,7 @@ export type Database = {
           | 'source_id'
           | 'remote_policy'
           | 'hiring_countries'
+          | 'company_research'
           | 'created_at'
           | 'updated_at'
         >

@@ -73,9 +73,10 @@ import { RouterLink } from '@angular/router';
 
       <h2 class="mt-10 text-xl font-semibold">Deleting your account</h2>
       <p class="mt-2">
-        Email the address on the sign-in page from your account email and
-        everything above is deleted within seven days; the database cascades
-        from your user row, so nothing is left behind.
+        Settings → Delete your account removes your account and everything above
+        straight away, including your saved Anthropic key; the database cascades
+        from your user row, so nothing is left behind. Settings → Your data
+        downloads a copy first.
       </p>
 
       <p class="mt-8 text-sm text-ink-muted">Last updated November 2026.</p>

@@ -43,6 +43,7 @@ import {
   relativeDay,
 } from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
+import { SetupChecklist } from './setup-checklist';
 import { RoleMover } from '../../shared/role-mover';
 import { copyText } from '../../ui/copy-button';
 
@@ -64,6 +65,7 @@ interface Reminder {
     PageHeader,
     PullRefresh,
     RoleCard,
+    SetupChecklist,
     RouterLink,
     Skeleton,
     SwipeRow,
@@ -94,6 +96,7 @@ interface Reminder {
     </jb-page-header>
 
     <div class="mt-8 flex flex-col gap-10 md:mt-12 md:gap-12">
+      <jb-setup-checklist class="empty:hidden" />
       @if (interviews().length) {
         <section aria-labelledby="interviews-heading">
           <h2

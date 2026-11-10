@@ -18,14 +18,16 @@ import {
   parseCountryList,
   renderSearchPrompt,
   resolveScoringWeights,
+  normaliseResume,
+  suggestProfile,
   type EmploymentType,
   type ScoringWeights,
   type SearchProfileRow,
 } from '@jobbotix/shared-types';
 import { Auth } from '../../core/auth';
-import { SearchProfileRepo } from '../../core/data/repos';
+import { ResumesRepo, SearchProfileRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
-import { CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
+import { Button, CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
 import { environment } from '../../../environments/environment';
 
 const splitLines = (s: string) =>
@@ -38,6 +40,7 @@ const splitLines = (s: string) =>
 @Component({
   selector: 'jb-search-profile',
   imports: [
+    Button,
     CopyButton,
     Icon,
     PageHeader,
@@ -55,6 +58,24 @@ const splitLines = (s: string) =>
       @if (!repo.loaded()) {
         <jb-skeleton shape="tile" [count]="3" />
       } @else {
+        @if (resumes.master()) {
+          <div
+            class="jb-card flex flex-col gap-3 p-5 text-sm md:flex-row md:items-center md:justify-between"
+          >
+            <p class="text-ink-muted">
+              Fill target roles, stacks, seniority and country from your master
+              resume. Nothing is saved until you press Save.
+            </p>
+            <button
+              type="button"
+              jbButton
+              class="shrink-0"
+              (click)="fillFromResume()"
+            >
+              <jb-icon name="sparkles" /> Fill from my resume
+            </button>
+          </div>
+        }
         <form
           [formGroup]="form"
           (ngSubmit)="save()"
@@ -483,6 +504,7 @@ const splitLines = (s: string) =>
 })
 export class SearchProfile {
   protected readonly repo = inject(SearchProfileRepo);
+  protected readonly resumes = inject(ResumesRepo);
   protected readonly auth = inject(Auth);
   private readonly toast = inject(Toast);
 
@@ -570,7 +592,27 @@ export class SearchProfile {
     });
   });
 
+  /** Proposes the profile from the master resume; the user reviews and saves. */
+  fillFromResume() {
+    const master = this.resumes.master();
+    if (!master) return;
+    const s = suggestProfile(normaliseResume(master.sections));
+    const c = this.form.controls;
+    if (s.targetRoles.length) c.targetRoles.setValue(s.targetRoles.join('\n'));
+    if (s.stacks.length) c.stacks.setValue(s.stacks.join('\n'));
+    c.minSeniority.setValue(s.minSeniority);
+    if (s.homeCountry && !c.homeCountry.value)
+      c.homeCountry.setValue(s.homeCountry);
+    this.form.markAsDirty();
+    this.toast.show(
+      s.targetRoles.length || s.stacks.length
+        ? 'Filled from your resume; check it, then Save'
+        : 'Your resume has no titles or skills to use yet',
+    );
+  }
+
   constructor() {
+    if (!this.resumes.loaded()) void this.resumes.load();
     void this.repo.load();
     effect(() => {
       const p = this.repo.profile();

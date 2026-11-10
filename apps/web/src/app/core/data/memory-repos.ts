@@ -66,6 +66,8 @@ import {
   WatchlistRepo,
   InterviewsRepo,
   PeopleRepo,
+  AccountDataRepo,
+  type ImportRoleInput,
   type ContactInput,
   type MessageRequest,
   type TouchInput,
@@ -1481,4 +1483,99 @@ export class MemoryPeopleRepo extends PeopleRepo {
     });
     return { body, method: 'local' };
   }
+}
+
+@Injectable()
+export class MemoryAccountDataRepo extends AccountDataRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+
+  async exportAll() {
+    const s = this.roles.snapshot();
+    return {
+      profiles: [s.profileRow],
+      search_profiles: [s.profile],
+      roles: s.roles,
+      role_events: s.events,
+      interviews: s.interviews,
+      contacts: s.contacts,
+      role_contacts: s.links,
+      contact_touches: s.touches,
+      screening_answers: s.answers,
+      cover_letters: s.voiceSamples,
+      resumes: s.resumes,
+      resume_variants: s.variants,
+      saved_views: s.views,
+      shares: s.shares,
+      ai_usage: s.usage,
+    } as Record<string, unknown[]>;
+  }
+
+  async importRoles(list: ImportRoleInput[]) {
+    let added = 0;
+    let duplicates = 0;
+    this.roles.patch((s) => {
+      const urls = new Set(s.roles.map((r) => r.url.toLowerCase()));
+      const pairs = new Set(
+        s.roles.map((r) => `${r.company}|${r.title}`.toLowerCase()),
+      );
+      const now = new Date().toISOString();
+      for (const r of list) {
+        const pair = `${r.company}|${r.title}`.toLowerCase();
+        if (urls.has(r.url.toLowerCase()) || pairs.has(pair)) {
+          duplicates++;
+          continue;
+        }
+        urls.add(r.url.toLowerCase());
+        pairs.add(pair);
+        s.roles.push({
+          ...s.roles[0],
+          ...blankRole(),
+          ...r,
+          id: newId(),
+          user_id: DEMO_USER_ID,
+          source: 'Imported',
+          found_at: now,
+          status_changed_at: now,
+          created_at: now,
+          updated_at: now,
+        });
+        added++;
+      }
+    });
+    return { added, duplicates, failed: 0 };
+  }
+
+  async deleteAccount() {
+    // demo mode: start over from the samples
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      /* nothing stored */
+    }
+    location.assign('/');
+  }
+}
+
+/** The fields a role has before anything is known about it. */
+function blankRole(): Partial<RoleRow> {
+  return {
+    remote_scope: '',
+    type: 'full_time',
+    posted_at: null,
+    stack: [],
+    score: 0,
+    score_breakdown: {},
+    reasons: [],
+    gaps: [],
+    ai_match: false,
+    cover_letter: '',
+    posting_text: '',
+    posting_hash: '',
+    follow_up_days: 0,
+    prep: {},
+    posting_id: null,
+    source_id: null,
+    remote_policy: 'unknown',
+    hiring_countries: [],
+  };
 }

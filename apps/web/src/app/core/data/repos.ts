@@ -259,6 +259,28 @@ export abstract class PeopleRepo {
   abstract draftMessage(req: MessageRequest): Promise<LetterResult>;
 }
 
+/** One role read from a spreadsheet (see shared/csv.ts previewImport). */
+export interface ImportRoleInput {
+  company: string;
+  title: string;
+  url: string;
+  status: RoleStatus;
+  location: string;
+  salary: string;
+  notes: string;
+}
+
+export abstract class AccountDataRepo {
+  /** Every row the user owns, by table, for a JSON download. */
+  abstract exportAll(): Promise<Record<string, unknown[]>>;
+  /** Adds roles from a spreadsheet; ones already tracked are counted, not changed. */
+  abstract importRoles(
+    roles: ImportRoleInput[],
+  ): Promise<{ added: number; duplicates: number; failed: number }>;
+  /** Deletes the account and everything in it, then signs out. */
+  abstract deleteAccount(): Promise<void>;
+}
+
 export abstract class ScreeningRepo {
   abstract addQuestion(roleId: string, question: string): Promise<void>;
   abstract updateAnswer(id: string, answer: string): Promise<void>;

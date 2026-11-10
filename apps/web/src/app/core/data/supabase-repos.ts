@@ -61,6 +61,8 @@ import {
   WatchlistRepo,
   InterviewsRepo,
   PeopleRepo,
+  AccountDataRepo,
+  type ImportRoleInput,
   type ContactInput,
   type MessageRequest,
   type TouchInput,
@@ -1221,5 +1223,90 @@ export class SupabasePeopleRepo extends PeopleRepo {
       method: data.method ?? 'local',
       model: data.model,
     };
+  }
+}
+
+/** Tables a user owns, in the order a reader would want them. */
+const EXPORT_TABLES = [
+  'profiles',
+  'search_profiles',
+  'roles',
+  'role_events',
+  'interviews',
+  'contacts',
+  'role_contacts',
+  'contact_touches',
+  'screening_answers',
+  'cover_letters',
+  'resumes',
+  'resume_variants',
+  'saved_views',
+  'excluded_roles',
+  'shares',
+  'company_follows',
+  'ai_usage',
+] as const;
+
+@Injectable()
+export class SupabaseAccountDataRepo extends AccountDataRepo {
+  private readonly supabase = injectSupabase();
+  private readonly rolesRepo = inject(RolesRepo);
+  private readonly auth = inject(Auth);
+
+  async exportAll() {
+    const out: Record<string, unknown[]> = {};
+    for (const t of EXPORT_TABLES) {
+      const rows: unknown[] = [];
+      // page through: the API returns at most 1000 rows per request
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await this.supabase
+          .from(t)
+          .select('*')
+          .range(from, from + 999);
+        if (error) throw new Error(`${t}: ${error.message}`);
+        rows.push(...(data ?? []));
+        if (!data || data.length < 1000) break;
+      }
+      out[t] = rows;
+    }
+    return out;
+  }
+
+  async importRoles(roles: ImportRoleInput[]) {
+    const user = (await this.supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Sign in first');
+    let added = 0;
+    let duplicates = 0;
+    let failed = 0;
+    for (let i = 0; i < roles.length; i += 5) {
+      const batch = roles.slice(i, i + 5);
+      const results = await Promise.all(
+        batch.map((r) =>
+          this.supabase.from('roles').insert({
+            ...r,
+            user_id: user.id,
+            source: 'Imported',
+          }),
+        ),
+      );
+      for (const { error } of results) {
+        if (!error) added++;
+        else if (error.code === '23505') duplicates++;
+        else failed++;
+      }
+    }
+    await this.rolesRepo.load();
+    return { added, duplicates, failed };
+  }
+
+  async deleteAccount() {
+    const { data, error } = await this.supabase.functions.invoke<{
+      deleted?: boolean;
+      error?: string;
+    }>('delete-account', { body: { confirm: true } });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.deleted)
+      throw new Error(data?.error ?? 'Could not delete the account');
+    await this.auth.signOut().catch(() => undefined);
   }
 }
