@@ -413,6 +413,58 @@ export type AiUsageRow = {
   created_at: string;
 };
 
+export type PlanRow = {
+  id: string;
+  name: string;
+  position: number;
+  monthly_credits: number;
+  features: string[];
+  limits: Json;
+};
+
+export type SubscriptionRow = Timestamps & {
+  id: string;
+  user_id: string;
+  plan_id: string;
+  status: 'trialing' | 'active' | 'past_due' | 'canceled';
+  source: 'admin' | 'polar';
+  current_period_start: string;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  grace_until: string | null;
+  provider_customer_id: string | null;
+  provider_subscription_id: string | null;
+  granted_by: string | null;
+  note: string;
+};
+
+export type PaymentRow = {
+  id: string;
+  user_id: string;
+  provider: 'polar';
+  provider_ref: string;
+  kind: 'subscription' | 'topup' | 'refund';
+  product: string;
+  /** Negative for a refund. */
+  amount_cents: number;
+  currency: string;
+  status: 'paid' | 'refunded' | 'failed';
+  paid_at: string;
+  created_at: string;
+};
+
+export type CreditLedgerRow = {
+  id: string;
+  user_id: string;
+  /** Positive rows grant credits, negative rows spend them. */
+  delta: number;
+  kind: 'trial' | 'monthly' | 'topup' | 'admin' | 'spend' | 'refund' | 'expire';
+  reason: string;
+  ref: string | null;
+  created_by: string | null;
+  created_at: string;
+};
+
 /** Columns with a database default, optional on insert. */
 type Insertable<Row, Defaulted extends keyof Row> = Omit<Row, Defaulted> &
   Partial<Pick<Row, Defaulted>>;
@@ -540,6 +592,11 @@ export type Database = {
         Insertable<RoleEventRow, 'id' | 'role_id' | 'payload' | 'created_at'>
       >;
       app_errors: Table<AppErrorRow, Partial<AppErrorRow>>;
+      // Read-only for users; the service role and admin functions write them.
+      plans: Table<PlanRow, Partial<PlanRow>>;
+      subscriptions: Table<SubscriptionRow, Partial<SubscriptionRow>>;
+      payments: Table<PaymentRow, Partial<PaymentRow>>;
+      credit_ledger: Table<CreditLedgerRow, Partial<CreditLedgerRow>>;
       contacts: Table<
         ContactRow,
         Insertable<
@@ -715,6 +772,28 @@ export type Database = {
       shared_view: { Args: { p_token: string }; Returns: Json };
       market_signals: { Args: Record<string, never>; Returns: Json };
       report_error: { Args: { p: Json }; Returns: undefined };
+      entitlements: { Args: Record<string, never>; Returns: Json };
+      entitlements_for: { Args: { p_user: string }; Returns: Json };
+      credit_balance: { Args: { p_user: string }; Returns: number };
+      admin_plans: { Args: Record<string, never>; Returns: Json };
+      admin_set_plan: {
+        Args: {
+          p_user: string;
+          p_plan: string;
+          p_reason: string;
+          p_until?: string | null;
+        };
+        Returns: Json;
+      };
+      admin_add_credits: {
+        Args: { p_user: string; p_amount: number; p_reason: string };
+        Returns: number;
+      };
+      admin_set_billing: { Args: { p_enabled: boolean }; Returns: undefined };
+      admin_set_billing_preview: {
+        Args: { p_user: string; p_on: boolean };
+        Returns: undefined;
+      };
       posting_health: {
         Args: Record<string, never>;
         Returns: PoolPostingFacts[];
