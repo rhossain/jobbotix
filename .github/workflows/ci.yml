@@ -31,6 +31,9 @@ jobs:
 
       - run: npx nx run-many -t lint test build
 
+      # The live site's CSP blocks inline scripts; the dev server sends no CSP.
+      - run: node tools/check-csp.mjs
+
   database:
     # Pinned: ubuntu-latest moved past 24.04 and no longer carries postgresql-16.
     runs-on: ubuntu-24.04
