@@ -15,6 +15,7 @@ import {
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { ErrorsPanel } from './errors-panel';
+import { PlansPanel } from './plans-panel';
 import { CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
 
 /** Supabase free tier, as published; the bars below are against these. */
@@ -31,6 +32,7 @@ const LIMITS = {
   selector: 'jb-admin-overview',
   imports: [
     ErrorsPanel,
+    PlansPanel,
     CopyButton,
     Icon,
     PageHeader,
@@ -219,6 +221,10 @@ const LIMITS = {
           </div>
         }
       </section>
+
+      @if (users().length) {
+        <jb-plans-panel [users]="users()" />
+      }
 
       <section class="jb-card p-5 md:p-6">
         <h2 class="jb-section-title">Invite requests</h2>
