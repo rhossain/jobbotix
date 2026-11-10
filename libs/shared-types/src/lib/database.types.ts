@@ -1,3 +1,4 @@
+import type { ContactRelation, TouchChannel, TouchDirection } from './contacts';
 import type {
   InterviewKind,
   InterviewOutcome,
@@ -43,7 +44,8 @@ export type AiJob =
   | 'prep'
   | 'import'
   | 'research'
-  | 'thank_you';
+  | 'thank_you'
+  | 'message';
 export type VariantStatus = 'draft' | 'approved';
 export type RemotePolicy =
   'worldwide' | 'region_locked' | 'hybrid' | 'onsite' | 'unknown';
@@ -267,6 +269,41 @@ export type ScreeningAnswerRow = {
   created_at: string;
 };
 
+export type ContactRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  company: string;
+  title: string;
+  relation: ContactRelation;
+  email: string;
+  linkedin_url: string;
+  notes: string;
+  next_touch_on: string | null;
+  last_touch_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type RoleContactRow = {
+  role_id: string;
+  contact_id: string;
+  user_id: string;
+  created_at: string;
+};
+
+export type ContactTouchRow = {
+  id: string;
+  user_id: string;
+  contact_id: string;
+  role_id: string | null;
+  at: string;
+  channel: TouchChannel;
+  direction: TouchDirection;
+  note: string;
+  created_at: string;
+};
+
 export type InterviewRow = {
   id: string;
   user_id: string;
@@ -484,6 +521,40 @@ export type Database = {
       role_events: Table<
         RoleEventRow,
         Insertable<RoleEventRow, 'id' | 'role_id' | 'payload' | 'created_at'>
+      >;
+      contacts: Table<
+        ContactRow,
+        Insertable<
+          ContactRow,
+          | 'id'
+          | 'company'
+          | 'title'
+          | 'relation'
+          | 'email'
+          | 'linkedin_url'
+          | 'notes'
+          | 'next_touch_on'
+          | 'last_touch_at'
+          | 'created_at'
+          | 'updated_at'
+        >
+      >;
+      role_contacts: Table<
+        RoleContactRow,
+        Insertable<RoleContactRow, 'created_at'>
+      >;
+      contact_touches: Table<
+        ContactTouchRow,
+        Insertable<
+          ContactTouchRow,
+          | 'id'
+          | 'role_id'
+          | 'at'
+          | 'channel'
+          | 'direction'
+          | 'note'
+          | 'created_at'
+        >
       >;
       interviews: Table<
         InterviewRow,

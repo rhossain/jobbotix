@@ -10,6 +10,7 @@ import {
   type PrepSheet,
   localLetter,
   localThankYou,
+  localMessage,
   applyVariant,
   DEFAULT_MODEL,
   FALLBACK_MODELS,
@@ -38,6 +39,9 @@ import type {
   PostingSeenOn,
   PoolPostingFacts,
   InterviewRow,
+  ContactRow,
+  RoleContactRow,
+  ContactTouchRow,
   RunSummary,
   SavedViewRow,
   ScreeningAnswerRow,
@@ -61,6 +65,10 @@ import {
   SourcesRepo,
   WatchlistRepo,
   InterviewsRepo,
+  PeopleRepo,
+  type ContactInput,
+  type MessageRequest,
+  type TouchInput,
   type FollowedCompany,
   type InterviewInput,
   type LetterResult,
@@ -76,6 +84,7 @@ import {
   sampleSources,
   sampleUsage,
   sampleInterviews,
+  samplePeople,
 } from './sample-data';
 
 const STORAGE_KEY = 'jobbotix.demo.v1';
@@ -94,6 +103,9 @@ interface DemoState {
   voiceSamples: CoverLetterRow[];
   shares: ShareRow[];
   interviews: InterviewRow[];
+  contacts: ContactRow[];
+  links: RoleContactRow[];
+  touches: ContactTouchRow[];
 }
 
 /** Reads the demo state from localStorage; falls back to the sample data. */
@@ -120,6 +132,13 @@ function loadState(): DemoState {
           interviews: Array.isArray(parsed.interviews)
             ? parsed.interviews
             : sampleInterviews(),
+          ...(Array.isArray(parsed.contacts)
+            ? {
+                contacts: parsed.contacts,
+                links: Array.isArray(parsed.links) ? parsed.links : [],
+                touches: Array.isArray(parsed.touches) ? parsed.touches : [],
+              }
+            : samplePeople()),
         };
     }
   } catch {
@@ -139,6 +158,7 @@ function loadState(): DemoState {
     voiceSamples: [],
     shares: [],
     interviews: sampleInterviews(),
+    ...samplePeople(),
   };
 }
 
@@ -1326,6 +1346,139 @@ export class MemoryInterviewsRepo extends InterviewsRepo {
       debrief: iv.debrief,
     });
     await this.save(id, { thank_you: body });
+    return { body, method: 'local' };
+  }
+}
+
+@Injectable()
+export class MemoryPeopleRepo extends PeopleRepo {
+  private readonly roles = inject(MemoryRolesRepo);
+  readonly contacts = computed(() =>
+    [...this.roles.snapshot().contacts].sort((a, b) =>
+      a.name.localeCompare(b.name),
+    ),
+  );
+  readonly links = computed(() => this.roles.snapshot().links);
+  readonly loaded = signal(true);
+
+  async load() {
+    /* nothing to fetch */
+  }
+
+  async save(id: string | null, input: ContactInput) {
+    const now = new Date().toISOString();
+    if (id) {
+      let saved: ContactRow | undefined;
+      this.roles.patch((s) => {
+        const row = s.contacts.find((c) => c.id === id);
+        if (row) {
+          Object.assign(row, input, { updated_at: now });
+          saved = { ...row };
+        }
+      });
+      if (!saved) throw new Error('Person not found');
+      return saved;
+    }
+    if (!input.name?.trim()) throw new Error('Add a name');
+    const row: ContactRow = {
+      id: crypto.randomUUID(),
+      user_id: DEMO_USER_ID,
+      name: '',
+      company: '',
+      title: '',
+      relation: 'other',
+      email: '',
+      linkedin_url: '',
+      notes: '',
+      next_touch_on: null,
+      last_touch_at: null,
+      ...input,
+      created_at: now,
+      updated_at: now,
+    } as ContactRow;
+    this.roles.patch((s) => s.contacts.push(row));
+    return row;
+  }
+
+  async remove(id: string) {
+    this.roles.patch((s) => {
+      s.contacts = s.contacts.filter((c) => c.id !== id);
+      s.links = s.links.filter((l) => l.contact_id !== id);
+      s.touches = s.touches.filter((t) => t.contact_id !== id);
+    });
+  }
+
+  async link(roleId: string, contactId: string) {
+    this.roles.patch((s) => {
+      if (
+        !s.links.some((l) => l.role_id === roleId && l.contact_id === contactId)
+      )
+        s.links.push({
+          role_id: roleId,
+          contact_id: contactId,
+          user_id: DEMO_USER_ID,
+          created_at: new Date().toISOString(),
+        });
+    });
+  }
+
+  async unlink(roleId: string, contactId: string) {
+    this.roles.patch((s) => {
+      s.links = s.links.filter(
+        (l) => !(l.role_id === roleId && l.contact_id === contactId),
+      );
+    });
+  }
+
+  async touches(contactId: string) {
+    return this.roles
+      .snapshot()
+      .touches.filter((t) => t.contact_id === contactId)
+      .sort((a, b) => b.at.localeCompare(a.at));
+  }
+
+  async logTouch(input: TouchInput, nextTouchOn?: string | null) {
+    const now = new Date().toISOString();
+    const at = input.at ?? now;
+    this.roles.patch((s) => {
+      s.touches.push({
+        id: crypto.randomUUID(),
+        user_id: DEMO_USER_ID,
+        contact_id: input.contact_id,
+        role_id: input.role_id ?? null,
+        at,
+        channel: input.channel,
+        direction: input.direction,
+        note: input.note ?? '',
+        created_at: now,
+      });
+      const c = s.contacts.find((x) => x.id === input.contact_id);
+      if (c) {
+        if (!c.last_touch_at || c.last_touch_at < at) c.last_touch_at = at;
+        if (nextTouchOn !== undefined) c.next_touch_on = nextTouchOn;
+        c.updated_at = now;
+      }
+    });
+  }
+
+  async draftMessage(req: MessageRequest): Promise<LetterResult> {
+    const st = this.roles.snapshot();
+    const c = st.contacts.find((x) => x.id === req.contactId);
+    if (!c) throw new Error('Person not found');
+    const role = req.roleId ? st.roles.find((r) => r.id === req.roleId) : null;
+    const master = st.resumes.find((r) => r.is_master);
+    const resume = master ? normaliseResume(master.sections) : null;
+    const body = localMessage({
+      kind: req.kind,
+      candidate: resume?.contact.name ?? '',
+      headline: resume?.contact.headline ?? '',
+      contact: c,
+      role: role
+        ? { title: role.title, company: role.company, url: role.url }
+        : null,
+      incoming: req.incoming,
+      ask: req.ask,
+    });
     return { body, method: 'local' };
   }
 }

@@ -9,6 +9,9 @@ import type {
   SourceCatalogRow,
   CompanyRow,
   InterviewRow,
+  ContactRow,
+  RoleContactRow,
+  ContactTouchRow,
 } from '@jobbotix/shared-types';
 
 /**
@@ -405,6 +408,78 @@ export function sampleEvents(): RoleEventRow[] {
       daysAgo(1),
     ),
   ];
+}
+
+/** Two people: a recruiter waiting on a reply, and an old colleague who can refer. */
+export function samplePeople(now = Date.now()): {
+  contacts: ContactRow[];
+  links: RoleContactRow[];
+  touches: ContactTouchRow[];
+} {
+  const iso = (d: number) => new Date(now - d * 86_400_000).toISOString();
+  const day = (d: number) => iso(d).slice(0, 10);
+  const base = {
+    user_id: DEMO_USER_ID,
+    email: '',
+    linkedin_url: '',
+    created_at: iso(6),
+    updated_at: iso(2),
+  };
+  return {
+    contacts: [
+      {
+        ...base,
+        id: 'c-rafael',
+        name: 'Rafael Costa',
+        company: 'Lumen Commerce',
+        title: 'Talent Partner',
+        relation: 'recruiter',
+        linkedin_url: 'https://www.linkedin.com/in/example-rafael',
+        notes: 'Reached out on LinkedIn about the React/Next.js role.',
+        next_touch_on: day(0),
+        last_touch_at: iso(5),
+      },
+      {
+        ...base,
+        id: 'c-nadia',
+        name: 'Nadia Karim',
+        company: 'Quill & Co',
+        title: 'Senior Engineer',
+        relation: 'referrer',
+        email: 'nadia@example.com',
+        notes: 'Worked together on the NopCommerce storefront in 2021.',
+        next_touch_on: null,
+        last_touch_at: null,
+      },
+    ],
+    links: [
+      {
+        role_id: 'r-lumen',
+        contact_id: 'c-rafael',
+        user_id: DEMO_USER_ID,
+        created_at: iso(5),
+      },
+      {
+        role_id: 'r-quill',
+        contact_id: 'c-nadia',
+        user_id: DEMO_USER_ID,
+        created_at: iso(1),
+      },
+    ],
+    touches: [
+      {
+        id: 't-1',
+        user_id: DEMO_USER_ID,
+        contact_id: 'c-rafael',
+        role_id: 'r-lumen',
+        at: iso(5),
+        channel: 'linkedin',
+        direction: 'in',
+        note: 'Asked if I was open to the Senior Frontend Developer role.',
+        created_at: iso(5),
+      },
+    ],
+  };
 }
 
 /** Two rounds for Meridian (in Interview): one to debrief, one coming up. */

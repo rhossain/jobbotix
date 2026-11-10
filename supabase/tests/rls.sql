@@ -626,4 +626,53 @@ exception when insufficient_privilege then null;
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- ---------------------------------------------------------------------------
+-- People: own rows only; links and touches only between your own rows; a
+-- touch stamps the contact's last-touch time.
+-- ---------------------------------------------------------------------------
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare v_c uuid; v_role uuid;
+begin
+  insert into public.contacts (user_id, name, company, relation, next_touch_on)
+  values ('11111111-1111-1111-1111-111111111111', 'Ana Ruiz', 'Opencorp', 'recruiter', current_date)
+  returning id into v_c;
+  select id into v_role from public.roles where company = 'Opencorp';
+  insert into public.role_contacts (role_id, contact_id, user_id)
+  values (v_role, v_c, '11111111-1111-1111-1111-111111111111');
+  insert into public.contact_touches (user_id, contact_id, role_id, at, channel)
+  values ('11111111-1111-1111-1111-111111111111', v_c, v_role, now() - interval '1 hour', 'linkedin');
+  if (select last_touch_at from public.contacts where id = v_c) is null then
+    raise exception 'FAIL: a touch did not stamp last_touch_at';
+  end if;
+  begin
+    insert into public.contacts (user_id, name) values ('11111111-1111-1111-1111-111111111111', '  ');
+    raise exception 'FAIL: blank contact name accepted';
+  exception when check_violation then null;
+  end;
+  perform set_config('test.contact', v_c::text, false);
+end $$;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if exists (select 1 from public.contacts) or exists (select 1 from public.contact_touches)
+     or exists (select 1 from public.role_contacts) then
+    raise exception 'FAIL: user 2 sees user 1 people';
+  end if;
+end $$;
+do $$ begin
+  insert into public.contact_touches (user_id, contact_id)
+  values ('22222222-2222-2222-2222-222222222222', current_setting('test.contact')::uuid);
+  raise exception 'FAIL: user 2 logged a touch on user 1''s contact';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  insert into public.role_contacts (role_id, contact_id, user_id)
+  values (current_setting('test.opencorp')::uuid, current_setting('test.contact')::uuid,
+          '22222222-2222-2222-2222-222222222222');
+  raise exception 'FAIL: user 2 linked user 1''s contact to user 1''s role';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

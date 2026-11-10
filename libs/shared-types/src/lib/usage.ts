@@ -57,6 +57,7 @@ export const JOB_LABELS: Record<AiJob, string> = {
   import: 'Resume import',
   research: 'Company research',
   thank_you: 'Thank-you notes',
+  message: 'Messages to people',
 };
 
 /** "claude-sonnet-4-5-20250929" and "-latest" ids priced as their family id. */

@@ -17,6 +17,12 @@ import {
   type SwipeAction,
 } from '../../ui';
 import {
+  CONTACT_RELATION_LABELS,
+  addDays,
+  daysBetweenDays,
+  dueContacts,
+  isoDay,
+  type ContactRow,
   formatInterviewTime,
   interviewLabel,
   needsDebrief,
@@ -27,7 +33,7 @@ import {
   type RoleStatus,
 } from '@jobbotix/shared-types';
 import { Auth } from '../../core/auth';
-import { InterviewsRepo, RolesRepo } from '../../core/data/repos';
+import { InterviewsRepo, PeopleRepo, RolesRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
 import {
   clockTime,
@@ -159,6 +165,63 @@ interface Reminder {
                     }"
                     >{{ x.kind === 'upcoming' ? 'Prepare' : 'Debrief' }}</a
                   >
+                </div>
+              </li>
+            }
+          </ul>
+        </section>
+      }
+
+      @if (people().length) {
+        <section aria-labelledby="people-heading">
+          <h2
+            id="people-heading"
+            class="flex items-center gap-2 text-lg font-semibold text-ink"
+          >
+            Get back to
+            <span class="jb-count">{{ people().length }}</span>
+          </h2>
+          <ul class="mt-3 flex flex-col gap-2.5">
+            @for (c of people(); track c.id) {
+              <li
+                class="jb-card flex flex-col gap-3 p-4 md:flex-row md:items-center md:gap-5 md:px-5"
+              >
+                <div
+                  class="flex min-w-0 flex-1 items-start gap-3 md:items-center md:gap-4"
+                >
+                  <span
+                    class="grid size-10 shrink-0 place-items-center rounded-full bg-signal-tint text-signal-ink"
+                    aria-hidden="true"
+                  >
+                    <jb-icon name="users" [size]="19" />
+                  </span>
+                  <p class="min-w-0 flex-1 text-sm text-ink-muted">
+                    <a
+                      [routerLink]="['/people', c.id]"
+                      class="font-semibold text-ink no-underline hover:underline"
+                      >{{ c.name }}</a
+                    >
+                    · {{ relationLabels[c.relation]
+                    }}{{ c.company ? ' at ' + c.company : '' }}:
+                    {{ overdue(c) }}
+                  </p>
+                </div>
+                <div class="flex gap-2 md:shrink-0">
+                  <a
+                    jbButton="primary"
+                    class="flex-1 md:flex-none"
+                    [routerLink]="['/people', c.id]"
+                    [queryParams]="{ draft: 1 }"
+                    >Message</a
+                  >
+                  <button
+                    type="button"
+                    jbButton
+                    class="flex-1 md:flex-none"
+                    (click)="snooze(c)"
+                  >
+                    In a week
+                  </button>
                 </div>
               </li>
             }
@@ -327,6 +390,13 @@ interface Reminder {
 export class Today {
   protected readonly repo = inject(RolesRepo);
   private readonly interviewsRepo = inject(InterviewsRepo);
+  private readonly peopleRepo = inject(PeopleRepo);
+  readonly relationLabels = CONTACT_RELATION_LABELS;
+  private readonly today = isoDay(new Date());
+  /** People whose get-back-to date is today or earlier. */
+  readonly people = computed(() =>
+    dueContacts(this.peopleRepo.contacts(), this.today),
+  );
   private readonly auth = inject(Auth);
   readonly label = interviewLabel;
   private readonly toast = inject(Toast);
@@ -461,6 +531,22 @@ export class Today {
     ];
   });
 
+  overdue(c: ContactRow) {
+    const d = daysBetweenDays(c.next_touch_on ?? this.today, this.today);
+    return d <= 0 ? 'due today' : `${d} ${d === 1 ? 'day' : 'days'} overdue`;
+  }
+
+  async snooze(c: ContactRow) {
+    try {
+      await this.peopleRepo.save(c.id, {
+        next_touch_on: addDays(this.today, 7),
+      });
+      this.toast.show(`${c.name}: in a week`);
+    } catch {
+      this.toast.error('Could not move the reminder');
+    }
+  }
+
   when(iso: string | null) {
     return iso ? formatInterviewTime(iso) : '';
   }
@@ -477,6 +563,8 @@ export class Today {
     void this.repo.load();
     if (!this.interviewsRepo.loaded())
       void this.interviewsRepo.load().catch(() => undefined);
+    if (!this.peopleRepo.loaded())
+      void this.peopleRepo.load().catch(() => undefined);
   }
 
   async dismiss(id: string) {

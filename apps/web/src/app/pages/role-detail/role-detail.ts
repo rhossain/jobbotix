@@ -53,6 +53,7 @@ import {
 import { CompanyPanel } from './company-panel';
 import { PrepPanel } from './prep-panel';
 import { InterviewsPanel } from './interviews-panel';
+import { RolePeople } from './role-people';
 import { VariantPanel } from './variant-panel';
 import { wordCount } from '@jobbotix/shared-types';
 
@@ -73,6 +74,7 @@ type Tab =
     ModelPicker,
     PrepPanel,
     InterviewsPanel,
+    RolePeople,
     RelativeDayPipe,
     RouterLink,
     ShareButton,
@@ -728,6 +730,7 @@ type Tab =
                 </div>
               }
             </section>
+            <jb-role-people [role]="r" />
           </aside>
         </div>
       </article>

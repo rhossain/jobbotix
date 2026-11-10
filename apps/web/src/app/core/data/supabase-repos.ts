@@ -34,6 +34,8 @@ import type {
   PostingSeenOn,
   PoolPostingFacts,
   InterviewRow,
+  ContactRow,
+  RoleContactRow,
   RunSummary,
   SearchProfileRow,
 } from '@jobbotix/shared-types';
@@ -58,6 +60,10 @@ import {
   SourcesRepo,
   WatchlistRepo,
   InterviewsRepo,
+  PeopleRepo,
+  type ContactInput,
+  type MessageRequest,
+  type TouchInput,
   type InterviewInput,
   type LetterResult,
   type FollowedCompany,
@@ -1057,6 +1063,159 @@ export class SupabaseInterviewsRepo extends InterviewsRepo {
         i.id === id ? { ...i, thank_you: data.body as string } : i,
       ),
     );
+    return {
+      body: data.body,
+      method: data.method ?? 'local',
+      model: data.model,
+    };
+  }
+}
+
+@Injectable()
+export class SupabasePeopleRepo extends PeopleRepo {
+  private readonly supabase = injectSupabase();
+  private readonly _contacts = signal<ContactRow[]>([]);
+  private readonly _links = signal<RoleContactRow[]>([]);
+  readonly contacts = this._contacts.asReadonly();
+  readonly links = this._links.asReadonly();
+  readonly loaded = signal(false);
+
+  async load() {
+    const [c, l] = await Promise.all([
+      this.supabase.from('contacts').select('*').order('name').limit(1000),
+      this.supabase.from('role_contacts').select('*').limit(5000),
+    ]);
+    if (c.error) throw new Error(c.error.message);
+    this._contacts.set(c.data ?? []);
+    this._links.set(l.data ?? []);
+    this.loaded.set(true);
+  }
+
+  private async userId() {
+    const user = (await this.supabase.auth.getUser()).data.user;
+    if (!user) throw new Error('Sign in first');
+    return user.id;
+  }
+
+  private put(row: ContactRow) {
+    this._contacts.update((l) =>
+      [...l.filter((c) => c.id !== row.id), row].sort((a, b) =>
+        a.name.localeCompare(b.name),
+      ),
+    );
+  }
+
+  async save(id: string | null, input: ContactInput) {
+    if (id) {
+      const { data, error } = await this.supabase
+        .from('contacts')
+        .update(input)
+        .eq('id', id)
+        .select('*')
+        .single();
+      if (error) throw new Error(error.message);
+      this.put(data);
+      return data;
+    }
+    if (!input.name?.trim()) throw new Error('Add a name');
+    const { data, error } = await this.supabase
+      .from('contacts')
+      .insert({
+        ...input,
+        name: input.name.trim(),
+        user_id: await this.userId(),
+      })
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    this.put(data);
+    return data;
+  }
+
+  async remove(id: string) {
+    const { error } = await this.supabase
+      .from('contacts')
+      .delete()
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+    this._contacts.update((l) => l.filter((c) => c.id !== id));
+    this._links.update((l) => l.filter((x) => x.contact_id !== id));
+  }
+
+  async link(roleId: string, contactId: string) {
+    const { data, error } = await this.supabase
+      .from('role_contacts')
+      .upsert(
+        {
+          role_id: roleId,
+          contact_id: contactId,
+          user_id: await this.userId(),
+        },
+        { onConflict: 'role_id,contact_id' },
+      )
+      .select('*')
+      .single();
+    if (error) throw new Error(error.message);
+    this._links.update((l) => [
+      ...l.filter((x) => !(x.role_id === roleId && x.contact_id === contactId)),
+      data,
+    ]);
+  }
+
+  async unlink(roleId: string, contactId: string) {
+    const { error } = await this.supabase
+      .from('role_contacts')
+      .delete()
+      .eq('role_id', roleId)
+      .eq('contact_id', contactId);
+    if (error) throw new Error(error.message);
+    this._links.update((l) =>
+      l.filter((x) => !(x.role_id === roleId && x.contact_id === contactId)),
+    );
+  }
+
+  async touches(contactId: string) {
+    const { data, error } = await this.supabase
+      .from('contact_touches')
+      .select('*')
+      .eq('contact_id', contactId)
+      .order('at', { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  }
+
+  async logTouch(input: TouchInput, nextTouchOn?: string | null) {
+    const { error } = await this.supabase.from('contact_touches').insert({
+      ...input,
+      role_id: input.role_id ?? null,
+      note: input.note ?? '',
+      user_id: await this.userId(),
+    });
+    if (error) throw new Error(error.message);
+    // the touch trigger moved last_touch_at; read the row back either way
+    const q =
+      nextTouchOn === undefined
+        ? this.supabase.from('contacts').select('*').eq('id', input.contact_id)
+        : this.supabase
+            .from('contacts')
+            .update({ next_touch_on: nextTouchOn })
+            .eq('id', input.contact_id)
+            .select('*');
+    const { data } = await q.single();
+    if (data) this.put(data);
+  }
+
+  async draftMessage(req: MessageRequest): Promise<LetterResult> {
+    const { data, error } = await this.supabase.functions.invoke<{
+      body?: string;
+      method?: 'ai' | 'local';
+      model?: string;
+      error?: string;
+    }>('draft-message', { body: req });
+    if (error) throw new Error(await describeFunctionError(error));
+    if (!data?.body)
+      throw new Error(data?.error ?? 'Could not draft the message');
     return {
       body: data.body,
       method: data.method ?? 'local',

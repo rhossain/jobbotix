@@ -32,6 +32,12 @@ import type {
   CompanyRow,
   PoolPostingFacts,
   InterviewRow,
+  ContactRow,
+  RoleContactRow,
+  ContactTouchRow,
+  MessageKind,
+  TouchChannel,
+  TouchDirection,
 } from '@jobbotix/shared-types';
 
 /**
@@ -198,6 +204,59 @@ export abstract class InterviewsRepo {
    * (model with a key, local template otherwise) and stores it on the round.
    */
   abstract draftThankYou(id: string, model?: string): Promise<LetterResult>;
+}
+
+export type ContactInput = Partial<
+  Omit<
+    ContactRow,
+    'id' | 'user_id' | 'created_at' | 'updated_at' | 'last_touch_at'
+  >
+>;
+
+export interface TouchInput {
+  contact_id: string;
+  role_id?: string | null;
+  channel: TouchChannel;
+  direction: TouchDirection;
+  note?: string;
+  at?: string;
+}
+
+export interface MessageRequest {
+  contactId: string;
+  kind: MessageKind;
+  roleId?: string | null;
+  /** The recruiter's message being answered. */
+  incoming?: string;
+  /** What the user wants said, in their words. */
+  ask?: string;
+  model?: string;
+}
+
+export abstract class PeopleRepo {
+  /** Every person of the signed-in user, by name. */
+  abstract readonly contacts: Signal<ContactRow[]>;
+  /** Every person-to-role link. */
+  abstract readonly links: Signal<RoleContactRow[]>;
+  abstract readonly loaded: Signal<boolean>;
+  abstract load(): Promise<void>;
+  /** Creates (id null; name required) or updates a person. */
+  abstract save(id: string | null, input: ContactInput): Promise<ContactRow>;
+  abstract remove(id: string): Promise<void>;
+  abstract link(roleId: string, contactId: string): Promise<void>;
+  abstract unlink(roleId: string, contactId: string): Promise<void>;
+  /** The person's touches, newest first. */
+  abstract touches(contactId: string): Promise<ContactTouchRow[]>;
+  /**
+   * Logs a message, call or reply and sets (or clears, with null) the date to
+   * get back to them; undefined leaves it as it is.
+   */
+  abstract logTouch(
+    input: TouchInput,
+    nextTouchOn?: string | null,
+  ): Promise<void>;
+  /** Drafts a message to the person (model with a key, a template otherwise). Not stored. */
+  abstract draftMessage(req: MessageRequest): Promise<LetterResult>;
 }
 
 export abstract class ScreeningRepo {

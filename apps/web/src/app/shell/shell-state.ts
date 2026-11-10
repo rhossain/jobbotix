@@ -21,6 +21,7 @@ export const PRIMARY_NAV: NavItem[] = [
 
 /** Set-up and review pages: under "More" on phones. */
 export const SECONDARY_NAV: NavItem[] = [
+  { label: 'People', link: '/people', icon: 'users', keys: 'g p' },
   {
     label: 'Search profile',
     link: '/search',
