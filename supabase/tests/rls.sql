@@ -988,4 +988,104 @@ do $$ begin
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- ---------------------------------------------------------------------------
+-- AI connections (migration 0034). The service role writes; users read their
+-- own rows without the Vault reference.
+-- ---------------------------------------------------------------------------
+insert into public.ai_connections (user_id, provider, key_ref, key_hint, model, position, status)
+values ('11111111-1111-1111-1111-111111111111', 'anthropic', 'anthropic_key_1', 'aaaa', 'claude-sonnet-5-5', 0, 'ok'),
+       ('33333333-3333-3333-3333-333333333333', 'gemini', 'ai_key_gemini_3', 'gggg', '', 0, 'ok'),
+       ('33333333-3333-3333-3333-333333333333', 'groq', 'ai_key_groq_3', 'qqqq', '', 1, 'untested');
+do $$ begin
+  insert into public.ai_connections (user_id, provider, key_ref)
+  values ('33333333-3333-3333-3333-333333333333', 'gemini', 'again');
+  raise exception 'FAIL: two connections to one provider';
+exception when unique_violation then null;
+end $$;
+do $$ begin
+  insert into public.ai_connections (user_id, provider, key_ref)
+  values ('33333333-3333-3333-3333-333333333333', 'Not A Provider', 'x');
+  raise exception 'FAIL: a malformed provider name was accepted';
+exception when check_violation then null;
+end $$;
+
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$
+declare n int;
+begin
+  select count(*) into n from (select id, provider, key_hint, model, position, status, last_error, limited_until from public.ai_connections) c;
+  if n <> 2 then raise exception 'FAIL: user sees % connections, expected own 2', n; end if;
+  if (select provider from public.ai_connections order by position limit 1) <> 'gemini' then
+    raise exception 'FAIL: connection order';
+  end if;
+end $$;
+do $$ begin
+  perform key_ref from public.ai_connections;
+  raise exception 'FAIL: a user read the Vault reference of a key';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform * from public.ai_connections;
+  raise exception 'FAIL: select * exposed every column';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  insert into public.ai_connections (user_id, provider, key_ref)
+  values ('33333333-3333-3333-3333-333333333333', 'openrouter', 'mine');
+  raise exception 'FAIL: a user created a connection directly';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  update public.ai_connections set status = 'ok', position = 0 where provider = 'groq';
+  raise exception 'FAIL: a user edited a connection directly';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  delete from public.ai_connections where provider = 'groq';
+  raise exception 'FAIL: a user deleted a connection directly';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role anon;
+do $$ begin
+  perform id from public.ai_connections;
+  raise exception 'FAIL: a signed-out caller read connections';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+
+-- The admin overview counts any provider as an AI key and names them.
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare v jsonb := public.admin_overview(); u jsonb;
+begin
+  select x into u from jsonb_array_elements(v -> 'users') x where x ->> 'id' = '33333333-3333-3333-3333-333333333333';
+  if not (u ->> 'has_ai_key')::boolean then raise exception 'FAIL: a Gemini-only user shows no AI key'; end if;
+  if u -> 'ai_providers' <> '["gemini", "groq"]'::jsonb then raise exception 'FAIL: providers listed as %', u -> 'ai_providers'; end if;
+  select x into u from jsonb_array_elements(v -> 'users') x where x ->> 'id' = '22222222-2222-2222-2222-222222222222';
+  if (u ->> 'has_ai_key')::boolean then raise exception 'FAIL: a user without connections shows an AI key'; end if;
+  if (select count(*) from (select id from public.ai_connections) c) <> 1 then
+    raise exception 'FAIL: connections leak across accounts';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
+-- Usage rows name the provider; older rows read as Anthropic.
+insert into public.ai_usage (user_id, job, model, tokens_in, tokens_out)
+values ('33333333-3333-3333-3333-333333333333', 'letter', 'claude-sonnet-5-5', 10, 10);
+insert into public.ai_usage (user_id, job, model, provider, tokens_in, tokens_out)
+values ('33333333-3333-3333-3333-333333333333', 'letter', 'gemini-3.8-flash', 'gemini', 10, 10);
+do $$ begin
+  if (select count(*) from public.ai_usage where user_id = '33333333-3333-3333-3333-333333333333' and provider = 'anthropic') <> 1 then
+    raise exception 'FAIL: usage provider default';
+  end if;
+end $$;
+
+-- Deleting the account takes its connections with it.
+do $$ begin
+  delete from public.ai_connections where user_id = '11111111-1111-1111-1111-111111111111';
+end $$;
+
 \echo RLS tests passed
