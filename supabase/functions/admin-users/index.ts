@@ -1,0 +1,228 @@
+// POST /functions/v1/admin-users     (signed-in admin)
+//   Authorization: Bearer <user JWT>
+//   { "action": "list", "q"?: "...", "plan"?: "free"|"pro", "route"?: "own"|"credits"|"none", "limit"?: 50, "offset"?: 0 }
+//   { "action": "export", ...the same filters }       every match, for the CSV
+//   { "action": "get", "userId": "..." }               one account
+//   { "action": "money" }                              revenue, subscriptions, AI spend
+//   { "action": "suspend", "userId": "...", "reason": "..." }
+//   { "action": "unsuspend", "userId": "..." }
+//   { "action": "login_link", "userId": "..." }        emails the user a sign-in link
+//   { "action": "delete", "userId": "...", "confirmEmail": "..." }
+//
+// The admin console's way to accounts other than the admin's own. It checks
+// the caller is an admin, reads with the service role through the functions
+// of migration 0037 (which never return a resume, a letter or notes unless
+// the account's owner opened support access), and records every view and
+// action in admin_audit. Plans and credits are changed through their own
+// database functions, which are audited by triggers.
+
+import { createClient } from 'npm:@supabase/supabase-js@2';
+import { deleteAccount } from '../_shared/account.ts';
+import {
+  ADMIN_ACTIONS,
+  BAN_FOREVER,
+  isUuid,
+  listFilters,
+  refusal,
+  type AdminAction,
+  type Target,
+} from '../_shared/admin.ts';
+import { json, serviceClient } from '../_shared/auth.ts';
+import { withCors } from '../_shared/cors.ts';
+
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.jobbotix.com';
+
+Deno.serve(
+  withCors(async (req) => {
+    if (req.method !== 'POST') return json(405, { error: 'POST only' });
+    const jwt = req.headers
+      .get('authorization')
+      ?.replace(/^Bearer\s+/i, '')
+      .trim();
+    if (!jwt) return json(401, { error: 'Sign in first' });
+
+    const anon = () =>
+      createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_ANON_KEY')!,
+        { auth: { persistSession: false } },
+      );
+    const asUser = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      {
+        global: { headers: { Authorization: `Bearer ${jwt}` } },
+        auth: { persistSession: false },
+      },
+    );
+    const { data: userData } = await asUser.auth.getUser();
+    if (!userData?.user)
+      return json(401, { error: 'Session expired; sign in again' });
+    const actorId = userData.user.id;
+
+    const admin = serviceClient();
+    const { data: actor } = await admin
+      .from('profiles')
+      .select('is_admin, suspended_at')
+      .eq('id', actorId)
+      .maybeSingle();
+    if (!actor?.is_admin || actor.suspended_at)
+      return json(403, { error: 'Admins only' });
+
+    const body = (await req.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
+    const action = body['action'] as AdminAction;
+    if (!(ADMIN_ACTIONS as readonly string[]).includes(action))
+      return json(400, { error: 'Unknown action' });
+
+    const audit = (
+      what: string,
+      target: string | null,
+      detail: Record<string, unknown> = {},
+      quietMinutes = 0,
+    ) =>
+      admin.rpc('admin_audit_write', {
+        p_admin: actorId,
+        p_action: what,
+        p_target: target,
+        p_detail: detail,
+        p_quiet_minutes: quietMinutes,
+      });
+
+    // --- reads that are not about one account --------------------------------
+    if (action === 'list' || action === 'export') {
+      const f = listFilters(body);
+      const page = (limit: number, offset: number) =>
+        admin.rpc('admin_users_list', {
+          p_query: f.q,
+          p_plan: f.plan,
+          p_route: f.route,
+          p_limit: limit,
+          p_offset: offset,
+        });
+      if (action === 'list') {
+        const { data, error } = await page(f.limit, f.offset);
+        if (error) return json(500, { error: error.message });
+        await audit(
+          'view_users',
+          null,
+          { q: f.q, plan: f.plan, route: f.route },
+          10,
+        );
+        return json(200, data);
+      }
+      // Everything that matches, 500 at a time, up to 10,000 accounts.
+      const users: unknown[] = [];
+      let total = 0;
+      for (let offset = 0; offset < 10_000; offset += 500) {
+        const { data, error } = await page(500, offset);
+        if (error) return json(500, { error: error.message });
+        const batch = (data?.users ?? []) as unknown[];
+        total = Number(data?.total ?? 0);
+        users.push(...batch);
+        if (batch.length < 500) break;
+      }
+      await audit('export_users', null, {
+        q: f.q,
+        plan: f.plan,
+        route: f.route,
+        count: users.length,
+      });
+      return json(200, { total, users });
+    }
+    if (action === 'money') {
+      const { data, error } = await admin.rpc('admin_money');
+      if (error) return json(500, { error: error.message });
+      await audit('view_money', null, {}, 30);
+      return json(200, data);
+    }
+
+    // --- one account ---------------------------------------------------------
+    const userId = body['userId'];
+    if (!isUuid(userId)) return json(400, { error: 'userId is required' });
+    const { data: target } = await admin
+      .from('profiles')
+      .select('id, email, is_admin')
+      .eq('id', userId)
+      .maybeSingle();
+    if (!target) return json(404, { error: 'No such account' });
+    const no = refusal(action, actorId, target as Target, body);
+    if (no) return json(422, { error: no });
+
+    if (action === 'get') {
+      const [{ data, error }, auth] = await Promise.all([
+        admin.rpc('admin_user_detail', { p_user: userId }),
+        admin.auth.admin.getUserById(userId),
+      ]);
+      if (error || !data)
+        return json(500, {
+          error: error?.message ?? 'Could not read the account',
+        });
+      const u = auth.data?.user as
+        | {
+            last_sign_in_at?: string;
+            email_confirmed_at?: string;
+            banned_until?: string;
+          }
+        | undefined;
+      await audit('view_user', userId, {}, 10);
+      // Reading someone's roles and resume is its own line in the trail.
+      if (data.content) await audit('view_content', userId, {}, 10);
+      return json(200, {
+        ...data,
+        auth: {
+          last_sign_in_at: u?.last_sign_in_at ?? null,
+          email_confirmed_at: u?.email_confirmed_at ?? null,
+          banned_until: u?.banned_until ?? null,
+        },
+      });
+    }
+
+    if (action === 'suspend' || action === 'unsuspend') {
+      const on = action === 'suspend';
+      const reason = on ? String(body['reason']).trim() : '';
+      // Sign-in first: if that fails, the account is not marked suspended.
+      const { error: banError } = await admin.auth.admin.updateUserById(
+        userId,
+        {
+          ban_duration: on ? BAN_FOREVER : 'none',
+        },
+      );
+      if (banError) return json(500, { error: banError.message });
+      const { error } = await admin
+        .from('profiles')
+        .update({
+          suspended_at: on ? new Date().toISOString() : null,
+          suspended_reason: reason,
+        })
+        .eq('id', userId);
+      if (error) return json(500, { error: error.message });
+      await audit(action, userId, on ? { reason } : {});
+      return json(200, { suspended: on });
+    }
+
+    if (action === 'login_link') {
+      // The same email the sign-in page sends; nothing is shown to the admin.
+      const { error } = await anon().auth.signInWithOtp({
+        email: target.email,
+        options: { shouldCreateUser: false, emailRedirectTo: APP_URL },
+      });
+      if (error) return json(502, { error: error.message });
+      await audit('send_login_link', userId);
+      return json(200, { sent: true });
+    }
+
+    // delete: the trail first, while the account's email can still be read
+    await audit('delete_account', userId, { email: target.email });
+    const failed = await deleteAccount(admin, userId);
+    if (failed) {
+      await audit('delete_account_failed', userId, {
+        error: failed.slice(0, 300),
+      });
+      return json(500, { error: failed });
+    }
+    return json(200, { deleted: true });
+  }),
+);

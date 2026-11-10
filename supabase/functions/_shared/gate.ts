@@ -13,6 +13,7 @@ import {
   featureForJob,
   normaliseEntitlements,
   OPEN_ENTITLEMENTS,
+  SUSPENDED,
   upgradeRequired,
   type Entitlements,
   type Feature,
@@ -49,11 +50,15 @@ export async function loadEntitlements(
   }
 }
 
-/** The 402 for a feature the plan lacks, or null when the call may go ahead. */
+/**
+ * The 403 for a suspended account or the 402 for a feature the plan lacks;
+ * null when the call may go ahead.
+ */
 export function blockedResponse(
   e: Entitlements,
   feature: Feature,
 ): Response | null {
+  if (e.suspended) return reply(403, SUSPENDED);
   return can(e, feature) ? null : reply(402, upgradeRequired(e, feature));
 }
 

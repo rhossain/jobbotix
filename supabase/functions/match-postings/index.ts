@@ -127,9 +127,11 @@ Deno.serve(async (req) => {
   let q = admin
     .from('search_profiles')
     .select(
-      'user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, alert_min_score, profiles!inner(email, name)',
+      'user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, alert_min_score, profiles!inner(email, name, suspended_at)',
     )
-    .eq('active', true);
+    .eq('active', true)
+    // a suspended account is not matched (or scored, or mailed)
+    .is('profiles.suspended_at', null);
   if (body.userId) q = q.eq('user_id', body.userId);
   const { data: profiles, error } = await q;
   if (error) return json(500, { error: error.message });

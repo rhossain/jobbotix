@@ -1,4 +1,4 @@
-import { deepStrictEqual as assertEquals } from 'node:assert';
+import { deepStrictEqual as assertEquals, ok as assert } from 'node:assert';
 import { OPEN_ENTITLEMENTS } from './entitlements.ts';
 import {
   loadEntitlements,
@@ -110,5 +110,28 @@ Deno.test(
       const gate = await requireAiJob(fake(answer).admin, 'u', 'research');
       assertEquals(gate, OPEN_ENTITLEMENTS);
     }
+  },
+);
+
+Deno.test(
+  'a suspended account is refused with 403, whatever its plan',
+  async () => {
+    for (const job of ['letter', 'research'] as const) {
+      const gate = await requireAiJob(
+        fake({ data: { ...free, plan: 'pro', suspended: true } }).admin,
+        'u',
+        job,
+      );
+      assert(gate instanceof Response);
+      assertEquals((gate as Response).status, 403);
+      assertEquals((await (gate as Response).json()).code, 'suspended');
+    }
+    // billing off does not lift a suspension
+    const open = await requireAiJob(
+      fake({ data: { ...free, enforced: false, suspended: true } }).admin,
+      'u',
+      'letter',
+    );
+    assertEquals((open as Response).status, 403);
   },
 );

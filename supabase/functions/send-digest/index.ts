@@ -39,9 +39,11 @@ Deno.serve(async (req) => {
   let profiles = admin
     .from('search_profiles')
     .select(
-      'user_id, digest_time, digest_days, digest_min_score, digest_enabled, profiles!inner(email, name, timezone)',
+      'user_id, digest_time, digest_days, digest_min_score, digest_enabled, profiles!inner(email, name, timezone, suspended_at)',
     )
-    .eq('active', true);
+    .eq('active', true)
+    // a suspended account gets no digest
+    .is('profiles.suspended_at', null);
   if (body.userId) profiles = profiles.eq('user_id', body.userId);
   const { data: rows, error } = await profiles;
   if (error) return json(500, { error: error.message });

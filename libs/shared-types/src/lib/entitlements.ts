@@ -43,6 +43,8 @@ export interface Entitlements {
   monthlyCredits: number;
   /** AI credits left. */
   credits: number;
+  /** An admin suspended the account: AI calls and scheduled matching stop. */
+  suspended: boolean;
 }
 
 /**
@@ -62,6 +64,7 @@ export const OPEN_ENTITLEMENTS: Entitlements = {
   limits: {},
   monthlyCredits: 0,
   credits: 0,
+  suspended: false,
 };
 
 const STATUSES: SubscriptionStatus[] = [
@@ -113,6 +116,7 @@ export function normaliseEntitlements(v: unknown): Entitlements {
     limits,
     monthlyCredits: Math.max(0, int(o['monthly_credits'])),
     credits: Math.max(0, int(o['credits'])),
+    suspended: o['suspended'] === true,
   };
 }
 
@@ -196,6 +200,12 @@ export function upgradeRequired(
     plan: e.plan,
   };
 }
+
+/** What a function returns (HTTP 403) to a suspended account. */
+export const SUSPENDED = {
+  error: 'This account is suspended. Write to Jobbotix support to sort it out.',
+  code: 'suspended',
+} as const;
 
 /** True for the 402 body above, however it reached the caller. */
 export function isUpgradeRequired(v: unknown): v is UpgradeRequired {

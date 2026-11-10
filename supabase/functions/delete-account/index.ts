@@ -10,6 +10,7 @@
 // always has someone to run it.
 
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { deleteAccount } from '../_shared/account.ts';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 
@@ -42,7 +43,7 @@ Deno.serve(
     const admin = serviceClient();
     const { data: profile } = await admin
       .from('profiles')
-      .select('is_admin, anthropic_key_ref')
+      .select('is_admin')
       .eq('id', userId)
       .maybeSingle();
 
@@ -58,27 +59,8 @@ Deno.serve(
         });
     }
 
-    // Every saved AI key leaves Vault with the account (the connections
-    // themselves go with the profile).
-    const { data: connections } = await admin
-      .from('ai_connections')
-      .select('key_ref')
-      .eq('user_id', userId);
-    const secrets = new Set<string>(
-      [
-        profile?.anthropic_key_ref,
-        ...(connections ?? []).map((c: { key_ref: string }) => c.key_ref),
-      ].filter((n): n is string => !!n),
-    );
-    for (const name of secrets) {
-      const { error } = await admin.rpc('vault_delete_secret', {
-        p_name: name,
-      });
-      if (error) return json(500, { error: `Key: ${error.message}` });
-    }
-
-    const { error } = await admin.auth.admin.deleteUser(userId);
-    if (error) return json(500, { error: error.message });
+    const failed = await deleteAccount(admin, userId);
+    if (failed) return json(500, { error: failed });
     return json(200, { deleted: true });
   }),
 );
