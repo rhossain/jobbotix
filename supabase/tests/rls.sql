@@ -1088,4 +1088,269 @@ do $$ begin
   delete from public.ai_connections where user_id = '11111111-1111-1111-1111-111111111111';
 end $$;
 
+-- Test helper: patch settings.pro_ai from a block that runs as the service role.
+create function public.admin_set_pro_ai_as_service(p jsonb) returns void language plpgsql as $$
+begin
+  update public.settings set value = value || (p - 'credit_prices')
+    || case when p ? 'credit_prices'
+         then jsonb_build_object('credit_prices', (value -> 'credit_prices') || (p -> 'credit_prices'))
+         else '{}'::jsonb end
+   where key = 'pro_ai';
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- The Pro AI route (0035): credits held, spent and given back.
+--   333… is on Pro with 30 credits; 111… (the admin) is on Free with none.
+-- ---------------------------------------------------------------------------
+-- Off by default: nothing is held, nobody has trial credits.
+do $$ declare r jsonb;
+begin
+  r := public.ai_reserve_credits('33333333-3333-3333-3333-333333333333', 'letter');
+  if r <> '{"ok": false, "reason": "off"}'::jsonb then raise exception 'FAIL: the Pro route is not off by default: %', r; end if;
+  if exists (select 1 from public.credit_holds) then raise exception 'FAIL: a hold while off'; end if;
+  if exists (select 1 from public.credit_ledger where kind = 'trial') then raise exception 'FAIL: trial credits while off'; end if;
+end $$;
+
+-- None of it is a user's to call or read.
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  perform public.ai_reserve_credits('33333333-3333-3333-3333-333333333333', 'letter');
+  raise exception 'FAIL: a user reserved credits directly';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.ai_settle_credits(gen_random_uuid(), 1, 1);
+  raise exception 'FAIL: a user settled a hold';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.ai_release_credits(gen_random_uuid());
+  raise exception 'FAIL: a user released a hold';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.grant_trial_credits('33333333-3333-3333-3333-333333333333');
+  raise exception 'FAIL: a user granted themselves trial credits';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform id from public.credit_holds;
+  raise exception 'FAIL: a user read holds';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_set_pro_ai('{"enabled": true}');
+  raise exception 'FAIL: a non-admin switched the Pro route on';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_pro_ai();
+  raise exception 'FAIL: a non-admin read the Pro route settings';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
+-- The admin switches it on: every account gets its trial credits, once.
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ declare bad jsonb;
+begin
+  foreach bad in array array[
+    '{"nonsense": 1}', '{"enabled": "yes"}', '{"daily_credit_cap": -1}', '{"trial_credits": 2.5}',
+    '{"credit_prices": {"letter": 2.5}}', '{"credit_prices": {"poetry": 1}}',
+    '{"models": {"writing": "some-model-without-a-price"}}', '{"models": {"big": "claude-sonnet-5-5"}}'
+  ]::jsonb[] loop
+    begin
+      perform public.admin_set_pro_ai(bad);
+      raise exception 'FAIL: accepted %', bad;
+    exception when invalid_parameter_value then null;
+    end;
+  end loop;
+end $$;
+do $$ declare v jsonb;
+begin
+  perform public.admin_set_pro_ai('{"enabled": true, "daily_credit_cap": 40}');
+  perform public.admin_set_pro_ai('{"credit_prices": {"message": 2}}');
+  v := public.admin_pro_ai();
+  if not (v -> 'settings' ->> 'enabled')::boolean or (v -> 'settings' ->> 'daily_credit_cap')::int <> 40 then
+    raise exception 'FAIL: the admin patch did not take: %', v -> 'settings';
+  end if;
+  if (v -> 'settings' -> 'credit_prices' ->> 'research')::int <> 15
+     or (v -> 'settings' -> 'credit_prices' ->> 'message')::int <> 2 then
+    raise exception 'FAIL: a price patch replaced the other prices';
+  end if;
+  if (v ->> 'month_spend_usd')::numeric <> 0 or (v ->> 'budget_warning')::boolean then
+    raise exception 'FAIL: spend before any call';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+do $$ begin
+  if (select count(*) from public.credit_ledger where kind = 'trial') <> (select count(*) from public.profiles) then
+    raise exception 'FAIL: trial credits were not granted once each';
+  end if;
+  if public.credit_balance('11111111-1111-1111-1111-111111111111') <> 20 then raise exception 'FAIL: Free trial balance'; end if;
+  if public.credit_balance('33333333-3333-3333-3333-333333333333') <> 50 then raise exception 'FAIL: Pro balance with trial'; end if;
+  if public.grant_trial_credits('11111111-1111-1111-1111-111111111111') <> 0 then raise exception 'FAIL: a second trial grant'; end if;
+end $$;
+-- A sign-up while the route is on gets them too.
+insert into auth.users (id, email, raw_user_meta_data)
+values ('44444444-4444-4444-4444-444444444444', 'd@example.com', '{}');
+do $$ begin
+  if public.credit_balance('44444444-4444-4444-4444-444444444444') <> 20 then raise exception 'FAIL: no trial credits at sign-up'; end if;
+end $$;
+
+-- Reserve, settle, release.
+do $$
+declare
+  pro uuid := '33333333-3333-3333-3333-333333333333';
+  free uuid := '11111111-1111-1111-1111-111111111111';
+  r jsonb; r2 jsonb; h uuid; b int;
+begin
+  insert into public.subscriptions (user_id, plan_id, status, source, current_period_end)
+  values (pro, 'pro', 'active', 'admin', now() + interval '20 days')
+  on conflict (user_id) do update set plan_id = 'pro', status = 'active', source = 'admin',
+    current_period_end = now() + interval '20 days';
+  if public.entitlements_for(pro) ->> 'plan' <> 'pro' then raise exception 'FAIL: test account is not on Pro'; end if;
+
+  -- Pro: credits go first, on the writing model; the hold lowers the balance.
+  r := public.ai_reserve_credits(pro, 'letter');
+  if not (r ->> 'ok')::boolean or (r ->> 'credits')::int <> 3 or r ->> 'model' <> 'claude-sonnet-5-5'
+     or not (r ->> 'first')::boolean or (r ->> 'balance')::int <> 47 then
+    raise exception 'FAIL: reserve for Pro: %', r;
+  end if;
+  h := (r ->> 'hold')::uuid;
+  if public.credit_balance(pro) <> 47 then raise exception 'FAIL: a hold did not lower the balance'; end if;
+  if (public.entitlements_for(pro) ->> 'credits')::int <> 47 then raise exception 'FAIL: entitlements ignore holds'; end if;
+
+  -- The call failed: the credits come back, and releasing twice is harmless.
+  perform public.ai_release_credits(h);
+  perform public.ai_release_credits(h);
+  if public.credit_balance(pro) <> 50 then raise exception 'FAIL: release did not give the credits back'; end if;
+  if exists (select 1 from public.credit_ledger where user_id = pro and kind = 'spend') then
+    raise exception 'FAIL: a failed call was charged';
+  end if;
+
+  -- The call answered: spent once, usage logged with its cost, settling twice is harmless.
+  r := public.ai_reserve_credits(pro, 'letter');
+  h := (r ->> 'hold')::uuid;
+  b := public.ai_settle_credits(h, 5000, 600);
+  if b <> 47 or public.ai_settle_credits(h, 5000, 600) <> 47 then raise exception 'FAIL: settle balance %', b; end if;
+  if (select count(*) from public.credit_ledger where user_id = pro and kind = 'spend') <> 1
+     or (select delta from public.credit_ledger where user_id = pro and kind = 'spend') <> -3 then
+    raise exception 'FAIL: settle did not spend exactly once';
+  end if;
+  if (select count(*) from public.ai_usage where user_id = pro and route = 'platform') <> 1 then
+    raise exception 'FAIL: settle logged usage % times', (select count(*) from public.ai_usage where user_id = pro and route = 'platform');
+  end if;
+  -- 5000 in at $2/M + 600 out at $10/M
+  if (select cost_usd from public.ai_usage where user_id = pro and route = 'platform') <> 0.016 then
+    raise exception 'FAIL: cost %', (select cost_usd from public.ai_usage where user_id = pro and route = 'platform');
+  end if;
+  -- a release after the settle changes nothing
+  perform public.ai_release_credits(h);
+  if public.credit_balance(pro) <> 47 then raise exception 'FAIL: release undid a settle'; end if;
+
+  -- Scoring is not metered and runs on the fast model.
+  r := public.ai_reserve_credits(pro, 'score');
+  if not (r ->> 'ok')::boolean or (r ->> 'credits')::int <> 0 or r ->> 'model' <> 'claude-haiku-5-5' then
+    raise exception 'FAIL: unmetered reserve: %', r;
+  end if;
+  if public.ai_settle_credits((r ->> 'hold')::uuid, 1500, 250) <> 47 then raise exception 'FAIL: an unmetered job cost credits'; end if;
+
+  -- Never below zero: research (15) fits three times in 47, not four…
+  perform public.admin_set_pro_ai_as_service('{"daily_credit_cap": 1000}');
+  r := public.ai_reserve_credits(pro, 'research');
+  r := public.ai_reserve_credits(pro, 'research');
+  r := public.ai_reserve_credits(pro, 'research');
+  if not (r ->> 'ok')::boolean or (r ->> 'balance')::int <> 2 then raise exception 'FAIL: third research: %', r; end if;
+  r2 := public.ai_reserve_credits(pro, 'research');
+  if (r2 ->> 'ok')::boolean or r2 ->> 'reason' <> 'no_credits' or (r2 ->> 'needed')::int <> 15 or (r2 ->> 'balance')::int <> 2 then
+    raise exception 'FAIL: a fourth research was reserved on 2 credits: %', r2;
+  end if;
+  -- …and an admin cannot take away credits that are held.
+  begin
+    perform set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+    set local role authenticated;
+    perform public.admin_add_credits(pro, -3, 'too much');
+    raise exception 'FAIL: an adjustment went below what is held';
+  exception when invalid_parameter_value then null;
+  end;
+  reset role;
+  perform set_config('request.jwt.claim.sub', '', true);
+  -- settle all three: the ledger lands on 2, never below
+  perform public.ai_settle_credits(id, 60000, 2000, 3) from public.credit_holds where user_id = pro and status = 'held';
+  if public.credit_balance(pro) <> 2 or (select sum(delta) from public.credit_ledger where user_id = pro) <> 2 then
+    raise exception 'FAIL: balance after three researches: %', public.credit_balance(pro);
+  end if;
+
+  -- A hold whose call never came back expires and is given back; if the
+  -- answer does arrive late it is paid for only as far as credits remain.
+  r := public.ai_reserve_credits(pro, 'message');   -- 2 credits (price patched above)
+  h := (r ->> 'hold')::uuid;
+  update public.credit_holds set expires_at = now() - interval '1 minute' where id = h;
+  if public.credit_balance(pro) <> 2 then raise exception 'FAIL: an expired hold still holds credits'; end if;
+  perform public.admin_set_pro_ai_as_service('{"credit_prices": {"message": 1}}');
+  r2 := public.ai_reserve_credits(pro, 'message');  -- sweeps the stale hold, holds 1
+  if (select status from public.credit_holds where id = h) <> 'released' then raise exception 'FAIL: the stale hold was not swept'; end if;
+  perform public.ai_settle_credits((r2 ->> 'hold')::uuid, 100, 100);
+  if public.ai_settle_credits(h, 100, 100) <> 0 then raise exception 'FAIL: a late answer overdrew the account'; end if;
+  if (select sum(delta) from public.credit_ledger where user_id = pro) <> 0 then raise exception 'FAIL: ledger below or above zero'; end if;
+
+  -- Free: trial credits are the fallback, not the first choice.
+  r := public.ai_reserve_credits(free, 'letter');
+  if not (r ->> 'ok')::boolean or (r ->> 'first')::boolean then raise exception 'FAIL: Free reserve: %', r; end if;
+  perform public.ai_release_credits((r ->> 'hold')::uuid);
+  -- "My own key only" is respected.
+  update public.profiles set ai_route = 'own' where id = free;
+  r := public.ai_reserve_credits(free, 'letter');
+  if (r ->> 'ok')::boolean or r ->> 'reason' <> 'own_only' then raise exception 'FAIL: own-key-only account was offered credits: %', r; end if;
+  update public.profiles set ai_route = 'auto' where id = free;
+  -- Free with no credits left gets no free scoring either.
+  insert into public.credit_ledger (user_id, delta, kind, reason) values (free, -20, 'expire', 'test');
+  r := public.ai_reserve_credits(free, 'score');
+  if (r ->> 'ok')::boolean or r ->> 'reason' <> 'no_credits' then raise exception 'FAIL: unmetered scoring for an empty Free account: %', r; end if;
+end $$;
+
+-- The daily cap and the monthly budget.
+do $$
+declare u uuid := '44444444-4444-4444-4444-444444444444'; r jsonb; v jsonb;
+begin
+  perform public.admin_set_pro_ai_as_service('{"daily_credit_cap": 8}');
+  r := public.ai_reserve_credits(u, 'tailor');                     -- 5 of 8
+  perform public.ai_settle_credits((r ->> 'hold')::uuid, 4000, 1500);
+  r := public.ai_reserve_credits(u, 'tailor');                     -- 10 > 8
+  if (r ->> 'ok')::boolean or r ->> 'reason' <> 'daily_cap' or r ->> 'resets_at' is null then
+    raise exception 'FAIL: the daily cap did not stop a call: %', r;
+  end if;
+  r := public.ai_reserve_credits(u, 'letter');                     -- 8 of 8 is allowed
+  if not (r ->> 'ok')::boolean then raise exception 'FAIL: the daily cap stopped a call that fits: %', r; end if;
+  perform public.ai_release_credits((r ->> 'hold')::uuid);
+
+  -- Platform spend so far: 0.016 + 0.00028 + 3 x 0.17 + 2 x 0.0012 + 0.023 = about 0.55
+  perform public.admin_set_pro_ai_as_service('{"daily_credit_cap": 1000, "monthly_budget_usd": 0.6}');
+  r := public.ai_reserve_credits(u, 'letter');
+  if not (r ->> 'ok')::boolean then raise exception 'FAIL: under budget but refused: %', r; end if;
+  perform public.ai_release_credits((r ->> 'hold')::uuid);
+  perform public.admin_set_pro_ai_as_service('{"monthly_budget_usd": 0.5}');
+  r := public.ai_reserve_credits(u, 'letter');
+  if (r ->> 'ok')::boolean or r ->> 'reason' <> 'budget' then raise exception 'FAIL: over budget but reserved: %', r; end if;
+  -- last month's spend does not count against this month
+  update public.ai_usage set created_at = now() - interval '40 days' where route = 'platform';
+  r := public.ai_reserve_credits(u, 'letter');
+  if not (r ->> 'ok')::boolean then raise exception 'FAIL: last month counted against the budget: %', r; end if;
+  perform public.ai_release_credits((r ->> 'hold')::uuid);
+
+  -- The kill switch.
+  perform public.admin_set_pro_ai_as_service('{"enabled": false}');
+  if public.ai_reserve_credits(u, 'letter') ->> 'reason' <> 'off' then raise exception 'FAIL: the kill switch did not stop reservations'; end if;
+  if exists (select 1 from public.credit_holds where status = 'held' and expires_at > now()) then
+    raise exception 'FAIL: holds left open';
+  end if;
+  if exists (select 1 from (select user_id, sum(delta) s from public.credit_ledger group by 1) t where s < 0) then
+    raise exception 'FAIL: an account went below zero';
+  end if;
+end $$;
+drop function public.admin_set_pro_ai_as_service(jsonb);
+
 \echo RLS tests passed
