@@ -1408,4 +1408,254 @@ begin
 end $$;
 drop function public.admin_set_pro_ai_as_service(jsonb);
 
+-- ---------------------------------------------------------------------------
+-- The admin console (0037).
+--   111… admin, 333… on Pro with two AI connections, 444… on Free.
+-- ---------------------------------------------------------------------------
+-- What admins did earlier in this file was recorded by the triggers.
+do $$ begin
+  if not exists (select 1 from public.admin_audit where action = 'add_credits'
+                  and target_email = 'c@example.com' and (detail ->> 'credits')::int = 50
+                  and admin_email = 'a@example.com') then
+    raise exception 'FAIL: adding credits was not audited';
+  end if;
+  if not exists (select 1 from public.admin_audit where action = 'set_plan' and detail ->> 'plan' = 'pro') then
+    raise exception 'FAIL: granting a plan was not audited';
+  end if;
+  if not exists (select 1 from public.admin_audit where action = 'settings:pro_ai' and (detail ->> 'enabled')::boolean) then
+    raise exception 'FAIL: switching the Pro route was not audited';
+  end if;
+  if not exists (select 1 from public.admin_audit where action = 'settings:billing') then
+    raise exception 'FAIL: the billing switch was not audited';
+  end if;
+end $$;
+
+-- The trail is for admins to read, and nobody's to write or tidy by hand.
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  if exists (select 1 from public.admin_audit) then raise exception 'FAIL: a non-admin read the audit trail'; end if;
+end $$;
+do $$ begin
+  insert into public.admin_audit (action) values ('forged');
+  raise exception 'FAIL: a user wrote to the audit trail';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_users_list();
+  raise exception 'FAIL: a user listed the accounts';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_user_detail('33333333-3333-3333-3333-333333333333');
+  raise exception 'FAIL: a user read an account detail';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_money();
+  raise exception 'FAIL: a user read the money overview';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_audit_write('33333333-3333-3333-3333-333333333333', 'forged');
+  raise exception 'FAIL: a user wrote an audit row through the function';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if not exists (select 1 from public.admin_audit) then raise exception 'FAIL: an admin cannot read the audit trail'; end if;
+end $$;
+do $$ begin
+  delete from public.admin_audit;
+  raise exception 'FAIL: an admin deleted audit rows';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  update public.admin_audit set action = 'tidied';
+  raise exception 'FAIL: an admin edited audit rows';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  -- the reads go through the admin function, which audits them
+  perform public.admin_users_list();
+  raise exception 'FAIL: an admin called the service read directly';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
+-- A repeated view inside the quiet window is recorded once.
+do $$ declare n int;
+begin
+  perform public.admin_audit_write('11111111-1111-1111-1111-111111111111', 'view_user', '33333333-3333-3333-3333-333333333333', '{}', 10);
+  perform public.admin_audit_write('11111111-1111-1111-1111-111111111111', 'view_user', '33333333-3333-3333-3333-333333333333', '{}', 10);
+  perform public.admin_audit_write('11111111-1111-1111-1111-111111111111', 'view_user', '44444444-4444-4444-4444-444444444444', '{}', 10);
+  select count(*) into n from public.admin_audit where action = 'view_user';
+  if n <> 2 then raise exception 'FAIL: quiet window recorded % views', n; end if;
+  perform public.admin_audit_write('11111111-1111-1111-1111-111111111111', 'view_user', '33333333-3333-3333-3333-333333333333');
+  if (select count(*) from public.admin_audit where action = 'view_user') <> 3 then raise exception 'FAIL: an unquiet view was dropped'; end if;
+  if (select target_email from public.admin_audit where action = 'view_user' limit 1) = '' then raise exception 'FAIL: no email snapshot'; end if;
+end $$;
+
+-- Suspension is the console's to set; support access is the owner's, for a week at most.
+update public.profiles set suspended_at = now(), suspended_reason = 'abuse'
+ where id = '44444444-4444-4444-4444-444444444444';
+do $$ begin
+  if not (public.entitlements_for('44444444-4444-4444-4444-444444444444') ->> 'suspended')::boolean then
+    raise exception 'FAIL: entitlements do not report the suspension';
+  end if;
+  if (public.entitlements_for('33333333-3333-3333-3333-333333333333') ->> 'suspended')::boolean then
+    raise exception 'FAIL: an account in good standing reads as suspended';
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+do $$ begin
+  update public.profiles set suspended_at = null where id = auth.uid();
+  raise exception 'FAIL: a user lifted their own suspension';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  update public.profiles set suspended_reason = '' where id = auth.uid();
+  raise exception 'FAIL: a user edited their suspension reason';
+exception when insufficient_privilege then null;
+end $$;
+-- ordinary profile edits still work
+update public.profiles set name = 'D' where id = auth.uid();
+reset role; reset request.jwt.claim.sub;
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+update public.profiles set support_access_until = now() + interval '90 days' where id = auth.uid();
+do $$ declare t timestamptz := (select support_access_until from public.profiles where id = auth.uid());
+begin
+  if t is null or t > now() + interval '7 days 1 minute' or t < now() + interval '6 days' then
+    raise exception 'FAIL: support access was not held to 7 days: %', t;
+  end if;
+  -- and nobody opens someone else's account
+  update public.profiles set support_access_until = now() + interval '1 day' where id = '44444444-4444-4444-4444-444444444444';
+  if found then raise exception 'FAIL: a user opened support access on another account'; end if;
+end $$;
+update public.profiles set support_access_until = null where id = auth.uid();
+do $$ begin
+  if (select support_access_until from public.profiles where id = auth.uid()) is not null then
+    raise exception 'FAIL: the owner could not close support access';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
+-- The users table: search and the two filters.
+insert into public.roles (user_id, company, title, url, notes, cover_letter, posting_text)
+values ('33333333-3333-3333-3333-333333333333', 'Acme Secret Co', 'Engineer', 'https://example.com/secret-role',
+        'SECRETNOTE', 'SECRETLETTER', 'SECRETPOSTING');
+insert into public.resumes (user_id, is_master, sections)
+values ('33333333-3333-3333-3333-333333333333', true, '{"summary": "SECRETRESUME"}')
+on conflict do nothing;
+update public.resumes set sections = '{"summary": "SECRETRESUME"}'
+ where user_id = '33333333-3333-3333-3333-333333333333' and is_master;
+do $$
+declare v jsonb; u jsonb;
+begin
+  v := public.admin_users_list();
+  if (v ->> 'total')::int <> 3 or jsonb_array_length(v -> 'users') <> 3 then raise exception 'FAIL: users list total: %', v ->> 'total'; end if;
+  if v::text like '%SECRET%' or v::text like '%key_ref%' then raise exception 'FAIL: the users list carries content'; end if;
+  select x into u from jsonb_array_elements(v -> 'users') x where x ->> 'email' = 'c@example.com';
+  if u ->> 'plan' <> 'pro' or u ->> 'route' <> 'own' or u -> 'providers' <> '["gemini", "groq"]'::jsonb
+     or (u ->> 'roles')::int < 1 or (u ->> 'suspended')::boolean then
+    raise exception 'FAIL: the Pro account in the list: %', u;
+  end if;
+  select x into u from jsonb_array_elements(v -> 'users') x where x ->> 'email' = 'd@example.com';
+  if u ->> 'plan' <> 'free' or u ->> 'route' <> 'none' or not (u ->> 'suspended')::boolean then
+    raise exception 'FAIL: the suspended Free account in the list: %', u;
+  end if;
+
+  if (public.admin_users_list('C@EXAMPLE') ->> 'total')::int <> 1 then raise exception 'FAIL: search by email'; end if;
+  if (public.admin_users_list('nobody-here') ->> 'total')::int <> 0 then raise exception 'FAIL: search with no match'; end if;
+  if (public.admin_users_list('', 'pro') ->> 'total')::int <> 1 then raise exception 'FAIL: plan filter'; end if;
+  if (public.admin_users_list('', 'free') ->> 'total')::int <> 2 then raise exception 'FAIL: plan filter, free'; end if;
+  if (public.admin_users_list('', null, 'own') ->> 'total')::int <> 1 then raise exception 'FAIL: route filter, own'; end if;
+  if (public.admin_users_list('', null, 'none') ->> 'total')::int <> 2 then raise exception 'FAIL: route filter, none'; end if;
+  if (public.admin_users_list('', null, 'credits') ->> 'total')::int <> 0 then raise exception 'FAIL: credits route while the Pro route is off'; end if;
+  -- paging
+  v := public.admin_users_list('', null, null, 2, 2);
+  if (v ->> 'total')::int <> 3 or jsonb_array_length(v -> 'users') <> 1 then raise exception 'FAIL: paging'; end if;
+
+  -- with the Pro route on, a paying account is on credits unless it chose its own key
+  update public.settings set value = value || '{"enabled": true}' where key = 'pro_ai';
+  if (public.admin_users_list('', null, 'credits') -> 'users' -> 0 ->> 'email') <> 'c@example.com' then raise exception 'FAIL: credits route'; end if;
+  update public.profiles set ai_route = 'own' where id = '33333333-3333-3333-3333-333333333333';
+  if (public.admin_users_list('', null, 'credits') ->> 'total')::int <> 0 then raise exception 'FAIL: own-key-only still listed on credits'; end if;
+  update public.profiles set ai_route = 'auto' where id = '33333333-3333-3333-3333-333333333333';
+  update public.settings set value = value || '{"enabled": false}' where key = 'pro_ai';
+end $$;
+
+-- One account: everything about the account, nothing of its content.
+do $$
+declare v jsonb; pro uuid := '33333333-3333-3333-3333-333333333333';
+begin
+  if public.admin_user_detail(gen_random_uuid()) is not null then raise exception 'FAIL: detail for an unknown account'; end if;
+  v := public.admin_user_detail(pro);
+  if v -> 'account' ->> 'email' <> 'c@example.com' or not (v -> 'account' ->> 'has_resume')::boolean then
+    raise exception 'FAIL: account tab: %', v -> 'account';
+  end if;
+  if v -> 'billing' -> 'entitlements' ->> 'plan' <> 'pro' or v -> 'billing' -> 'subscription' ->> 'source' <> 'admin'
+     or jsonb_array_length(v -> 'billing' -> 'ledger') = 0 then
+    raise exception 'FAIL: billing tab: %', v -> 'billing';
+  end if;
+  if jsonb_array_length(v -> 'ai' -> 'connections') <> 2 or v -> 'ai' -> 'connections' -> 0 ? 'key_ref' then
+    raise exception 'FAIL: AI tab connections: %', v -> 'ai' -> 'connections';
+  end if;
+  if jsonb_array_length(v -> 'activity' -> 'audit') = 0 or (v -> 'activity' -> 'roles_by_status' ->> 'new')::int < 1 then
+    raise exception 'FAIL: activity tab: %', v -> 'activity';
+  end if;
+  if v -> 'content' <> 'null'::jsonb or v::text like '%SECRET%' or v::text like '%Acme Secret%' then
+    raise exception 'FAIL: the detail shows content without support access';
+  end if;
+
+  -- The owner opens support access: roles and the resume show, notes and letters never do.
+  update public.profiles set support_access_until = now() + interval '3 days' where id = pro;
+  v := public.admin_user_detail(pro);
+  if v -> 'account' ->> 'support_access_until' is null
+     or v -> 'content' -> 'roles' -> 0 ->> 'company' <> 'Acme Secret Co'
+     or v -> 'content' -> 'resume' ->> 'summary' <> 'SECRETRESUME' then
+    raise exception 'FAIL: support access did not open the content: %', v -> 'content';
+  end if;
+  if v::text like '%SECRETNOTE%' or v::text like '%SECRETLETTER%' or v::text like '%SECRETPOSTING%' then
+    raise exception 'FAIL: support access shows notes, letters or posting text';
+  end if;
+  if not (public.admin_users_list('c@') -> 'users' -> 0 ->> 'support_access')::boolean then raise exception 'FAIL: list does not flag support access'; end if;
+  -- and it closes by itself
+  update public.profiles set support_access_until = now() - interval '1 minute' where id = pro;
+  if public.admin_user_detail(pro) -> 'content' <> 'null'::jsonb then raise exception 'FAIL: expired support access still opens content'; end if;
+end $$;
+
+-- Money: revenue net of refunds, failed payments left out, and who costs more than they pay.
+insert into public.payments (user_id, provider_ref, kind, product, amount_cents, status) values
+  ('33333333-3333-3333-3333-333333333333', 'ord_1', 'subscription', 'Pro monthly', 1500, 'paid'),
+  ('33333333-3333-3333-3333-333333333333', 'ref_1', 'refund', 'Pro monthly', -500, 'refunded'),
+  ('33333333-3333-3333-3333-333333333333', 'ord_2', 'subscription', 'Pro monthly', 1500, 'failed');
+insert into public.payments (user_id, provider_ref, kind, product, amount_cents, status, paid_at) values
+  ('33333333-3333-3333-3333-333333333333', 'ord_0', 'subscription', 'Pro monthly', 1500, 'paid',
+   date_trunc('month', now()) - interval '10 days');
+insert into public.ai_usage (user_id, job, model, route, tokens_in, tokens_out, cost_usd) values
+  ('44444444-4444-4444-4444-444444444444', 'research', 'claude-sonnet-5-5', 'platform', 300000, 20000, 0.8),
+  ('33333333-3333-3333-3333-333333333333', 'letter', 'claude-sonnet-5-5', 'platform', 5000, 600, 0.016);
+do $$ declare v jsonb := public.admin_money();
+begin
+  if (v ->> 'revenue_month_usd')::numeric <> 10 or (v ->> 'revenue_last_month_usd')::numeric <> 15
+     or (v ->> 'refunds_month_usd')::numeric <> 5 then
+    raise exception 'FAIL: revenue: %', v;
+  end if;
+  if (v ->> 'ai_spend_month_usd')::numeric <> 0.816 or (v ->> 'ai_share_of_revenue')::numeric <> 0.0816 then
+    raise exception 'FAIL: AI spend against revenue: %', v;
+  end if;
+  if (v ->> 'active_granted')::int <> 1 or (v ->> 'active_paid')::int <> 0 then raise exception 'FAIL: subscriptions: %', v; end if;
+  if jsonb_array_length(v -> 'over_cost') <> 1 or v -> 'over_cost' -> 0 ->> 'email' <> 'd@example.com'
+     or (v -> 'over_cost' -> 0 ->> 'paid_usd')::numeric <> 0 then
+    raise exception 'FAIL: over-cost accounts: %', v -> 'over_cost';
+  end if;
+end $$;
+update public.profiles set suspended_at = null, suspended_reason = ''
+ where id = '44444444-4444-4444-4444-444444444444';
+
 \echo RLS tests passed
