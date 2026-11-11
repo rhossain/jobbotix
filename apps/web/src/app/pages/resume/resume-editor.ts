@@ -454,15 +454,16 @@ const csv = (s: string) =>
                     (input)="setProj(i, 'url', $any($event.target).value)"
                   />
                 </div>
-                <input
+                <textarea
                   jbInput
-                  class="jb-input mt-2"
-                  placeholder="One sentence on what it is"
-                  aria-label="One sentence on what it is"
+                  class="jb-input mt-2 min-h-20"
+                  rows="3"
+                  placeholder="One or two sentences on what it is"
+                  aria-label="What the project is"
                   [id]="'r-proj-desc-' + i"
                   [value]="p.description"
                   (input)="setProj(i, 'description', $any($event.target).value)"
-                />
+                ></textarea>
                 <input
                   jbInput
                   class="jb-input mt-2"
