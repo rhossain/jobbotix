@@ -4,7 +4,7 @@
 // per-provider name; ai_connections holds that name and never the key.
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { probe, type AiAnswer } from './ai.ts';
+import { checkKey, probe, type AiAnswer } from './ai.ts';
 import { goldenSummary, runGolden, type GoldenResult } from './golden.ts';
 import {
   isProviderId,
@@ -94,6 +94,9 @@ export interface SaveInput {
   consent?: unknown;
 }
 
+/** How long saving a key waits for the provider to say one word. */
+const SAVE_PROBE_MS = 12_000;
+
 /** Checks a key against the provider, stores it, and records the connection. */
 export async function saveConnection(
   admin: SupabaseClient,
@@ -119,11 +122,20 @@ export async function saveConnection(
     return refuse(400, 'That is not a valid model name');
 
   const model = resolveModel(provider, saved);
-  const verdict = probeVerdict(
-    provider,
-    model,
-    await probe(provider, key, model),
-  );
+  const answer = await probe(provider, key, model, SAVE_PROBE_MS);
+  let verdict = probeVerdict(provider, model, answer);
+  // Too slow to say "ready" is not a verdict on the key: a free tier can
+  // take half a minute at busy hours. Ask whether the key is accepted in a
+  // way that generates nothing, and save it untested when it is.
+  let slow = false;
+  if (!answer.ok && answer.kind === 'timeout') {
+    const keyState = await checkKey(provider, key);
+    if (keyState === 'accepted') {
+      slow = true;
+      verdict = { usable: true, limitedUntil: null };
+    } else if (keyState === 'rejected')
+      verdict = probeVerdict(provider, model, { ...answer, kind: 'auth' });
+  }
   if (!verdict.usable) return refuse(verdict.status, verdict.error);
 
   const name = secretName(provider, userId);
@@ -144,9 +156,9 @@ export async function saveConnection(
     key_ref: name,
     key_hint: key.slice(-4),
     model: saved,
-    status: 'ok' as const,
+    status: slow ? ('untested' as const) : ('ok' as const),
     last_error: '',
-    last_checked_at: now,
+    last_checked_at: slow ? null : now,
     limited_until: verdict.limitedUntil,
     consented_at:
       input.consent === true ? now : (existing?.consented_at ?? null),
@@ -181,9 +193,11 @@ export async function saveConnection(
       .eq('id', userId);
   return {
     ok: true,
-    message: verdict.limitedUntil
-      ? `Saved. ${info.name} accepted the key but is rate limited right now.`
-      : undefined,
+    message: slow
+      ? `Saved. ${info.name} accepted the key but was too slow to answer a test just now. Press Test on it in a few minutes.`
+      : verdict.limitedUntil
+        ? `Saved. ${info.name} accepted the key but is rate limited right now.`
+        : undefined,
   };
 }
 

@@ -262,6 +262,80 @@ Deno.test(
   },
 );
 
+/** The provider never says "ready" in time; its list of models answers `models`. */
+function slowProvider(models: number) {
+  const real = globalThis.fetch;
+  const asked: string[] = [];
+  globalThis.fetch = ((url: string | URL, init?: RequestInit) => {
+    const u = String(url);
+    asked.push(`${init?.method ?? 'GET'} ${u}`);
+    if (u.endsWith('/chat/completions'))
+      return Promise.reject(
+        Object.assign(new Error('timed out'), { name: 'TimeoutError' }),
+      );
+    return Promise.resolve(
+      new Response(
+        JSON.stringify(
+          models === 200
+            ? { data: [] }
+            : { error: { message: 'API key not valid' } },
+        ),
+        { status: models },
+      ),
+    );
+  }) as typeof fetch;
+  return { asked, restore: () => (globalThis.fetch = real) };
+}
+
+Deno.test(
+  'saveConnection: a provider too slow to answer still saves a key it accepts, untested',
+  async () => {
+    const p = slowProvider(200);
+    try {
+      const { admin, calls } = fake();
+      const r = await saveConnection(admin, USER, {
+        provider: 'gemini',
+        key: 'AIza' + 'b'.repeat(35),
+        consent: true,
+      });
+      assert(r.ok && r.message?.includes('too slow to answer a test'));
+      // Asked without generating anything, and with the key in the header.
+      assertEquals(p.asked[1].startsWith('GET '), true);
+      assert(p.asked[1].endsWith('/v1beta/openai/models'));
+      const row = calls.find((c) => c.what === 'insert:ai_connections')
+        ?.args as Record<string, unknown>;
+      assertEquals(row['status'], 'untested');
+      assertEquals(row['last_checked_at'], null);
+      assert(calls.some((c) => c.what === 'rpc:vault_upsert_secret'));
+    } finally {
+      p.restore();
+    }
+  },
+);
+
+Deno.test(
+  'saveConnection: slow and the key is refused, or nothing is known: not stored',
+  async () => {
+    for (const [models, status, words] of [
+      [401, 422, 'rejected that key'],
+      [500, 504, 'took too long'],
+    ] as const) {
+      const p = slowProvider(models);
+      try {
+        const { admin, calls } = fake();
+        const r = await saveConnection(admin, USER, {
+          provider: 'groq',
+          key: 'gsk_' + 'a'.repeat(40),
+        });
+        assert(!r.ok && r.status === status && r.error.includes(words));
+        assertEquals(calls.length, 0);
+      } finally {
+        p.restore();
+      }
+    }
+  },
+);
+
 Deno.test(
   'reorderConnections: needs each of the user’s connections once',
   async () => {

@@ -754,10 +754,50 @@ export function probe(
   provider: ProviderId,
   apiKey: string,
   model: string,
+  timeoutMs = 20_000,
 ): Promise<AiAnswer> {
   return callProvider(provider, apiKey, model, {
     prompt: 'Reply with the single word: ready',
     maxTokens: 16,
-    timeoutMs: 20_000,
+    timeoutMs,
   });
+}
+
+/**
+ * Whether the provider accepts a key, asked without generating anything (its
+ * list of models). For when a provider is too slow to answer the probe: a
+ * free tier can take half a minute over one word, which says nothing about
+ * the key. 'unknown' when the provider did not give a clear answer.
+ */
+export async function checkKey(
+  provider: ProviderId,
+  apiKey: string,
+  timeoutMs = 8_000,
+): Promise<'accepted' | 'rejected' | 'unknown'> {
+  const info = PROVIDERS[provider];
+  try {
+    const res =
+      info.kind === 'anthropic'
+        ? await fetch('https://api.anthropic.com/v1/models?limit=1', {
+            headers: {
+              'x-api-key': apiKey,
+              'anthropic-version': '2023-06-01',
+            },
+            signal: AbortSignal.timeout(timeoutMs),
+          })
+        : await fetch(`${info.baseUrl}/models`, {
+            headers: { authorization: `Bearer ${apiKey}` },
+            signal: AbortSignal.timeout(timeoutMs),
+          });
+    if (res.ok) {
+      await res.body?.cancel();
+      return 'accepted';
+    }
+    const { json } = await readBody(res);
+    return failureKind(res.status, errorDetail(json, res.statusText)) === 'auth'
+      ? 'rejected'
+      : 'unknown';
+  } catch {
+    return 'unknown';
+  }
 }
