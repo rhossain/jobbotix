@@ -133,14 +133,79 @@ export async function buildResumePdf(
   };
 
   // Header
-  const contactParts = [
-    r.contact.location,
-    r.contact.email,
-    r.contact.phone,
-    r.contact.website,
-    ...r.contact.links.map((l) => l.url.replace(/^https?:\/\//, '')),
-  ].filter(Boolean);
-  const contact = contactParts.join('  ·  ');
+  /** A web address as a link target: what was typed, with a scheme. */
+  const href = (url: string) =>
+    /^[a-z][a-z0-9+.-]*:/i.test(url) ? url : `https://${url}`;
+  const bare = (url: string) => url.replace(/^https?:\/\//, '');
+  // The email, the site and the profile links can be clicked in the PDF: a
+  // recruiter opens them from the file, and checkers look for live links.
+  const contactParts: { text: string; url?: string }[] = [
+    { text: r.contact.location },
+    {
+      text: r.contact.email,
+      url: r.contact.email ? `mailto:${r.contact.email}` : undefined,
+    },
+    { text: r.contact.phone },
+    {
+      text: bare(r.contact.website),
+      url: r.contact.website ? href(r.contact.website) : undefined,
+    },
+    ...r.contact.links
+      .filter((l) => l.url)
+      .map((l) => ({ text: bare(l.url), url: href(l.url) })),
+  ].filter((p) => p.text);
+  const SEP = '  ·  ';
+  /** The contact details split into the rows they take at that size. */
+  const contactRows = (size: number) => {
+    doc.setFont(face, 'normal');
+    doc.setFontSize(size);
+    const sepW = doc.getTextWidth(SEP);
+    const rows: { text: string; url?: string; w: number }[][] = [[]];
+    let used = 0;
+    for (const part of contactParts) {
+      const w = doc.getTextWidth(part.text);
+      let row = rows[rows.length - 1];
+      if (row.length && used + sepW + w > width) {
+        row = [];
+        rows.push(row);
+        used = 0;
+      }
+      used += (row.length ? sepW : 0) + w;
+      row.push({ ...part, w });
+    }
+    return { rows: rows.filter((row) => row.length), sepW };
+  };
+  /**
+   * The contact details on a line, wrapped between details when they do not
+   * fit, each drawn as its own piece of text so a link can sit on it.
+   */
+  const contactLine = (
+    size: number,
+    color: Rgb,
+    lh: number,
+    centred: boolean,
+  ) => {
+    const { rows, sepW } = contactRows(size);
+    for (const row of rows) {
+      ensure(lh);
+      const total =
+        row.reduce((n, part) => n + part.w, 0) + sepW * (row.length - 1);
+      let x = centred ? (W - total) / 2 : M;
+      doc.setFont(face, 'normal');
+      doc.setFontSize(size);
+      doc.setTextColor(...color);
+      row.forEach((part, i) => {
+        if (i > 0) {
+          doc.text(SEP, x, y + size * 0.85);
+          x += sepW;
+        }
+        doc.text(part.text, x, y + size * 0.85);
+        if (part.url) doc.link(x, y, part.w, lh, { url: part.url });
+        x += part.w;
+      });
+      y += lh;
+    }
+  };
   const nameSize = 20 * k;
   const headlineSize = 11 * k;
   const contactSize = 8.5 * k;
@@ -161,7 +226,7 @@ export async function buildResumePdf(
       pad * 2 +
       lines(r.contact.name, nameSize, true) * nameLh +
       lines(r.contact.headline, headlineSize) * headlineLh +
-      lines(contact, contactSize) * contactLh;
+      contactRows(contactSize).rows.length * contactLh;
     doc.setFillColor(...accent);
     doc.rect(0, 0, W, band, 'F');
     y = pad;
@@ -174,10 +239,7 @@ export async function buildResumePdf(
       color: rgb(ON_BANNER.soft),
       lineHeight: headlineLh,
     });
-    text(contact, contactSize, {
-      color: rgb(ON_BANNER.soft),
-      lineHeight: contactLh,
-    });
+    contactLine(contactSize, rgb(ON_BANNER.soft), contactLh, false);
     y = band + 6 * k;
   } else if (t.photo) {
     // The portrait top right; the name and one contact detail a line beside
@@ -207,12 +269,18 @@ export async function buildResumePdf(
       lineHeight: headlineLh + 2,
       maxWidth: beside,
     });
-    for (const part of contactParts)
-      text(part, contactSize + 0.5, {
+    for (const part of contactParts) {
+      const at = y;
+      text(part.text, contactSize + 0.5, {
         color: muted,
         lineHeight: contactLh,
         maxWidth: beside,
       });
+      if (part.url)
+        doc.link(M, at, Math.min(doc.getTextWidth(part.text), beside), y - at, {
+          url: part.url,
+        });
+    }
     if (photo) y = Math.max(y, top + PHOTO.height);
     y += 4 * k;
   } else {
@@ -228,7 +296,7 @@ export async function buildResumePdf(
       color: accent,
       lineHeight: headlineLh,
     });
-    text(contact, contactSize, { center, color: muted, lineHeight: contactLh });
+    contactLine(contactSize, muted, contactLh, center);
   }
 
   const body = 9.5 * k;
@@ -282,7 +350,22 @@ export async function buildResumePdf(
   if (r.projects.length) {
     heading('Projects');
     for (const p of r.projects) {
+      const at = y;
       row(p.name, p.stack.join(', '), 10 * k, true);
+      if (p.url && p.name) {
+        // The project's name opens the project.
+        doc.setFont(face, 'bold');
+        doc.setFontSize(10 * k);
+        doc.link(
+          M,
+          at,
+          Math.min(doc.getTextWidth(p.name), width),
+          10 * k * 1.4,
+          {
+            url: href(p.url),
+          },
+        );
+      }
       const desc = [p.description, p.url.replace(/^https?:\/\//, '')]
         .filter(Boolean)
         .join(' — ');
@@ -310,10 +393,16 @@ export async function buildResumePdf(
   }
 
   doc.setProperties({
-    title: `${r.contact.name || 'Resume'}`,
+    title: [r.contact.name, 'Resume'].filter(Boolean).join(' - '),
+    subject: r.contact.headline,
     author: r.contact.name,
+    keywords: r.skills
+      .flatMap((g) => g.items)
+      .slice(0, 25)
+      .join(', '),
     creator: 'Jobbotix',
   });
+  doc.setLanguage('en');
   return { doc, dropped };
 }
 

@@ -139,6 +139,38 @@ describe('the PDF in every template', () => {
       ).not.toContain('/Subtype /Image');
   });
 
+  it.each(RESUME_TEMPLATES.map((t) => t.id))(
+    '%s: the email, the site and a project open from the PDF',
+    async (id) => {
+      const r: ResumeSections = {
+        ...RESUME,
+        contact: {
+          ...RESUME.contact,
+          website: 'rafi.example',
+          links: [
+            { label: 'LinkedIn', url: 'https://www.linkedin.com/in/rafi' },
+          ],
+        },
+        projects: [
+          { name: 'Styloviz', url: 'styloviz.dev', description: '', stack: [] },
+        ],
+      };
+      const pdf = (await buildResumePdf(r, id)).doc.output();
+      for (const url of [
+        'mailto:rafi@example.com',
+        'https://rafi.example',
+        'https://www.linkedin.com/in/rafi',
+        'https://styloviz.dev',
+      ])
+        expect(pdf, `${id}: ${url}`).toContain(`/URI (${url})`);
+      // and the address is still there to read, as text
+      expect(pdf).toContain('(rafi@example.com)');
+      expect(pdf).toContain('(www.linkedin.com/in/rafi)');
+      // a place with no address is not a link
+      expect(pdf).not.toContain('/URI (https://Dhaka');
+    },
+  );
+
   it('draws a name it does not know as Classic', async () => {
     const classic = (await buildResumePdf(RESUME, 'classic')).doc.output();
     const unknown = (await buildResumePdf(RESUME, 'nope')).doc.output();

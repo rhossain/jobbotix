@@ -24,6 +24,7 @@ import { ResumeTemplateChoice } from '../../core/resume-template';
 import { RelativeDayPipe } from '../../shared/format';
 import { ResumePreview } from '../../shared/resume-preview';
 import { TemplatePicker } from '../../shared/template-picker';
+import { ResumeCheckPanel } from './resume-check';
 import { ResumeImportPanel } from './resume-import';
 import { ResumeReviewPanel } from './resume-review';
 import { droppedNote } from '../../shared/pdf-text';
@@ -67,6 +68,7 @@ const csv = (s: string) =>
     Icon,
     PageHeader,
     RelativeDayPipe,
+    ResumeCheckPanel,
     ResumeImportPanel,
     ResumeReviewPanel,
     TemplatePicker,
@@ -183,6 +185,12 @@ const csv = (s: string) =>
       <div class="jb-card p-4 md:p-5">
         <jb-template-picker />
       </div>
+
+      <jb-resume-check
+        [sections]="d()"
+        (go)="focusField($event)"
+        (review)="reviewing.set(true); importing.set(false)"
+      />
 
       <div
         class="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
@@ -852,6 +860,18 @@ export class ResumeEditor {
           this.saved.set(JSON.stringify(sections));
         }
       });
+    });
+  }
+
+  /** Takes the user to the field a finding of the resume check is about. */
+  focusField(id: string) {
+    this.pane.set('edit');
+    // After the Edit pane has been shown (a phone shows one pane at a time).
+    setTimeout(() => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      el.focus({ preventScroll: true });
     });
   }
 
