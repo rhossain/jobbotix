@@ -28,6 +28,7 @@ import type {
   MarketSignals,
   PrepSheet,
   SharedView,
+  VariantChange,
   VariantDiff,
 } from '@jobbotix/shared-types';
 import type {
@@ -432,6 +433,7 @@ async function functionError(error: unknown): Promise<Error> {
 export class SupabaseResumesRepo extends ResumesRepo {
   private readonly supabase = injectSupabase();
   private readonly auth = inject(Auth);
+  private readonly notes = inject(AiNotes);
   private readonly _resumes = signal<ResumeRow[]>([]);
   readonly resumes = this._resumes.asReadonly();
   readonly master = computed(
@@ -510,6 +512,19 @@ export class SupabaseResumesRepo extends ResumesRepo {
       warnings: data.warnings ?? [],
       model: data.model,
     };
+  }
+
+  async reviewWithAi(sections: ResumeSections, model?: string) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      changes?: VariantChange[];
+      model?: string;
+      error?: string;
+    }>('review-resume', { body: model ? { sections, model } : { sections } });
+    if (error) throw await functionError(error);
+    if (!Array.isArray(data?.changes))
+      throw new Error(data?.error ?? 'Could not review the resume');
+    this.notes.report(data);
+    return { changes: data.changes, model: data.model };
   }
 }
 

@@ -16,6 +16,7 @@ import type {
   ProviderId,
   SharedView,
   VariantDiff,
+  VariantChange,
 } from '@jobbotix/shared-types';
 import type { ResumeAiResult } from '@jobbotix/shared-types/resume-import';
 import type {
@@ -145,6 +146,15 @@ export abstract class ResumesRepo {
     text: string,
     model?: string,
   ): Promise<ResumeAiResult & { model?: string }>;
+  /**
+   * Reviews a resume with a model: rewrites and removals, each with a
+   * reason, for the user to accept or reject. Nothing is saved. Demo mode
+   * answers with a sample.
+   */
+  abstract reviewWithAi(
+    sections: ResumeSections,
+    model?: string,
+  ): Promise<{ changes: VariantChange[]; model?: string }>;
 }
 
 export abstract class VariantsRepo {

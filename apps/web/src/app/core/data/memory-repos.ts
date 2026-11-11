@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { sampleReview } from './sample-review';
 import {
   type MarketSignals,
   careersSystem,
@@ -633,6 +634,18 @@ export class MemoryResumesRepo extends ResumesRepo {
         'Demo mode has no model, so this is the built-in reader again.',
         ...warnings,
       ],
+    };
+  }
+
+  async reviewWithAi(sections: ResumeSections) {
+    // No model in demo mode: a few rule-based samples show how it works.
+    return {
+      changes: sampleReview(sections).map((c, i) => ({
+        ...c,
+        id: `demo-review-${i}`,
+        decision: 'pending' as const,
+      })),
+      model: 'sample, no model in demo mode',
     };
   }
 }

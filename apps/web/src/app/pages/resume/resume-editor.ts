@@ -8,6 +8,7 @@ import {
   untracked,
 } from '@angular/core';
 import {
+  applyVariant,
   emptyResume,
   normaliseResume,
   resumeWordCount,
@@ -16,11 +17,13 @@ import {
   type ProjectEntry,
   type ResumeSections,
   type SkillGroup,
+  type VariantChange,
 } from '@jobbotix/shared-types';
 import { ResumesRepo } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { ResumePreview } from '../../shared/resume-preview';
 import { ResumeImportPanel } from './resume-import';
+import { ResumeReviewPanel } from './resume-review';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
 import { ShellState } from '../../shell/shell-state';
@@ -61,6 +64,7 @@ const csv = (s: string) =>
     PageHeader,
     RelativeDayPipe,
     ResumeImportPanel,
+    ResumeReviewPanel,
     ResumePreview,
     ScaledPage,
     Tabs,
@@ -90,9 +94,17 @@ const csv = (s: string) =>
             type="button"
             jbButton
             [attr.aria-expanded]="importing()"
-            (click)="importing.set(!importing())"
+            (click)="importing.set(!importing()); reviewing.set(false)"
           >
             <jb-icon name="upload" /> Import
+          </button>
+          <button
+            type="button"
+            jbButton
+            [attr.aria-expanded]="reviewing()"
+            (click)="reviewing.set(!reviewing()); importing.set(false)"
+          >
+            <jb-icon name="sparkles" /> Review with AI
           </button>
           <button
             type="button"
@@ -151,6 +163,13 @@ const csv = (s: string) =>
         <jb-resume-import
           (imported)="applyImport($event)"
           (closed)="importing.set(false)"
+        />
+      }
+      @if (reviewing()) {
+        <jb-resume-review
+          [sections]="d()"
+          (applied)="applyReview($event)"
+          (closed)="reviewing.set(false)"
         />
       }
 
@@ -705,6 +724,7 @@ export class ResumeEditor {
   readonly saving = signal(false);
   readonly pane = signal<Pane>('edit');
   readonly importing = signal(false);
+  readonly reviewing = signal(false);
   readonly exporting = signal(false);
   readonly printing = signal(false);
   readonly linksText = computed(() =>
@@ -735,6 +755,27 @@ export class ResumeEditor {
         }
       });
     });
+  }
+
+  /** Puts the accepted changes of an AI review into the editor. */
+  applyReview(e: { changes: VariantChange[]; stale: number }) {
+    const n = e.changes.length;
+    if (n)
+      this.d.update((cur) =>
+        applyVariant(cur, { baseResumeId: '', changes: e.changes }),
+      );
+    const skipped = e.stale
+      ? ` ${e.stale} left out: that text has changed since the review.`
+      : '';
+    if (!n) {
+      this.toast.show(`Nothing applied.${skipped}`);
+      return;
+    }
+    this.reviewing.set(false);
+    this.pane.set('edit');
+    this.toast.show(
+      `Applied ${n} ${n === 1 ? 'change' : 'changes'}.${skipped} Check ${n === 1 ? 'it' : 'them'}, then Save version.`,
+    );
   }
 
   applyImport(e: { sections: ResumeSections; mode: 'replace' | 'fill' }) {
