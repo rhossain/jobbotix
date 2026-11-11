@@ -107,7 +107,8 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
       "Free tier with daily limits. On the free tier Google may use what you send, including your resume, to improve its products (not for users in the EU, UK or EEA). Google's paid tier does not.",
     needsConsent: true,
     webSearch: false,
-    verified: false,
+    // Full check on a real free-tier key, 11 Nov 2026.
+    verified: true,
     tokenParam: 'max_tokens',
     // Gemini 3 models cannot switch thinking off.
     reasoning: { models: /^gemini-/, effort: 'low', headroom: 4000 },
@@ -132,7 +133,8 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
       'Free tier with per-minute and daily limits, running open models. Groq says it does not train on what you send.',
     needsConsent: false,
     webSearch: false,
-    verified: false,
+    // Full check on a real free-tier key, 11 Nov 2026.
+    verified: true,
     tokenParam: 'max_completion_tokens',
     reasoning: { models: /^openai\/gpt-oss/, effort: 'low', headroom: 1500 },
     // The free tier allows about 8,000 tokens a minute per model, prompt and
