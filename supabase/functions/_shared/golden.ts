@@ -266,8 +266,9 @@ export const GOLDEN_CASES: GoldenCase[] = [
 
 /**
  * What came back when a job failed, so the cause can be read off the check:
- * the start of the reply, or why there was none. The reply is about the
- * made-up resume and posting, never an account's own content.
+ * the start and the end of the reply (a reply usually goes wrong at one of
+ * the two), or why there was none. The reply is about the made-up resume and
+ * posting, never an account's own content.
  */
 export function replyNote(
   answer: Extract<AiAnswer, { ok: true }>,
@@ -281,10 +282,8 @@ export function replyNote(
         ? 'The model reasoned but wrote no answer.'
         : 'The reply was empty.') + cut
     );
-  return (
-    `The reply began: ${text.length > max ? `${text.slice(0, max)}…` : text}` +
-    cut
-  );
+  if (text.length <= max * 2) return `The reply was: ${text}${cut}`;
+  return `The reply began: ${text.slice(0, max)} … and ended: ${text.slice(-max)}${cut}`;
 }
 
 /** The model a job runs on: the saved one, or the provider's fast model for scoring. */

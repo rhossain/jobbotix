@@ -159,7 +159,7 @@ Deno.test('runGolden: a failed job does not stop the others', async () => {
     // What came back is in the result, so the cause can be read off it.
     assert(
       results[1].detail.endsWith(
-        'The reply began: Sorry, I cannot help with that.',
+        'The reply was: Sorry, I cannot help with that.',
       ),
     );
     assertEquals(results[0].detail, '');
@@ -205,11 +205,12 @@ Deno.test('replyNote: says what came back, or why nothing did', () => {
   };
   assertEquals(
     replyNote({ ...base, text: ' {"score":\n "high"} ' }),
-    'The reply began: {"score": "high"}',
+    'The reply was: {"score": "high"}',
   );
+  // A long reply shows both ends: that is where replies go wrong.
   assertEquals(
-    replyNote({ ...base, text: 'x'.repeat(200) }, 10),
-    `The reply began: ${'x'.repeat(10)}…`,
+    replyNote({ ...base, text: `${'a'.repeat(30)}${'b'.repeat(30)}` }, 10),
+    `The reply began: ${'a'.repeat(10)} … and ended: ${'b'.repeat(10)}`,
   );
   assertEquals(replyNote({ ...base, text: '  ' }), 'The reply was empty.');
   assertEquals(
