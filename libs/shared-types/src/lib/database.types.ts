@@ -376,6 +376,15 @@ export type ResumeVariantRow = Timestamps & {
   keyword_report: Json;
   pdf_path: string | null;
   status: VariantStatus;
+  /** This copy's own template; null or missing means the account's choice. */
+  template?: string | null;
+};
+
+/** The resume photo: a small JPEG as a data URL (migration 0039). */
+export type ResumePhotoRow = {
+  user_id: string;
+  data: string;
+  updated_at: string;
 };
 
 export type CoverLetterRow = Timestamps & {
@@ -555,6 +564,10 @@ export type Database = {
       settings: Table<
         SettingRow,
         Insertable<SettingRow, 'value' | 'updated_at'>
+      >;
+      resume_photos: Table<
+        ResumePhotoRow,
+        Insertable<ResumePhotoRow, 'updated_at'>
       >;
       ingest_keys: Table<
         IngestKeyRow,

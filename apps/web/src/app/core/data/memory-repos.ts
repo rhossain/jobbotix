@@ -637,6 +637,20 @@ export class MemoryResumesRepo extends ResumesRepo {
     };
   }
 
+  // Kept for the visit only: demo data lives in this browser and a photo
+  // would crowd its storage.
+  private readonly _photo = signal<string | null>(null);
+  readonly photo = this._photo.asReadonly();
+  async loadPhoto() {
+    /* nothing to fetch in demo mode */
+  }
+  async savePhoto(data: string) {
+    this._photo.set(data);
+  }
+  async removePhoto() {
+    this._photo.set(null);
+  }
+
   async reviewWithAi(sections: ResumeSections) {
     // No model in demo mode: a few rule-based samples show how it works.
     return {
@@ -752,6 +766,19 @@ export class MemoryVariantsRepo extends VariantsRepo {
       const v = s.variants.find((x) => x.id === variantId);
       if (!v) return;
       v.status = 'approved';
+      v.updated_at = new Date().toISOString();
+      out = { ...v };
+    });
+    if (!out) throw new Error('Variant not found');
+    return out;
+  }
+
+  async setTemplate(variantId: string, template: string | null) {
+    let out: ResumeVariantRow | undefined;
+    this.roles.patch((s) => {
+      const v = s.variants.find((x) => x.id === variantId);
+      if (!v) return;
+      v.template = template;
       v.updated_at = new Date().toISOString();
       out = { ...v };
     });

@@ -17,6 +17,11 @@ export interface ResumeTemplate {
   blurb: string;
   /** Part of the plan's "extra resume templates" (Classic is for everyone). */
   pro: boolean;
+  /**
+   * Shows the account's photo top right, with the contact details listed
+   * under the name. Without a photo it is drawn the same, minus the picture.
+   */
+  photo: boolean;
   /** Helvetica or Times: fonts every PDF reader has. */
   font: 'sans' | 'serif';
   /** The name block: flush left, centred, or on a filled band. */
@@ -44,6 +49,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     name: 'Classic',
     blurb: 'Clean and neutral. Works for any role.',
     pro: false,
+    photo: false,
     font: 'sans',
     header: 'left',
     heading: 'rule',
@@ -60,6 +66,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     name: 'Modern',
     blurb: 'Blue headings and a strong name. Tech and product roles.',
     pro: true,
+    photo: false,
     font: 'sans',
     header: 'left',
     heading: 'accent',
@@ -76,6 +83,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     name: 'Compact',
     blurb: 'Smaller type and tighter margins. Fits a long history on one page.',
     pro: true,
+    photo: false,
     font: 'sans',
     header: 'left',
     heading: 'plain',
@@ -92,6 +100,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     name: 'Elegant',
     blurb: 'Serif type, centred, no colour. Traditional and formal.',
     pro: true,
+    photo: false,
     font: 'serif',
     header: 'center',
     heading: 'center',
@@ -108,6 +117,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     name: 'Bold',
     blurb: 'Your name on a dark band. Stands out in a stack.',
     pro: true,
+    photo: false,
     font: 'sans',
     header: 'banner',
     heading: 'accent',
@@ -119,9 +129,36 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
     rule: '#cbd5e1',
     accent: '#0f2a4a',
   },
+  {
+    id: 'photo',
+    name: 'Photo',
+    blurb:
+      'A portrait top right, as is customary in Germany, Austria, Switzerland and much of Europe, Asia and Latin America.',
+    pro: true,
+    photo: true,
+    font: 'sans',
+    header: 'left',
+    heading: 'rule',
+    scale: 1,
+    margin: 46,
+    paper: '#ffffff',
+    ink: '#111827',
+    muted: '#4b5563',
+    rule: '#d7dde5',
+    accent: '#1f4e79',
+  },
 ];
 
 export const DEFAULT_TEMPLATE_ID = 'classic';
+
+/** The portrait: 3 wide by 4 tall, the passport shape CVs with a photo use. */
+export const PHOTO = {
+  /** Width and height on the page, in points (26 by 35 mm). */
+  width: 75,
+  height: 100,
+  /** The pixels the browser shrinks an upload to: sharp in print, small to keep. */
+  pixels: { width: 360, height: 480 },
+} as const;
 
 /** The template of that name; Classic for a name the app does not know. */
 export function templateOf(id: string | null | undefined): ResumeTemplate {
@@ -152,6 +189,7 @@ export function templateCssVars(t: ResumeTemplate): Record<string, string> {
     '--on-banner': ON_BANNER.strong,
     '--on-banner-soft': ON_BANNER.soft,
     '--scale': String(t.scale),
+    '--photo-w': `${PHOTO.width}pt`,
     // 46pt on an A4 page is 16mm; the preview keeps the same proportion.
     '--pad-x': `${((t.margin / 46) * 16).toFixed(1)}mm`,
     '--pad-y': `${((t.margin / 46) * 14).toFixed(1)}mm`,
@@ -164,5 +202,5 @@ export function templateCssVars(t: ResumeTemplate): Record<string, string> {
 
 /** The classes that switch the preview's header and heading styles. */
 export function templateClasses(t: ResumeTemplate): string {
-  return `resume--head-${t.header} resume--h-${t.heading}`;
+  return `resume--head-${t.header} resume--h-${t.heading}${t.photo ? ' resume--photo' : ''}`;
 }

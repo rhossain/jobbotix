@@ -24,22 +24,34 @@ import {
   template: `
     <article class="resume" [class]="classes()" [class.resume-print]="print()">
       <header class="resume-head">
-        <h1>{{ r().contact.name || 'Your name' }}</h1>
-        @if (r().contact.headline) {
-          <p class="resume-headline">{{ r().contact.headline }}</p>
-        }
-        <p class="resume-contact">
-          @for (part of contactParts(); track $index) {
-            @if ($index > 0) {
-              <span aria-hidden="true"> · </span>
-            }
-            @if (part.url) {
-              <a [href]="part.url">{{ part.text }}</a>
-            } @else {
-              <span>{{ part.text }}</span>
-            }
+        <div class="resume-head-text">
+          <h1>{{ r().contact.name || 'Your name' }}</h1>
+          @if (r().contact.headline) {
+            <p class="resume-headline">{{ r().contact.headline }}</p>
           }
-        </p>
+          <p class="resume-contact">
+            @for (part of contactParts(); track $index) {
+              @if ($index > 0) {
+                <span class="resume-dot" aria-hidden="true"> · </span>
+              }
+              <span class="resume-contact-part">
+                @if (part.url) {
+                  <a [href]="part.url">{{ part.text }}</a>
+                } @else {
+                  {{ part.text }}
+                }
+              </span>
+            }
+          </p>
+        </div>
+        @if (tpl().photo) {
+          @if (photo()) {
+            <img class="resume-photo" [src]="photo()" alt="" />
+          } @else if (!print()) {
+            <!-- On screen only: where the photo goes once one is added. -->
+            <div class="resume-photo resume-photo-empty">Photo</div>
+          }
+        }
       </header>
 
       @if (r().summary) {
@@ -239,6 +251,39 @@ import {
       white-space: nowrap;
     }
 
+    /* Header with a photo: the picture top right, contact details listed */
+    .resume--photo .resume-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12pt;
+    }
+    .resume-head-text {
+      min-width: 0;
+      flex: 1;
+    }
+    .resume--photo .resume-contact-part {
+      display: block;
+    }
+    .resume--photo .resume-dot {
+      display: none;
+    }
+    .resume-photo {
+      width: var(--photo-w);
+      aspect-ratio: 3 / 4;
+      flex-shrink: 0;
+      border: 1px solid var(--rule);
+      object-fit: cover;
+    }
+    .resume-photo-empty {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-style: dashed;
+      color: var(--muted);
+      font-size: 8pt;
+    }
+
     /* Header: centred */
     .resume--head-center .resume-head {
       text-align: center;
@@ -317,12 +362,11 @@ export class ResumePreview {
   readonly print = input(false);
   /** The template's name; Classic when missing or unknown. */
   readonly template = input<string | null | undefined>(undefined);
-  protected readonly vars = computed(() =>
-    templateCssVars(templateOf(this.template())),
-  );
-  protected readonly classes = computed(() =>
-    templateClasses(templateOf(this.template())),
-  );
+  /** The account's photo as a data URL; only a template with a photo shows it. */
+  readonly photo = input<string | null | undefined>(undefined);
+  protected readonly tpl = computed(() => templateOf(this.template()));
+  protected readonly vars = computed(() => templateCssVars(this.tpl()));
+  protected readonly classes = computed(() => templateClasses(this.tpl()));
 
   fmt(v: string) {
     return formatResumeDate(v);

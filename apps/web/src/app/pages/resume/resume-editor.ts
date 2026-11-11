@@ -27,6 +27,7 @@ import { TemplatePicker } from '../../shared/template-picker';
 import { ResumeImportPanel } from './resume-import';
 import { ResumeReviewPanel } from './resume-review';
 import { droppedNote } from '../../shared/pdf-text';
+import { fileToPortrait } from '../../shared/photo';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
 import { ShellState } from '../../shell/shell-state';
@@ -261,6 +262,75 @@ const csv = (s: string) =>
                 (change)="setLinks($any($event.target).value)"
               ></textarea>
             </label>
+            <!-- Photo: optional, used only by a template that shows one -->
+            <div
+              class="mt-4 flex flex-wrap items-start gap-3 border-t border-line pt-4"
+            >
+              @if (repo.photo()) {
+                <img
+                  class="h-24 w-[4.5rem] shrink-0 rounded-control border border-line object-cover"
+                  [src]="repo.photo()"
+                  alt="Your resume photo"
+                />
+              } @else {
+                <div
+                  class="flex h-24 w-[4.5rem] shrink-0 items-center justify-center rounded-control border border-dashed border-line-strong text-ink-muted"
+                  aria-hidden="true"
+                >
+                  <jb-icon name="circle-user" [size]="22" />
+                </div>
+              }
+              <div class="flex min-w-0 flex-1 basis-56 flex-col gap-2">
+                <p class="text-sm">
+                  <span class="font-medium">Photo</span>
+                  <span class="text-ink-muted"> (optional)</span>
+                </p>
+                <p class="text-xs text-ink-muted">
+                  Shown only by the Photo template. A photo is customary in
+                  Germany, Austria, Switzerland and much of Europe, Asia and
+                  Latin America; leave it off for the US, UK, Canada, Ireland
+                  and Australia. Each job page suggests which template to use.
+                  The picture is cropped in your browser and is never sent to an
+                  AI model.
+                </p>
+                <div class="flex flex-wrap gap-2">
+                  <label
+                    class="jb-btn cursor-pointer text-sm"
+                    [attr.aria-busy]="photoBusy() ? 'true' : null"
+                  >
+                    <jb-icon name="upload" [size]="16" />
+                    {{ repo.photo() ? 'Replace photo' : 'Add a photo' }}
+                    <input
+                      id="rc-photo"
+                      type="file"
+                      class="sr-only"
+                      accept="image/jpeg,image/png,image/webp"
+                      [disabled]="photoBusy()"
+                      (change)="
+                        onPhoto($any($event.target).files?.[0]);
+                        $any($event.target).value = ''
+                      "
+                    />
+                  </label>
+                  @if (repo.photo()) {
+                    <button
+                      type="button"
+                      jbButton="ghost"
+                      class="text-sm text-bad"
+                      [disabled]="photoBusy()"
+                      (click)="removePhoto()"
+                    >
+                      <jb-icon name="trash" /> Remove
+                    </button>
+                  }
+                </div>
+                @if (photoError()) {
+                  <p class="text-sm text-bad" role="alert">
+                    {{ photoError() }}
+                  </p>
+                }
+              </div>
+            </div>
           </fieldset>
 
           <!-- Summary -->
@@ -666,7 +736,11 @@ const csv = (s: string) =>
               class="min-h-0 overflow-auto rounded-card bg-sunken p-3 md:p-4"
             >
               <jb-scaled-page>
-                <jb-resume-preview [r]="d()" [template]="template().id" />
+                <jb-resume-preview
+                  [r]="d()"
+                  [template]="template().id"
+                  [photo]="repo.photo()"
+                />
               </jb-scaled-page>
             </div>
           </div>
@@ -680,7 +754,12 @@ const csv = (s: string) =>
 
     <!-- Print: only the page -->
     <div class="hidden print:block">
-      <jb-resume-preview [r]="d()" [print]="true" [template]="template().id" />
+      <jb-resume-preview
+        [r]="d()"
+        [print]="true"
+        [template]="template().id"
+        [photo]="repo.photo()"
+      />
     </div>
   `,
   styles: `
@@ -736,6 +815,8 @@ export class ResumeEditor {
   readonly pane = signal<Pane>('edit');
   readonly importing = signal(false);
   readonly reviewing = signal(false);
+  readonly photoBusy = signal(false);
+  readonly photoError = signal('');
   readonly exporting = signal(false);
   readonly printing = signal(false);
   readonly linksText = computed(() =>
@@ -746,6 +827,7 @@ export class ResumeEditor {
   readonly csv = csv;
 
   constructor() {
+    void this.repo.loadPhoto();
     // Phones: Save sits in the top bar; desktop uses the header button.
     inject(ShellState).usePageAction({
       label: 'Save',
@@ -766,6 +848,38 @@ export class ResumeEditor {
         }
       });
     });
+  }
+
+  /** Crops and shrinks the picked picture in the browser, then stores it. */
+  async onPhoto(file: File | undefined) {
+    if (!file || this.photoBusy()) return;
+    this.photoBusy.set(true);
+    this.photoError.set('');
+    try {
+      await this.repo.savePhoto(await fileToPortrait(file));
+      this.toast.show(
+        this.template().photo
+          ? 'Photo added.'
+          : 'Photo added. Pick the Photo template to see it on the resume.',
+      );
+    } catch (e) {
+      this.photoError.set((e as Error).message || 'Could not add the photo');
+    } finally {
+      this.photoBusy.set(false);
+    }
+  }
+
+  async removePhoto() {
+    this.photoBusy.set(true);
+    this.photoError.set('');
+    try {
+      await this.repo.removePhoto();
+      this.toast.show('Photo removed');
+    } catch (e) {
+      this.photoError.set((e as Error).message || 'Could not remove the photo');
+    } finally {
+      this.photoBusy.set(false);
+    }
   }
 
   /** Puts the accepted changes of an AI review into the editor. */
@@ -983,6 +1097,7 @@ export class ResumeEditor {
         this.d(),
         resumeFilename(this.d()),
         this.template().id,
+        this.repo.photo(),
       );
       if (dropped.length)
         this.toast.show(droppedNote(dropped), { tone: 'info', ms: 14_000 });

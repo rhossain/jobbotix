@@ -147,6 +147,14 @@ export abstract class ResumesRepo {
     model?: string,
   ): Promise<ResumeAiResult & { model?: string }>;
   /**
+   * The account's resume photo as a JPEG data URL, or null. Only a template
+   * that shows a photo uses it. It is never sent to an AI provider.
+   */
+  abstract readonly photo: Signal<string | null>;
+  abstract loadPhoto(): Promise<void>;
+  abstract savePhoto(data: string): Promise<void>;
+  abstract removePhoto(): Promise<void>;
+  /**
    * Reviews a resume with a model: rewrites and removals, each with a
    * reason, for the user to accept or reject. Nothing is saved. Demo mode
    * answers with a sample.
@@ -176,6 +184,11 @@ export abstract class VariantsRepo {
     sections: ResumeSections,
   ): Promise<ResumeVariantRow>;
   abstract approve(variantId: string): Promise<ResumeVariantRow>;
+  /** This copy's own template; null goes back to the account's choice. */
+  abstract setTemplate(
+    variantId: string,
+    template: string | null,
+  ): Promise<ResumeVariantRow>;
 }
 
 export interface LetterResult {

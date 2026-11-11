@@ -35,10 +35,24 @@ const RESUME: ResumeSections = {
   ],
 };
 
+/** A 2-by-2 white JPEG: enough for jsPDF to embed. */
+const JPEG =
+  'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/wAALCAACAAIBAREA/8QAFAABAAAAAAAAAAAAAAAAAAAACf/EABQQAQAAAAAAAAAAAAAAAAAAAAD/2gAIAQEAAD8AVN//2Q==';
+
 describe('resume templates', () => {
-  it('offers three to five, named once each, with Classic free and first', () => {
-    expect(RESUME_TEMPLATES.length).toBeGreaterThanOrEqual(3);
-    expect(RESUME_TEMPLATES.length).toBeLessThanOrEqual(5);
+  it('offers a handful, named once each, with Classic free and first', () => {
+    expect(RESUME_TEMPLATES.map((t) => t.name)).toEqual([
+      'Classic',
+      'Modern',
+      'Compact',
+      'Elegant',
+      'Bold',
+      'Photo',
+    ]);
+    // Only the one made for it shows a photo.
+    expect(RESUME_TEMPLATES.filter((t) => t.photo).map((t) => t.id)).toEqual([
+      'photo',
+    ]);
     const ids = RESUME_TEMPLATES.map((t) => t.id);
     expect(new Set(ids).size).toBe(ids.length);
     expect(new Set(RESUME_TEMPLATES.map((t) => t.name)).size).toBe(ids.length);
@@ -105,6 +119,25 @@ describe('the PDF in every template', () => {
       expect(doc.getNumberOfPages()).toBe(1);
     },
   );
+
+  it('puts the photo in the Photo template only, and keeps the text as text', async () => {
+    const with_ = (await buildResumePdf(RESUME, 'photo', JPEG)).doc.output();
+    expect(with_).toContain('/Subtype /Image');
+    expect(with_).toContain('(Rafi Ahmed)');
+    expect(with_).toContain('(rafi@example.com)');
+    expect(with_.indexOf('(Rafi Ahmed)')).toBeLessThan(
+      with_.indexOf('(SUMMARY)'),
+    );
+    // no photo added: the same template, without a picture
+    const without = (await buildResumePdf(RESUME, 'photo', null)).doc.output();
+    expect(without).not.toContain('/Subtype /Image');
+    // a photo is never drawn by a template that is not made for one
+    for (const id of ['classic', 'modern', 'compact', 'serif', 'banner'])
+      expect(
+        (await buildResumePdf(RESUME, id, JPEG)).doc.output(),
+        id,
+      ).not.toContain('/Subtype /Image');
+  });
 
   it('draws a name it does not know as Classic', async () => {
     const classic = (await buildResumePdf(RESUME, 'classic')).doc.output();

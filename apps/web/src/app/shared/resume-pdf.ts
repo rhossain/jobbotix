@@ -1,7 +1,7 @@
 import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
 import type { jsPDF as JsPdf } from 'jspdf';
 import { pdfSafeResume } from './pdf-text';
-import { ON_BANNER, rgb, templateOf } from './resume-templates';
+import { ON_BANNER, PHOTO, rgb, templateOf } from './resume-templates';
 
 /**
  * A resume as a PDF, drawn as real text with jsPDF (lazy-loaded) so ATS
@@ -13,6 +13,8 @@ import { ON_BANNER, rgb, templateOf } from './resume-templates';
 export async function buildResumePdf(
   resume: ResumeSections,
   templateId?: string | null,
+  /** The account's photo (a JPEG data URL), for a template that shows one. */
+  photo?: string | null,
 ): Promise<{ doc: JsPdf; dropped: string[] }> {
   const { resume: r, dropped } = pdfSafeResume(resume);
   const t = templateOf(templateId);
@@ -46,6 +48,8 @@ export async function buildResumePdf(
       color?: Rgb;
       center?: boolean;
       lineHeight?: number;
+      /** Narrower than the page, for text beside the photo. */
+      maxWidth?: number;
     } = {},
   ) => {
     if (!s) return;
@@ -53,7 +57,7 @@ export async function buildResumePdf(
     doc.setFontSize(size);
     doc.setTextColor(...(opts.color ?? ink));
     const lh = opts.lineHeight ?? size * 1.32;
-    const lines = doc.splitTextToSize(s, width) as string[];
+    const lines = doc.splitTextToSize(s, opts.maxWidth ?? width) as string[];
     for (const line of lines) {
       ensure(lh);
       if (opts.center)
@@ -129,15 +133,14 @@ export async function buildResumePdf(
   };
 
   // Header
-  const contact = [
+  const contactParts = [
     r.contact.location,
     r.contact.email,
     r.contact.phone,
     r.contact.website,
     ...r.contact.links.map((l) => l.url.replace(/^https?:\/\//, '')),
-  ]
-    .filter(Boolean)
-    .join('  ·  ');
+  ].filter(Boolean);
+  const contact = contactParts.join('  ·  ');
   const nameSize = 20 * k;
   const headlineSize = 11 * k;
   const contactSize = 8.5 * k;
@@ -176,6 +179,42 @@ export async function buildResumePdf(
       lineHeight: contactLh,
     });
     y = band + 6 * k;
+  } else if (t.photo) {
+    // The portrait top right; the name and one contact detail a line beside
+    // it. The picture is the only image in the file: all the text is text.
+    const top = y;
+    const beside = photo ? width - PHOTO.width - 14 : width;
+    if (photo) {
+      doc.addImage(
+        photo,
+        'JPEG',
+        W - M - PHOTO.width,
+        top,
+        PHOTO.width,
+        PHOTO.height,
+      );
+      doc.setDrawColor(...rule);
+      doc.setLineWidth(0.6);
+      doc.rect(W - M - PHOTO.width, top, PHOTO.width, PHOTO.height);
+    }
+    text(r.contact.name, nameSize, {
+      bold: true,
+      lineHeight: nameLh,
+      maxWidth: beside,
+    });
+    text(r.contact.headline, headlineSize, {
+      color: accent,
+      lineHeight: headlineLh + 2,
+      maxWidth: beside,
+    });
+    for (const part of contactParts)
+      text(part, contactSize + 0.5, {
+        color: muted,
+        lineHeight: contactLh,
+        maxWidth: beside,
+      });
+    if (photo) y = Math.max(y, top + PHOTO.height);
+    y += 4 * k;
   } else {
     text(r.contact.name, nameSize, {
       bold: true,
@@ -287,8 +326,9 @@ export async function downloadResumePdf(
   resume: ResumeSections,
   filename: string,
   templateId?: string | null,
+  photo?: string | null,
 ): Promise<string[]> {
-  const { doc, dropped } = await buildResumePdf(resume, templateId);
+  const { doc, dropped } = await buildResumePdf(resume, templateId, photo);
   doc.save(filename);
   return dropped;
 }

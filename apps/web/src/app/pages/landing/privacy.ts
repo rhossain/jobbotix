@@ -73,7 +73,10 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
         prep, reading a resume file, and company research. For those calls the
         provider receives the posting text and your resume as you saved it
         (including the contact details on it), plus your voice samples for
-        drafts. Nothing else from your account is sent.
+        drafts. Nothing else from your account is sent. A photo you add to your
+        resume is stored with your account for the resume alone: it is never
+        sent to an AI provider, and it is deleted when you remove it or delete
+        your account.
       </p>
       <ul class="mt-2 list-disc space-y-1 pl-5">
         @for (p of providers; track p.id) {

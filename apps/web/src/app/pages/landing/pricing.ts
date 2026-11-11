@@ -7,6 +7,7 @@ import {
   quarterlySaving,
   usd,
 } from '@jobbotix/shared-types';
+import { RESUME_TEMPLATES } from '../../shared/resume-templates';
 import { Button, Icon } from '../../ui';
 import { DraftNote } from './legal';
 import { REFUND_RULES } from './refunds';
@@ -44,7 +45,7 @@ export const COMPARE: CompareRow[] = [
   {
     what: 'Resume templates, all one column and readable by ATS',
     free: 'Classic',
-    pro: 'All five',
+    pro: `All ${RESUME_TEMPLATES.length}, one with a photo`,
   },
   {
     what: 'Credit top-ups',

@@ -1681,4 +1681,71 @@ do $$ begin
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- 0039: the resume photo is its owner's alone, small, and a JPEG.
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+insert into public.resume_photos (user_id, data)
+values (auth.uid(), 'data:image/jpeg;base64,' || repeat('QUJD', 40));
+do $$ begin
+  begin
+    insert into public.resume_photos (user_id, data)
+    values ('44444444-4444-4444-4444-444444444444', 'data:image/jpeg;base64,' || repeat('QUJD', 40));
+    raise exception 'FAIL: a user stored a photo on another account';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.resume_photos set data = 'data:text/html;base64,' || repeat('QUJD', 40) where user_id = auth.uid();
+    raise exception 'FAIL: something that is not a JPEG was stored as a photo';
+  exception when check_violation then null;
+  end;
+  begin
+    update public.resume_photos set data = 'data:image/jpeg;base64,' || repeat('QUJD', 60000) where user_id = auth.uid();
+    raise exception 'FAIL: an oversized photo was stored';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role authenticated;
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+do $$ begin
+  if exists (select 1 from public.resume_photos) then raise exception 'FAIL: a user read another account''s photo'; end if;
+  delete from public.resume_photos where user_id = '33333333-3333-3333-3333-333333333333';
+  if found then raise exception 'FAIL: a user deleted another account''s photo'; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+do $$ begin
+  if (select count(*) from public.resume_photos where user_id = '33333333-3333-3333-3333-333333333333') <> 1 then
+    raise exception 'FAIL: the owner''s photo is gone';
+  end if;
+  -- no admin view carries the photo
+  if public.admin_user_detail('33333333-3333-3333-3333-333333333333')::text like '%data:image%' then
+    raise exception 'FAIL: the admin detail carries the photo';
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+delete from public.resume_photos where user_id = auth.uid();
+reset role; reset request.jwt.claim.sub;
+do $$ begin
+  if exists (select 1 from public.resume_photos) then raise exception 'FAIL: the owner could not remove the photo'; end if;
+end $$;
+
+-- 0039: a tailored resume can carry its own template, or none.
+do $$ declare rid uuid; vid uuid;
+begin
+  select id into rid from public.roles where user_id = '33333333-3333-3333-3333-333333333333' limit 1;
+  if rid is null then raise exception 'FAIL: test setup: no role for the Pro account'; end if;
+  insert into public.resume_variants (user_id, role_id) values ('33333333-3333-3333-3333-333333333333', rid) returning id into vid;
+  if (select template from public.resume_variants where id = vid) is not null then
+    raise exception 'FAIL: a tailored resume does not start on the account''s template';
+  end if;
+  update public.resume_variants set template = 'photo' where id = vid;
+  begin
+    update public.resume_variants set template = 'Not A Name' where id = vid;
+    raise exception 'FAIL: a template name that is not a plain word was stored';
+  exception when check_violation then null;
+  end;
+  delete from public.resume_variants where id = vid;
+end $$;
+
 \echo RLS tests passed

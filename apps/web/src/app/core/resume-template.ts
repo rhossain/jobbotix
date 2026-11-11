@@ -60,13 +60,28 @@ export class ResumeTemplateChoice {
   }
 
   /**
+   * The template for one tailored resume: its own when it has one, else the
+   * account's; Classic when the plan does not cover it.
+   */
+  resolve(own: string | null | undefined): ResumeTemplate {
+    if (!own) return this.template();
+    const t = templateOf(own);
+    return this.locked(t) ? templateOf(DEFAULT_TEMPLATE_ID) : t;
+  }
+
+  /** Says which plan the other templates belong to. */
+  offer(): Promise<void> {
+    return this.plan.offer('extra_templates');
+  }
+
+  /**
    * Picks a template. False when the plan does not cover it: the offer to
    * upgrade has been shown and nothing changed.
    */
   async choose(id: string): Promise<boolean> {
     const t = templateOf(id);
     if (this.locked(t)) {
-      await this.plan.offer('extra_templates');
+      await this.offer();
       return false;
     }
     this.local.set(t.id);

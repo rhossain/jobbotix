@@ -12,6 +12,7 @@ import { RouterLink } from '@angular/router';
 import {
   applyVariant,
   normaliseResume,
+  resumeWordCount,
   type KeywordReport,
   type ResumeSections,
   type ResumeVariantRow,
@@ -24,6 +25,9 @@ import { ModelPicker } from '../../shared/model-picker';
 import { ResumePreview } from '../../shared/resume-preview';
 import { ResumeTemplateChoice } from '../../core/resume-template';
 import { droppedNote } from '../../shared/pdf-text';
+import { templateOf } from '../../shared/resume-templates';
+import { TemplatePicker } from '../../shared/template-picker';
+import { suggestTemplate } from '../../shared/template-suggest';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
 import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
@@ -40,6 +44,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
     ResumePreview,
     RouterLink,
     ScaledPage,
+    TemplatePicker,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -308,12 +313,21 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
           </section>
           <section class="min-w-0">
             <h3 class="font-semibold text-ink">Result</h3>
-            <div
-              class="mt-3 rounded-card bg-sunken p-3 md:p-4 lg:sticky lg:top-8"
-            >
-              <jb-scaled-page>
-                <jb-resume-preview [r]="applied()" [template]="template().id" />
-              </jb-scaled-page>
+            <div class="mt-3 flex flex-col gap-3 lg:sticky lg:top-8">
+              <jb-template-picker
+                [forCopy]="template().id"
+                [suggestion]="suggestion()"
+                (picked)="setTemplate($event)"
+              />
+              <div class="rounded-card bg-sunken p-3 md:p-4">
+                <jb-scaled-page>
+                  <jb-resume-preview
+                    [r]="applied()"
+                    [template]="template().id"
+                    [photo]="resumes.photo()"
+                  />
+                </jb-scaled-page>
+              </div>
             </div>
           </section>
         </div>
@@ -324,6 +338,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
           [r]="applied()"
           [print]="true"
           [template]="template().id"
+          [photo]="resumes.photo()"
         />
       </div>
     }
@@ -338,8 +353,7 @@ export class VariantPanel {
     model?: string;
   } | null>(null);
   private readonly toast = inject(Toast);
-  /** The account's resume template: a tailored copy looks like the master. */
-  protected readonly template = inject(ResumeTemplateChoice).template;
+  private readonly templates = inject(ResumeTemplateChoice);
 
   readonly role = input.required<RoleRow>();
   readonly variant = signal<ResumeVariantRow | null>(null);
@@ -358,6 +372,22 @@ export class VariantPanel {
   );
   readonly changes = computed(() => this.diff().changes);
   readonly applied = computed(() => applyVariant(this.master(), this.diff()));
+  /**
+   * The look of this copy: its own template when one was picked for the
+   * job, else the account's.
+   */
+  protected readonly template = computed(() =>
+    this.templates.resolve(this.variant()?.template),
+  );
+  /** The template that suits this job, and why. */
+  protected readonly suggestion = computed(() =>
+    suggestTemplate({
+      role: this.role(),
+      words: resumeWordCount(this.applied()),
+      hasPhoto: !!this.resumes.photo(),
+      allowed: (id) => !this.templates.locked(templateOf(id)),
+    }),
+  );
   readonly report = computed(
     () =>
       (this.variant()?.keyword_report as unknown as KeywordReport | null) ??
@@ -377,6 +407,7 @@ export class VariantPanel {
 
   constructor() {
     void this.resumes.load();
+    void this.resumes.loadPhoto();
     effect(() => {
       const id = this.role().id;
       untracked(
@@ -384,6 +415,17 @@ export class VariantPanel {
           void this.variants.variantFor(id).then((v) => this.variant.set(v)),
       );
     });
+  }
+
+  /** Picks the template for this copy alone; the account's stays as it is. */
+  async setTemplate(id: string) {
+    const v = this.variant();
+    if (!v) return;
+    try {
+      this.variant.set(await this.variants.setTemplate(v.id, id));
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not change the template');
+    }
   }
 
   share(n: number) {
@@ -500,6 +542,7 @@ export class VariantPanel {
         this.applied(),
         resumeFilename(this.applied(), this.role().company),
         this.template().id,
+        this.resumes.photo(),
       );
       if (dropped.length)
         this.toast.show(droppedNote(dropped), { tone: 'info', ms: 14_000 });

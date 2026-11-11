@@ -429,6 +429,15 @@ async function functionError(error: unknown): Promise<Error> {
   return new Error((error as Error).message || 'Request failed');
 }
 
+/** The app is ahead of the database until migration 0039 is applied. */
+function photoError(error: { code?: string; message: string }): Error {
+  return new Error(
+    error.code === 'PGRST205' || /resume_photos/.test(error.message)
+      ? 'Photos are not switched on yet on the server. Try again after the next update.'
+      : error.message,
+  );
+}
+
 @Injectable()
 export class SupabaseResumesRepo extends ResumesRepo {
   private readonly supabase = injectSupabase();
@@ -514,6 +523,39 @@ export class SupabaseResumesRepo extends ResumesRepo {
     };
   }
 
+  private readonly _photo = signal<string | null>(null);
+  readonly photo = this._photo.asReadonly();
+
+  async loadPhoto() {
+    const { data, error } = await this.supabase
+      .from('resume_photos')
+      .select('data')
+      .maybeSingle();
+    // A server without the table yet has no photos: nothing to show.
+    if (!error) this._photo.set(data?.data ?? null);
+  }
+
+  async savePhoto(data: string) {
+    const userId = this.auth.user()?.id;
+    if (!userId) throw new Error('Not signed in');
+    const { error } = await this.supabase
+      .from('resume_photos')
+      .upsert({ user_id: userId, data });
+    if (error) throw photoError(error);
+    this._photo.set(data);
+  }
+
+  async removePhoto() {
+    const userId = this.auth.user()?.id;
+    if (!userId) throw new Error('Not signed in');
+    const { error } = await this.supabase
+      .from('resume_photos')
+      .delete()
+      .eq('user_id', userId);
+    if (error) throw photoError(error);
+    this._photo.set(null);
+  }
+
   async reviewWithAi(sections: ResumeSections, model?: string) {
     const { data, error } = await this.supabase.functions.invoke<{
       changes?: VariantChange[];
@@ -584,6 +626,22 @@ export class SupabaseVariantsRepo extends VariantsRepo {
       .select('*')
       .single();
     if (error) throw error;
+    return data;
+  }
+
+  async setTemplate(variantId: string, template: string | null) {
+    const { data, error } = await this.supabase
+      .from('resume_variants')
+      .update({ template })
+      .eq('id', variantId)
+      .select('*')
+      .single();
+    if (error)
+      throw new Error(
+        /template/.test(error.message)
+          ? 'A template per job is not switched on yet on the server. Try again after the next update.'
+          : error.message,
+      );
     return data;
   }
 }
@@ -1545,6 +1603,7 @@ const EXPORT_TABLES = [
   'shares',
   'company_follows',
   'ai_usage',
+  'resume_photos',
 ] as const;
 
 @Injectable()
@@ -1563,6 +1622,9 @@ export class SupabaseAccountDataRepo extends AccountDataRepo {
           .from(t)
           .select('*')
           .range(from, from + 999);
+        // The app can be ahead of the database: a table it does not have
+        // yet holds nothing of the user's.
+        if (error?.code === 'PGRST205') break;
         if (error) throw new Error(`${t}: ${error.message}`);
         rows.push(...(data ?? []));
         if (!data || data.length < 1000) break;
