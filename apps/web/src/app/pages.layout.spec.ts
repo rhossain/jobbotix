@@ -2,6 +2,7 @@ import {
   VIEWPORTS,
   clippedContent,
   contentBehindTabBar,
+  controlsPastTheirCard,
   horizontalOverflow,
   pageScrollsSideways,
   renderApp,
@@ -78,6 +79,11 @@ describe.each([...SIGNED_IN, ...PUBLIC])('$name ($url)', (pageCase) => {
 
       const clipped = clippedContent();
       expect(clipped, report('Cut off by a clipping box', clipped)).toEqual([]);
+
+      const outside = controlsPastTheirCard();
+      expect(outside, report('Controls outside their card', outside)).toEqual(
+        [],
+      );
 
       if (VIEWPORTS[vp].touch) {
         const zooming = zoomingInputs();

@@ -453,6 +453,34 @@ export function smallTargets(
 }
 
 /**
+ * Controls that stick out of the card they sit in. The page still fits the
+ * screen, so nothing else notices: two date fields side by side in a narrow
+ * card ran 170px past its edge, over the panel next to it. A control inside
+ * a sideways-scrolling box within the card is that box's business.
+ */
+export function controlsPastTheirCard(root: Element = document.body): string[] {
+  const out: string[] = [];
+  for (const el of root.querySelectorAll(INTERACTIVE)) {
+    if (!isRendered(el) || isVisuallyHidden(el)) continue;
+    if (el.closest('[inert], [aria-hidden="true"]')) continue;
+    const card = el.closest('.jb-card, fieldset');
+    if (!card) continue;
+    let scrolls = false;
+    for (let a = el.parentElement; a && a !== card; a = a.parentElement) {
+      const o = getComputedStyle(a).overflowX;
+      if (o === 'auto' || o === 'scroll') scrolls = true;
+    }
+    if (scrolls) continue;
+    const r = el.getBoundingClientRect();
+    const c = card.getBoundingClientRect();
+    const past = Math.max(r.right - c.right, c.left - r.left);
+    if (past > 1)
+      out.push(`${describeEl(el)} is ${Math.round(past)}px outside its card`);
+  }
+  return out;
+}
+
+/**
  * Tables and controls cut off by an `overflow: hidden` (or clip) ancestor.
  * Unlike overflow, clipping never widens the page, so it hides silently: a
  * column or a button that is simply not there on a narrow screen.

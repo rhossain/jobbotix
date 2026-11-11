@@ -418,7 +418,7 @@ const splitLines = (s: string) =>
             data-tour="search-prompt"
           >
             <h2 class="jb-section-title">Scheduled-task prompt</h2>
-            <div class="flex gap-2">
+            <div class="flex flex-wrap gap-2">
               <button
                 type="button"
                 class="jb-btn"

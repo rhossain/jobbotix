@@ -309,11 +309,13 @@ const csv = (s: string) =>
           <fieldset class="jb-fieldset">
             <legend class="jb-legend">Experience</legend>
             @for (e of d().experience; track $index; let i = $index) {
-              <div class="jb-card p-3" [class.mt-3]="i > 0">
-                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <!-- Columns follow the card's own width: beside the preview
+                   the card is narrow on a wide window. -->
+              <div class="jb-card @container p-3" [class.mt-3]="i > 0">
+                <div class="grid grid-cols-1 gap-2 @md:grid-cols-2">
                   <input
                     jbInput
-                    class="jb-input"
+                    class="jb-input min-w-0"
                     placeholder="Title"
                     aria-label="Title"
                     [id]="'r-exp-title-' + i"
@@ -322,7 +324,7 @@ const csv = (s: string) =>
                   />
                   <input
                     jbInput
-                    class="jb-input"
+                    class="jb-input min-w-0"
                     placeholder="Company"
                     aria-label="Company"
                     [id]="'r-exp-company-' + i"
@@ -331,33 +333,40 @@ const csv = (s: string) =>
                   />
                   <input
                     jbInput
-                    class="jb-input"
+                    class="jb-input min-w-0 @md:col-span-2"
                     placeholder="Location"
                     aria-label="Location"
                     [id]="'r-exp-location-' + i"
                     [value]="e.location"
                     (input)="setExp(i, 'location', $any($event.target).value)"
                   />
-                  <div class="flex min-w-0 flex-col gap-2 sm:flex-row">
+                  <label class="jb-field min-w-0">
+                    <span>Start</span>
                     <input
                       jbInput
-                      class="jb-input"
+                      class="jb-input min-w-0"
                       type="month"
                       [id]="'r-exp-start-' + i"
-                      aria-label="Start"
                       [value]="e.start"
                       (input)="setExp(i, 'start', $any($event.target).value)"
                     />
+                  </label>
+                  <label class="jb-field min-w-0">
+                    <span
+                      >End
+                      <span class="font-normal text-ink-muted"
+                        >(empty if current)</span
+                      ></span
+                    >
                     <input
                       jbInput
-                      class="jb-input"
+                      class="jb-input min-w-0"
                       type="month"
                       [id]="'r-exp-end-' + i"
-                      aria-label="End (blank = present)"
                       [value]="e.end"
                       (input)="setExp(i, 'end', $any($event.target).value)"
                     />
-                  </div>
+                  </label>
                 </div>
                 <label class="jb-field mt-2">
                   <span
@@ -423,11 +432,11 @@ const csv = (s: string) =>
           <fieldset class="jb-fieldset">
             <legend class="jb-legend">Projects</legend>
             @for (p of d().projects; track $index; let i = $index) {
-              <div class="jb-card p-3" [class.mt-3]="i > 0">
-                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <div class="jb-card @container p-3" [class.mt-3]="i > 0">
+                <div class="grid grid-cols-1 gap-2 @md:grid-cols-2">
                   <input
                     jbInput
-                    class="jb-input"
+                    class="jb-input min-w-0"
                     placeholder="Name"
                     aria-label="Name"
                     [id]="'r-proj-name-' + i"
@@ -436,7 +445,7 @@ const csv = (s: string) =>
                   />
                   <input
                     jbInput
-                    class="jb-input"
+                    class="jb-input min-w-0"
                     placeholder="https://…"
                     aria-label="Project link"
                     type="url"
