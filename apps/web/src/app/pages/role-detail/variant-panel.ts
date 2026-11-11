@@ -22,6 +22,7 @@ import {
 import { ResumesRepo, VariantsRepo } from '../../core/data/repos';
 import { ModelPicker } from '../../shared/model-picker';
 import { ResumePreview } from '../../shared/resume-preview';
+import { droppedNote } from '../../shared/pdf-text';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
 import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
@@ -488,10 +489,12 @@ export class VariantPanel {
   async downloadPdf() {
     this.exporting.set(true);
     try {
-      await downloadResumePdf(
+      const dropped = await downloadResumePdf(
         this.applied(),
         resumeFilename(this.applied(), this.role().company),
       );
+      if (dropped.length)
+        this.toast.show(droppedNote(dropped), { tone: 'info', ms: 14_000 });
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not build the PDF');
     } finally {

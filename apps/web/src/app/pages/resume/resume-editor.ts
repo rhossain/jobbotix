@@ -24,6 +24,7 @@ import { RelativeDayPipe } from '../../shared/format';
 import { ResumePreview } from '../../shared/resume-preview';
 import { ResumeImportPanel } from './resume-import';
 import { ResumeReviewPanel } from './resume-review';
+import { droppedNote } from '../../shared/pdf-text';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
 import { ShellState } from '../../shell/shell-state';
@@ -968,7 +969,12 @@ export class ResumeEditor {
   async downloadPdf() {
     this.exporting.set(true);
     try {
-      await downloadResumePdf(this.d(), resumeFilename(this.d()));
+      const dropped = await downloadResumePdf(
+        this.d(),
+        resumeFilename(this.d()),
+      );
+      if (dropped.length)
+        this.toast.show(droppedNote(dropped), { tone: 'info', ms: 14_000 });
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not build the PDF');
     } finally {

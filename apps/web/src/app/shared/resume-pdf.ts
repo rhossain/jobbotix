@@ -1,4 +1,5 @@
 import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
+import { pdfSafeResume } from './pdf-text';
 import { resumeRgb } from './resume-palette';
 
 /**
@@ -6,11 +7,15 @@ import { resumeRgb } from './resume-palette';
  * ATS parsers can read it. Mirrors the single-page preview layout: name,
  * headline, contact line, then sections with a rule under each heading.
  * Overflows onto a second page rather than shrinking text.
+ *
+ * Resolves with the characters the PDF font could not show and so left out
+ * (see pdf-text.ts); empty for nearly every resume.
  */
 export async function downloadResumePdf(
-  r: ResumeSections,
+  resume: ResumeSections,
   filename: string,
-): Promise<void> {
+): Promise<string[]> {
+  const { resume: r, dropped } = pdfSafeResume(resume);
   const { jsPDF } = await import('jspdf');
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const W = doc.internal.pageSize.getWidth();
@@ -199,6 +204,7 @@ export async function downloadResumePdf(
     creator: 'Jobbotix',
   });
   doc.save(filename);
+  return dropped;
 }
 
 export function resumeFilename(r: ResumeSections, suffix = ''): string {
