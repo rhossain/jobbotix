@@ -1,18 +1,28 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+} from '@angular/core';
 import { formatResumeDate, type ResumeSections } from '@jobbotix/shared-types';
-import { resumeCssVars } from './resume-palette';
+import {
+  templateClasses,
+  templateCssVars,
+  templateOf,
+} from './resume-templates';
 
 /**
- * The single-page resume template. The same markup is what the browser
- * prints (Save as PDF), so it is plain HTML with its own print stylesheet
- * and no app chrome.
+ * The resume on screen, in the template chosen (resume-templates.ts). The
+ * same markup is what the browser prints (Save as PDF), so it is plain HTML
+ * with its own print stylesheet and no app chrome. Every template is the
+ * same single column in the same order; only the styling differs.
  */
 @Component({
   selector: 'jb-resume-preview',
-  host: { '[style]': 'palette' },
+  host: { '[style]': 'vars()' },
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <article class="resume" [class.resume-print]="print()">
+    <article class="resume" [class]="classes()" [class.resume-print]="print()">
       <header class="resume-head">
         <h1>{{ r().contact.name || 'Your name' }}</h1>
         @if (r().contact.headline) {
@@ -138,15 +148,13 @@ import { resumeCssVars } from './resume-palette';
       width: 100%;
       max-width: 210mm;
       margin: 0 auto;
-      padding: 14mm 16mm;
+      padding: var(--pad-y) var(--pad-x);
       box-sizing: border-box;
       background: var(--paper);
       color: var(--ink);
-      font:
-        10.5pt/1.4 'Helvetica Neue',
-        Helvetica,
-        Arial,
-        sans-serif;
+      font-family: var(--resume-font);
+      font-size: calc(10.5pt * var(--scale));
+      line-height: 1.4;
       box-shadow:
         0 1px 2px color-mix(in srgb, var(--ink) 10%, transparent),
         0 12px 32px -12px color-mix(in srgb, var(--ink) 22%, transparent);
@@ -157,7 +165,7 @@ import { resumeCssVars } from './resume-palette';
     }
     .resume h1 {
       margin: 0;
-      font-size: 20pt;
+      font-size: calc(20pt * var(--scale));
       font-weight: 600;
       letter-spacing: -0.01em;
     }
@@ -169,16 +177,16 @@ import { resumeCssVars } from './resume-palette';
     .resume-contact {
       margin: 4px 0 0;
       color: var(--muted);
-      font-size: 9.5pt;
+      font-size: calc(9.5pt * var(--scale));
     }
     .resume section {
-      margin-top: 10pt;
+      margin-top: calc(10pt * var(--scale));
     }
     .resume h2 {
       margin: 0 0 4pt;
       padding-bottom: 2pt;
       border-bottom: 1px solid var(--rule);
-      font-size: 9pt;
+      font-size: calc(9pt * var(--scale));
       font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
@@ -227,14 +235,75 @@ import { resumeCssVars } from './resume-palette';
     }
     .resume-dates {
       color: var(--muted);
-      font-size: 9.5pt;
+      font-size: calc(9.5pt * var(--scale));
       white-space: nowrap;
     }
+
+    /* Header: centred */
+    .resume--head-center .resume-head {
+      text-align: center;
+    }
+    .resume--head-center .resume-headline {
+      font-style: italic;
+      font-weight: 400;
+    }
+    /* Header: the name on a filled band that runs to the page edges */
+    .resume--head-banner .resume-head {
+      margin: calc(var(--pad-y) * -1) calc(var(--pad-x) * -1) 0;
+      padding: calc(var(--pad-y) * 0.8) var(--pad-x);
+      background: var(--accent);
+      color: var(--on-banner);
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+    .resume--head-banner .resume-headline,
+    .resume--head-banner .resume-contact,
+    .resume--head-banner .resume-contact a {
+      color: var(--on-banner-soft);
+    }
+
+    /* Headings: accent capitals over a heavier line */
+    .resume--h-accent h1 {
+      font-weight: 700;
+    }
+    .resume--h-accent h2 {
+      border-bottom: 1.5px solid var(--accent);
+      color: var(--accent);
+      font-size: calc(9.5pt * var(--scale));
+      font-weight: 700;
+    }
+    .resume--h-accent.resume--head-left h1 {
+      color: var(--accent);
+    }
+    /* Headings: centred capitals */
+    .resume--h-center h2 {
+      border-bottom: 1px solid var(--rule);
+      color: var(--ink);
+      font-size: calc(9.5pt * var(--scale));
+      letter-spacing: 0.14em;
+      text-align: center;
+    }
+    /* Headings: plain bold capitals, nothing drawn */
+    .resume--h-plain h2 {
+      margin-bottom: 2pt;
+      padding-bottom: 0;
+      border-bottom: 0;
+      color: var(--ink);
+      font-weight: 700;
+    }
+    .resume--h-plain section {
+      margin-top: calc(7pt * var(--scale));
+    }
+
     @media print {
       .resume {
         box-shadow: none;
         max-width: none;
         padding: 0;
+      }
+      .resume--head-banner .resume-head {
+        margin: 0;
+        padding: 10pt 12pt;
       }
       .resume section,
       .resume-entry {
@@ -244,9 +313,16 @@ import { resumeCssVars } from './resume-palette';
   `,
 })
 export class ResumePreview {
-  protected readonly palette = resumeCssVars;
   readonly r = input.required<ResumeSections>();
   readonly print = input(false);
+  /** The template's name; Classic when missing or unknown. */
+  readonly template = input<string | null | undefined>(undefined);
+  protected readonly vars = computed(() =>
+    templateCssVars(templateOf(this.template())),
+  );
+  protected readonly classes = computed(() =>
+    templateClasses(templateOf(this.template())),
+  );
 
   fmt(v: string) {
     return formatResumeDate(v);

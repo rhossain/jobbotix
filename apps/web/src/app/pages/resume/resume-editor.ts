@@ -20,8 +20,10 @@ import {
   type VariantChange,
 } from '@jobbotix/shared-types';
 import { ResumesRepo } from '../../core/data/repos';
+import { ResumeTemplateChoice } from '../../core/resume-template';
 import { RelativeDayPipe } from '../../shared/format';
 import { ResumePreview } from '../../shared/resume-preview';
+import { TemplatePicker } from '../../shared/template-picker';
 import { ResumeImportPanel } from './resume-import';
 import { ResumeReviewPanel } from './resume-review';
 import { droppedNote } from '../../shared/pdf-text';
@@ -66,6 +68,7 @@ const csv = (s: string) =>
     RelativeDayPipe,
     ResumeImportPanel,
     ResumeReviewPanel,
+    TemplatePicker,
     ResumePreview,
     ScaledPage,
     Tabs,
@@ -656,11 +659,16 @@ const csv = (s: string) =>
           [class.md:block]="true"
         >
           <div
-            class="sticky top-8 max-h-[calc(100dvh-4rem)] overflow-auto rounded-card bg-sunken p-3 md:p-4"
+            class="sticky top-8 flex max-h-[calc(100dvh-4rem)] flex-col gap-3"
           >
-            <jb-scaled-page>
-              <jb-resume-preview [r]="d()" />
-            </jb-scaled-page>
+            <jb-template-picker />
+            <div
+              class="min-h-0 overflow-auto rounded-card bg-sunken p-3 md:p-4"
+            >
+              <jb-scaled-page>
+                <jb-resume-preview [r]="d()" [template]="template().id" />
+              </jb-scaled-page>
+            </div>
           </div>
         </div>
       </div>
@@ -672,7 +680,7 @@ const csv = (s: string) =>
 
     <!-- Print: only the page -->
     <div class="hidden print:block">
-      <jb-resume-preview [r]="d()" [print]="true" />
+      <jb-resume-preview [r]="d()" [print]="true" [template]="template().id" />
     </div>
   `,
   styles: `
@@ -717,6 +725,8 @@ const csv = (s: string) =>
 export class ResumeEditor {
   protected readonly repo = inject(ResumesRepo);
   private readonly toast = inject(Toast);
+  /** The look the resume is shown, printed and exported in. */
+  protected readonly template = inject(ResumeTemplateChoice).template;
 
   readonly d = signal<ResumeSections>(emptyResume());
   readonly saved = signal<string>(JSON.stringify(emptyResume()));
@@ -972,6 +982,7 @@ export class ResumeEditor {
       const dropped = await downloadResumePdf(
         this.d(),
         resumeFilename(this.d()),
+        this.template().id,
       );
       if (dropped.length)
         this.toast.show(droppedNote(dropped), { tone: 'info', ms: 14_000 });

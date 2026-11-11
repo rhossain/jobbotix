@@ -801,6 +801,7 @@ export class MemorySettingsRepo extends SettingsRepo {
     default_model?: string;
     ai_route?: 'auto' | 'own';
     support_access_until?: string | null;
+    resume_template?: string;
   }) {
     this.roles.patch((s) => {
       s.profileRow = {

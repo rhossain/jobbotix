@@ -70,6 +70,8 @@ export type ProfileRow = Timestamps & {
   suspended_at?: string | null;
   /** Until then an admin may see the account's roles and resume. */
   support_access_until?: string | null;
+  /** The look of the resume (missing before migration 0038). */
+  resume_template?: string;
 };
 
 export type InviteCodeRow = {

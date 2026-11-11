@@ -14,7 +14,7 @@ const APP = join(SRC, 'app');
 /** Files allowed to hold raw colour values, with the reason. */
 const COLOUR_EXEMPT = new Set([
   'app/ui/icons.generated.ts', // generated SVG data
-  'app/shared/resume-palette.ts', // the printed resume is always light
+  'app/shared/resume-templates.ts', // the printed resume is always light
   'app/core/theme.ts', // browser chrome colours per theme
   'app/core/design.node-spec.ts', // this file names the patterns
   'app/core/tokens.node-spec.ts',

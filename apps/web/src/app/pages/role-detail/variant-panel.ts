@@ -22,6 +22,7 @@ import {
 import { ResumesRepo, VariantsRepo } from '../../core/data/repos';
 import { ModelPicker } from '../../shared/model-picker';
 import { ResumePreview } from '../../shared/resume-preview';
+import { ResumeTemplateChoice } from '../../core/resume-template';
 import { droppedNote } from '../../shared/pdf-text';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
 import { Toast } from '../../shared/toast';
@@ -311,7 +312,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
               class="mt-3 rounded-card bg-sunken p-3 md:p-4 lg:sticky lg:top-8"
             >
               <jb-scaled-page>
-                <jb-resume-preview [r]="applied()" />
+                <jb-resume-preview [r]="applied()" [template]="template().id" />
               </jb-scaled-page>
             </div>
           </section>
@@ -319,7 +320,11 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
       </div>
 
       <div class="hidden print:block">
-        <jb-resume-preview [r]="applied()" [print]="true" />
+        <jb-resume-preview
+          [r]="applied()"
+          [print]="true"
+          [template]="template().id"
+        />
       </div>
     }
   `,
@@ -333,6 +338,8 @@ export class VariantPanel {
     model?: string;
   } | null>(null);
   private readonly toast = inject(Toast);
+  /** The account's resume template: a tailored copy looks like the master. */
+  protected readonly template = inject(ResumeTemplateChoice).template;
 
   readonly role = input.required<RoleRow>();
   readonly variant = signal<ResumeVariantRow | null>(null);
@@ -492,6 +499,7 @@ export class VariantPanel {
       const dropped = await downloadResumePdf(
         this.applied(),
         resumeFilename(this.applied(), this.role().company),
+        this.template().id,
       );
       if (dropped.length)
         this.toast.show(droppedNote(dropped), { tone: 'info', ms: 14_000 });

@@ -1658,4 +1658,27 @@ end $$;
 update public.profiles set suspended_at = null, suspended_reason = ''
  where id = '44444444-4444-4444-4444-444444444444';
 
+-- 0038: the resume template is the account owner's own choice.
+do $$ begin
+  if (select resume_template from public.profiles where id = '33333333-3333-3333-3333-333333333333') <> 'classic' then
+    raise exception 'FAIL: an account does not start on the classic template';
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+update public.profiles set resume_template = 'modern' where id = auth.uid();
+do $$ begin
+  if (select resume_template from public.profiles where id = auth.uid()) <> 'modern' then
+    raise exception 'FAIL: a user could not choose a resume template';
+  end if;
+  update public.profiles set resume_template = 'serif' where id = '44444444-4444-4444-4444-444444444444';
+  if found then raise exception 'FAIL: a user changed another account''s template'; end if;
+  begin
+    update public.profiles set resume_template = '<script>' where id = auth.uid();
+    raise exception 'FAIL: a template name that is not a plain word was stored';
+  exception when check_violation then null;
+  end;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

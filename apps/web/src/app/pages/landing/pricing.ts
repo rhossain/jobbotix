@@ -42,6 +42,11 @@ export const COMPARE: CompareRow[] = [
     pro: true,
   },
   {
+    what: 'Resume templates, all one column and readable by ATS',
+    free: 'Classic',
+    pro: 'All five',
+  },
+  {
     what: 'Credit top-ups',
     free: false,
     pro: `${PRICING.topUp.credits} credits for ${usd(PRICING.topUp.usd)}`,
@@ -53,7 +58,6 @@ export const PLANNED_FOR_PRO = [
   'several search profiles',
   'instant alerts',
   'outcome insights',
-  'extra resume templates',
   'Word (.docx) export',
 ];
 

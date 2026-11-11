@@ -528,6 +528,8 @@ export abstract class SettingsRepo {
     ai_route?: 'auto' | 'own';
     /** Until when an admin may see the roles and resume; null closes it. */
     support_access_until?: string | null;
+    /** The look of the resume (see shared/resume-templates.ts). */
+    resume_template?: string;
   }): Promise<void>;
   /**
    * Checks the key with its provider and stores it server-side (Vault).

@@ -700,6 +700,7 @@ export class SupabaseSettingsRepo extends SettingsRepo {
     default_model?: string;
     ai_route?: 'auto' | 'own';
     support_access_until?: string | null;
+    resume_template?: string;
   }) {
     const userId = this.auth.user()?.id;
     if (!userId) throw new Error('Not signed in');
