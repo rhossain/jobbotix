@@ -178,6 +178,12 @@ const csv = (s: string) =>
         />
       }
 
+      <!-- Above both panes: on a phone only one of Edit and Preview shows,
+           and the template has to be reachable from either. -->
+      <div class="jb-card p-4 md:p-5">
+        <jb-template-picker />
+      </div>
+
       <div
         class="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
       >
@@ -731,7 +737,6 @@ const csv = (s: string) =>
           <div
             class="sticky top-8 flex max-h-[calc(100dvh-4rem)] flex-col gap-3"
           >
-            <jb-template-picker />
             <div
               class="min-h-0 overflow-auto rounded-card bg-sunken p-3 md:p-4"
             >
