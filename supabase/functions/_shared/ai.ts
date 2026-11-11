@@ -63,6 +63,10 @@ export type AiAnswer =
       tokensOut: number;
       provider: ProviderId;
       model: string;
+      /** Why the model stopped ("stop", "length"), when the provider says. */
+      finish?: string;
+      /** The model reasoned but wrote no answer: the reply text is empty. */
+      thoughtOnly?: boolean;
     }
   | {
       ok: false;
@@ -313,13 +317,30 @@ export async function callProvider(
         usage?: { prompt_tokens?: number; completion_tokens?: number };
       } | null
     )?.usage;
+    const text = openAiText(json);
+    const choice = (
+      json as {
+        choices?: {
+          finish_reason?: unknown;
+          message?: { reasoning?: unknown; reasoning_content?: unknown };
+        }[];
+      } | null
+    )?.choices?.[0];
+    const thought =
+      choice?.message?.reasoning ?? choice?.message?.reasoning_content;
     return {
       ok: true,
-      text: openAiText(json),
+      text,
       tokensIn: Number(usage?.prompt_tokens ?? 0),
       tokensOut: Number(usage?.completion_tokens ?? 0),
       provider,
       model,
+      ...(typeof choice?.finish_reason === 'string'
+        ? { finish: choice.finish_reason }
+        : {}),
+      ...(!text.trim() && typeof thought === 'string' && thought.trim()
+        ? { thoughtOnly: true }
+        : {}),
     };
   } catch (e) {
     const err = e as Error;

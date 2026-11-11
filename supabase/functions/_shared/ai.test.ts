@@ -342,6 +342,30 @@ Deno.test(
   },
 );
 
+Deno.test(
+  'callProvider: how the reply ended, and reasoning with no answer, are reported',
+  async () => {
+    const p = provider({
+      body: {
+        choices: [
+          {
+            finish_reason: 'length',
+            message: { content: '', reasoning: 'The score should be about' },
+          },
+        ],
+        usage: { prompt_tokens: 10, completion_tokens: 20 },
+      },
+    });
+    try {
+      const a = await callProvider('groq', 'k', 'openai/gpt-oss-20b', call);
+      assert(a.ok && a.text === '');
+      assert(a.ok && a.finish === 'length' && a.thoughtOnly === true);
+    } finally {
+      p.restore();
+    }
+  },
+);
+
 Deno.test('callProvider: a rate limit carries when to try again', async () => {
   const p = provider({
     status: 429,

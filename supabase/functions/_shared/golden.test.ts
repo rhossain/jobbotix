@@ -4,6 +4,7 @@ import {
   GOLDEN_RESUME,
   goldenModel,
   goldenSummary,
+  replyNote,
   runGolden,
   type GoldenJob,
 } from './golden.ts';
@@ -155,6 +156,13 @@ Deno.test('runGolden: a failed job does not stop the others', async () => {
       [true, false, true, true],
     );
     assert(results[1].detail.includes('not the JSON'));
+    // What came back is in the result, so the cause can be read off it.
+    assert(
+      results[1].detail.endsWith(
+        'The reply began: Sorry, I cannot help with that.',
+      ),
+    );
+    assertEquals(results[0].detail, '');
     assertEquals(goldenSummary(results), '3 of 4 passed');
   } finally {
     p.restore();
@@ -186,3 +194,26 @@ Deno.test(
     }
   },
 );
+
+Deno.test('replyNote: says what came back, or why nothing did', () => {
+  const base = {
+    ok: true as const,
+    tokensIn: 1,
+    tokensOut: 1,
+    provider: 'groq' as const,
+    model: 'm',
+  };
+  assertEquals(
+    replyNote({ ...base, text: ' {"score":\n "high"} ' }),
+    'The reply began: {"score": "high"}',
+  );
+  assertEquals(
+    replyNote({ ...base, text: 'x'.repeat(200) }, 10),
+    `The reply began: ${'x'.repeat(10)}…`,
+  );
+  assertEquals(replyNote({ ...base, text: '  ' }), 'The reply was empty.');
+  assertEquals(
+    replyNote({ ...base, text: '', thoughtOnly: true, finish: 'length' }),
+    'The model reasoned but wrote no answer. It was cut off at the limit.',
+  );
+});

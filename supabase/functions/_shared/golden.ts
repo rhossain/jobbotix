@@ -264,6 +264,29 @@ export const GOLDEN_CASES: GoldenCase[] = [
   },
 ];
 
+/**
+ * What came back when a job failed, so the cause can be read off the check:
+ * the start of the reply, or why there was none. The reply is about the
+ * made-up resume and posting, never an account's own content.
+ */
+export function replyNote(
+  answer: Extract<AiAnswer, { ok: true }>,
+  max = 160,
+): string {
+  const text = answer.text.replace(/\s+/g, ' ').trim();
+  const cut = answer.finish === 'length' ? ' It was cut off at the limit.' : '';
+  if (!text)
+    return (
+      (answer.thoughtOnly
+        ? 'The model reasoned but wrote no answer.'
+        : 'The reply was empty.') + cut
+    );
+  return (
+    `The reply began: ${text.length > max ? `${text.slice(0, max)}…` : text}` +
+    cut
+  );
+}
+
 /** The model a job runs on: the saved one, or the provider's fast model for scoring. */
 export function goldenModel(
   provider: ProviderId,
@@ -324,7 +347,8 @@ export async function runGolden(
       });
       continue;
     }
-    const detail = c.judge(answer.text);
+    const wrong = c.judge(answer.text);
+    const detail = wrong ? `${wrong} ${replyNote(answer)}` : '';
     results.push({
       ...base,
       ok: !detail,
