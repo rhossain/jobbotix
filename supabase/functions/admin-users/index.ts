@@ -30,7 +30,7 @@ import {
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.jobbotix.com';
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://jobbotix.com';
 
 Deno.serve(
   withCors(async (req) => {

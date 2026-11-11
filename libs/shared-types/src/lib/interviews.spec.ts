@@ -95,13 +95,13 @@ describe('calendar', () => {
   const e = calendarEvent(
     iv({ location: 'Zoom; link in email, see notes' }),
     { company: 'Acme, Inc.', title: 'Senior Angular Engineer' },
-    'https://app.jobbotix.com',
+    'https://jobbotix.com',
   );
 
   it('builds an event from the round', () => {
     expect(e?.title).toBe('Technical interview: Acme, Inc.');
     expect(e?.description).toContain('With: Ana Ruiz (EM), Ben Ode');
-    expect(e?.description).toContain('https://app.jobbotix.com/roles/r1');
+    expect(e?.description).toContain('https://jobbotix.com/roles/r1');
     expect(calendarEvent(iv({ scheduled_at: null }), e as never)).toBeNull();
   });
 

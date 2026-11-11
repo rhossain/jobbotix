@@ -12,7 +12,7 @@ export const LEGAL = {
   /** Postal address of the operator. */
   address: '',
   /** Where users write about their account, billing and refunds. */
-  email: '',
+  email: 'support@jobbotix.com',
   /** The country whose law governs the Terms. */
   governingLaw: '',
   /** The date these pages take effect, e.g. "1 December 2026". */

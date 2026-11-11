@@ -79,7 +79,7 @@ set-anthropic-key draft-letter answer-screening prep-role parse-resume
 fetch-sources match-postings score-role research-company list-models draft-thank-you draft-message delete-account set-ai-connection admin-users`).
 5. Secrets (Project Settings → Edge Functions): `RESEND_API_KEY`,
    `DIGEST_CRON_SECRET` (any long random string), `APP_URL`
-   (`https://app.jobbotix.com`), `DIGEST_FROM` (`Jobbotix <digest@jobbotix.com>`).
+   (`https://jobbotix.com`), `DIGEST_FROM` (`Jobbotix <digest@jobbotix.com>`).
 6. Vault (Database → Vault): `project_url` = the project URL, and
    `digest_cron_secret` = the same value as `DIGEST_CRON_SECRET`; the hourly
    digest cron reads both, and so do the `fetch-sources` (every 6 hours) and
@@ -98,8 +98,8 @@ Create a Pages project from the GitHub repo with:
 - Environment variable: `NODE_VERSION=22`
 
 `apps/web/public/_redirects` gives the SPA fallback and `_headers` sets the
-security headers, so nothing else is needed. Add `app.jobbotix.com` (and the
-apex, with jobbotix.io redirecting to .com) under Custom domains.
+security headers, so nothing else is needed. Add `jobbotix.com` and
+`www.jobbotix.com` under Custom domains.
 
 ### 3. Your scheduled task
 

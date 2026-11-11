@@ -56,10 +56,10 @@ describe('acceptPosting', () => {
 
 describe('bookmarklet', () => {
   it('is a javascript: link aimed at the app', () => {
-    const b = bookmarklet('https://app.jobbotix.com');
+    const b = bookmarklet('https://jobbotix.com');
     expect(b.startsWith('javascript:')).toBe(true);
     const src = decodeURIComponent(b.slice('javascript:'.length));
-    expect(src).toContain('"https://app.jobbotix.com"');
+    expect(src).toContain('"https://jobbotix.com"');
     expect(src).toContain('/roles/new?via=bookmarklet&url=');
     expect(() => new Function(src)).not.toThrow();
   });

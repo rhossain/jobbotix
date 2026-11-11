@@ -28,7 +28,7 @@ const role = (over: Partial<DigestRole>): DigestRole => ({
 Deno.test('buildDigest lists new roles best first and counts letters', () => {
   const d = buildDigest({
     name: 'Sazzad Hossain',
-    appUrl: 'https://app.jobbotix.com',
+    appUrl: 'https://jobbotix.com',
     now: new Date('2026-11-05T01:00:00Z'),
     run: { at: '2026-11-05T00:45:00Z', searched: 47, added: 2, excluded: 21 },
     newRoles: [
@@ -41,17 +41,14 @@ Deno.test('buildDigest lists new roles best first and counts letters', () => {
   assertEquals(d.text.startsWith('Good morning, Sazzad.'), true);
   assertEquals(d.text.indexOf('92 ·') < d.text.indexOf('70 ·'), true);
   assertEquals(d.text.includes('1 of these have a cover letter ready'), true);
-  assertEquals(
-    d.html.includes('href="https://app.jobbotix.com/roles/b"'),
-    true,
-  );
+  assertEquals(d.html.includes('href="https://jobbotix.com/roles/b"'), true);
   assertEquals(d.html.includes('<script'), false);
 });
 
 Deno.test('buildDigest says nothing new and shows stale reminders', () => {
   const d = buildDigest({
     name: '',
-    appUrl: 'https://app.jobbotix.com',
+    appUrl: 'https://jobbotix.com',
     now: new Date('2026-11-05T01:00:00Z'),
     run: null,
     newRoles: [],
@@ -70,7 +67,7 @@ Deno.test('buildDigest says nothing new and shows stale reminders', () => {
 Deno.test('buildDigest escapes HTML in user data', () => {
   const d = buildDigest({
     name: '',
-    appUrl: 'https://app.jobbotix.com',
+    appUrl: 'https://jobbotix.com',
     now: new Date('2026-11-05T01:00:00Z'),
     run: null,
     newRoles: [role({ company: 'Evil <script>alert(1)</script>' })],
@@ -127,7 +124,7 @@ Deno.test('summariseRuns sums the last day and labels the digest line', () => {
   assertEquals([r.searched, r.added, r.excluded, r.runs], [170, 3, 4, 2]);
   const email = buildDigest({
     name: 'Sazzad',
-    appUrl: 'https://app.jobbotix.com',
+    appUrl: 'https://jobbotix.com',
     now,
     run: r,
     newRoles: [],
@@ -147,7 +144,7 @@ Deno.test('summariseRuns sums the last day and labels the digest line', () => {
 Deno.test('buildDigest leads with interviews in the user time zone', () => {
   const d = buildDigest({
     name: 'Sazzad Hossain',
-    appUrl: 'https://app.jobbotix.com',
+    appUrl: 'https://jobbotix.com',
     // 07:00 in Dhaka
     now: new Date('2026-11-05T01:00:00Z'),
     run: null,
@@ -173,7 +170,7 @@ Deno.test('buildDigest leads with interviews in the user time zone', () => {
       'Interviews coming up:\n- Thu 5 Nov, 14:00 · Technical interview · Senior Angular Engineer at Acme & Co · with Ana Ruiz',
     ),
   );
-  assert(d.text.includes('https://app.jobbotix.com/roles/r9?tab=prep'));
+  assert(d.text.includes('https://jobbotix.com/roles/r9?tab=prep'));
   assert(d.html.includes('Acme &amp; Co'));
   assert(
     d.html.indexOf('Interviews coming up') < d.html.indexOf('Nothing new'),
@@ -183,7 +180,7 @@ Deno.test('buildDigest leads with interviews in the user time zone', () => {
 Deno.test('buildDigest leaves the subject alone for later interviews', () => {
   const d = buildDigest({
     name: '',
-    appUrl: 'https://app.jobbotix.com',
+    appUrl: 'https://jobbotix.com',
     now: new Date('2026-11-05T01:00:00Z'),
     run: null,
     newRoles: [],

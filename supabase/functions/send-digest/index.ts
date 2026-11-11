@@ -19,7 +19,7 @@ import {
 
 const RESEND_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const FROM = Deno.env.get('DIGEST_FROM') ?? 'Jobbotix <digest@jobbotix.com>';
-const APP_URL = Deno.env.get('APP_URL') ?? 'https://app.jobbotix.com';
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://jobbotix.com';
 const CRON_SECRET = Deno.env.get('DIGEST_CRON_SECRET') ?? '';
 
 Deno.serve(async (req) => {
