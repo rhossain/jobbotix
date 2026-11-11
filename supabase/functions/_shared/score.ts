@@ -12,6 +12,7 @@
 import type { MatchPosting, MatchProfile } from './match.ts';
 import { stackTerm } from './queries.ts';
 import { EMPLOYMENT_LABEL } from './employment.ts';
+import { parseJsonObject } from './json-reply.ts';
 import { normaliseTitle } from './sources/normalise.ts';
 
 export type Weights = {
@@ -352,28 +353,23 @@ export function parseScoreReply(reply: string): {
   reasons: string[];
   gaps: string[];
 } | null {
-  const m = reply.match(/\{[\s\S]*\}/);
-  if (!m) return null;
-  try {
-    const o = JSON.parse(m[0]) as Record<string, unknown>;
-    const score = Number(o.score);
-    if (!Number.isFinite(score)) return null;
-    const list = (v: unknown, n: number) =>
-      Array.isArray(v)
-        ? v
-            .filter((x) => typeof x === 'string' && x.trim())
-            .map((x) => clip((x as string).trim(), 200))
-            .slice(0, n)
-        : [];
-    return {
-      score: Math.max(0, Math.min(100, Math.round(score))),
-      aiMatch: o.aiMatch === true,
-      reasons: list(o.reasons, 4),
-      gaps: list(o.gaps, 3),
-    };
-  } catch {
-    return null;
-  }
+  const o = parseJsonObject(reply);
+  if (!o) return null;
+  const score = Number(o.score);
+  if (!Number.isFinite(score)) return null;
+  const list = (v: unknown, n: number) =>
+    Array.isArray(v)
+      ? v
+          .filter((x) => typeof x === 'string' && x.trim())
+          .map((x) => clip((x as string).trim(), 200))
+          .slice(0, n)
+      : [];
+  return {
+    score: Math.max(0, Math.min(100, Math.round(score))),
+    aiMatch: o.aiMatch === true,
+    reasons: list(o.reasons, 4),
+    gaps: list(o.gaps, 3),
+  };
 }
 
 /** Shortens at a word boundary with an ellipsis, never mid-word. */

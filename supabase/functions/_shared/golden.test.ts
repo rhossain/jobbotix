@@ -66,6 +66,20 @@ Deno.test('judges: a right answer passes each job', () => {
     assertEquals(judge(job, GOOD[job]), '', job);
 });
 
+Deno.test(
+  'judges: a score whose array is closed with a brace still counts',
+  () => {
+    // What Groq's gpt-oss-20b sent two runs out of three on a real key.
+    assertEquals(
+      judge(
+        'score',
+        '{"score":65,"aiMatch":false,"reasons":["Angular primary framework"],"gaps":["Salary may be low for senior"} }',
+      ),
+      '',
+    );
+  },
+);
+
 Deno.test('judges: wrong answers are named for what is wrong', () => {
   assert(judge('score', 'I think this is a great match!').includes('no score'));
   assert(
