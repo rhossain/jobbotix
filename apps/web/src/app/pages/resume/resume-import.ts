@@ -34,10 +34,9 @@ const MAX_BYTES = 10 * 1024 * 1024;
         <div class="min-w-0 flex-1">
           <h2 class="jb-section-title">Import a resume</h2>
           <p class="mt-1 text-sm text-ink-muted">
-            Paste the text or pick a .docx, PDF or .txt. The file is read and
-            parsed in your browser, and you review the result before it touches
-            the master. Reading with AI is optional and sends only the text,
-            with your own key.
+            Paste the text or pick a .docx, PDF or .txt. The file is opened in
+            your browser, and you review the result before it touches the
+            master.
           </p>
         </div>
         <button
@@ -49,6 +48,72 @@ const MAX_BYTES = 10 * 1024 * 1024;
           <jb-icon name="x" />
         </button>
       </div>
+
+      <fieldset class="flex min-w-0 flex-col gap-2">
+        <legend class="mb-2 text-sm font-medium text-ink">Read it with</legend>
+        <div class="grid gap-2 sm:grid-cols-2">
+          <label
+            class="flex cursor-pointer items-start gap-2.5 rounded-card border p-3"
+            [class.border-brand]="mode() === 'local'"
+            [class.border-line]="mode() !== 'local'"
+          >
+            <input
+              type="radio"
+              name="ri-mode"
+              value="local"
+              class="mt-0.5 shrink-0"
+              [checked]="mode() === 'local'"
+              (change)="mode.set('local')"
+            />
+            <span class="min-w-0">
+              <span class="block text-sm font-medium text-ink"
+                >Built-in reader</span
+              >
+              <span class="block text-xs text-ink-muted"
+                >Parsed in your browser. Nothing is sent anywhere.</span
+              >
+            </span>
+          </label>
+          <label
+            class="flex items-start gap-2.5 rounded-card border p-3"
+            [class.cursor-pointer]="hasKey()"
+            [class.border-brand]="mode() === 'ai'"
+            [class.border-line]="mode() !== 'ai'"
+          >
+            <input
+              type="radio"
+              name="ri-mode"
+              value="ai"
+              class="mt-0.5 shrink-0"
+              [checked]="mode() === 'ai'"
+              [disabled]="!hasKey()"
+              (change)="mode.set('ai')"
+            />
+            <span class="min-w-0">
+              <span
+                class="flex items-center gap-1 text-sm font-medium text-ink"
+              >
+                <jb-icon name="sparkles" [size]="14" /> AI
+              </span>
+              <span class="block text-xs text-ink-muted"
+                >More accurate on columns, tables and unusual layouts. Sends the
+                resume text to the AI model.</span
+              >
+            </span>
+          </label>
+        </div>
+        @if (!hasKey()) {
+          <p class="text-xs text-ink-muted">
+            To read with AI,
+            <a routerLink="/settings" class="text-brand-ink underline"
+              >connect an AI provider</a
+            >
+            first. Gemini and Groq have free tiers.
+          </p>
+        } @else if (mode() === 'ai') {
+          <jb-model-picker [(value)]="model" [quiet]="true" job="import" />
+        }
+      </fieldset>
 
       <div class="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
         <textarea
@@ -72,7 +137,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
               onFile($any($event).dataTransfer?.files?.[0])
             "
           >
-            @if (busy()) {
+            @if (busy() || (aiBusy() && !result())) {
               <jb-icon
                 name="loader-circle"
                 [size]="22"
@@ -98,11 +163,11 @@ const MAX_BYTES = 10 * 1024 * 1024;
           <button
             type="button"
             class="jb-btn-primary"
-            [attr.aria-busy]="busy() ? 'true' : null"
+            [attr.aria-busy]="busy() || aiBusy() ? 'true' : null"
             (click)="parse()"
-            [disabled]="!text().trim() || busy()"
+            [disabled]="!text().trim() || busy() || aiBusy()"
           >
-            {{ result() ? 'Parse again' : 'Parse' }}
+            {{ parseLabel() }}
           </button>
           @if (fileName()) {
             <span class="break-all text-xs text-ink-muted">{{
@@ -115,6 +180,11 @@ const MAX_BYTES = 10 * 1024 * 1024;
       @if (error()) {
         <p class="text-sm text-bad" role="alert">
           {{ error() }}
+        </p>
+      }
+      @if (aiBusy() && !result()) {
+        <p class="text-sm text-ink-muted" role="status">
+          Reading with AI. This can take up to a minute.
         </p>
       }
 
@@ -142,7 +212,13 @@ const MAX_BYTES = 10 * 1024 * 1024;
                 Use the built-in result
               </button>
             } @else if (hasKey()) {
-              <jb-model-picker [(value)]="model" [quiet]="true" job="import" />
+              @if (mode() !== 'ai') {
+                <jb-model-picker
+                  [(value)]="model"
+                  [quiet]="true"
+                  job="import"
+                />
+              }
               <button
                 type="button"
                 class="jb-btn text-sm"
@@ -157,14 +233,6 @@ const MAX_BYTES = 10 * 1024 * 1024;
                 />
                 {{ aiBusy() ? 'Reading…' : 'Read with AI' }}
               </button>
-            } @else {
-              <span class="text-xs text-ink-muted"
-                >Unusual layout?
-                <a routerLink="/settings" class="text-brand-ink underline"
-                  >Connect an AI provider</a
-                >
-                to read it with a model.</span
-              >
             }
           </div>
           @if (aiError()) {
@@ -252,8 +320,8 @@ const MAX_BYTES = 10 * 1024 * 1024;
             </ul>
           }
           <p class="text-xs text-ink-muted">
-            Something wrong? Fix the text above and press Parse again, or
-            correct it in the editor after importing.
+            Something wrong? Fix the text above and read it again, or correct it
+            in the editor after importing.
           </p>
           <div class="flex flex-wrap gap-2">
             <button
@@ -304,6 +372,20 @@ export class ResumeImportPanel {
   /** The built-in reader's result, kept so an AI read can be undone. */
   private localResult: ResumeImport | null = null;
   readonly source = signal<'local' | 'ai'>('local');
+  /**
+   * How the next read is done. The built-in reader unless the user picks AI:
+   * nothing leaves the browser by default.
+   */
+  readonly mode = signal<'local' | 'ai'>('local');
+  readonly parseLabel = computed(() => {
+    if (this.mode() === 'ai')
+      return this.aiBusy()
+        ? 'Reading…'
+        : this.result()
+          ? 'Read again with AI'
+          : 'Read with AI';
+    return this.result() ? 'Parse again' : 'Parse';
+  });
   readonly model = signal('');
   readonly aiModel = signal('');
   readonly aiBusy = signal(false);
@@ -349,22 +431,42 @@ export class ResumeImportPanel {
     this.busy.set(true);
     try {
       this.text.set(await readFile(file));
-      this.parse();
     } catch (e) {
       this.error.set((e as Error).message || 'Could not read that file.');
+      return;
     } finally {
       this.busy.set(false);
     }
+    await this.parse();
   }
 
-  parse() {
+  /**
+   * Reads the text: with the built-in reader, or with AI when that is the
+   * mode picked. The built-in reader always runs, so an AI read that fails
+   * still leaves a result, and one that works can be undone.
+   */
+  async parse() {
     const t = this.text().trim();
     if (!t) return;
     this.error.set('');
     this.aiError.set('');
     this.localResult = parseResumeText(t);
     this.source.set('local');
-    this.result.set(this.localResult);
+    if (this.mode() !== 'ai' || !this.hasKey()) {
+      this.result.set(this.localResult);
+      return;
+    }
+    // Nothing is shown until the model answers: two results in a row, the
+    // first replaced under the user's hands, would invite importing the
+    // wrong one.
+    this.result.set(null);
+    await this.readWithAi();
+    if (this.source() !== 'ai') {
+      this.result.set(this.localResult);
+      this.aiError.update(
+        (m) => `${m} This is the built-in reader's result instead.`,
+      );
+    }
   }
 
   async readWithAi() {
