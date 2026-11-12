@@ -44,6 +44,8 @@ export type DraftPosting = Omit<
 export interface AdapterContext {
   /** Search terms built from every active search profile ("angular", "frontend"). */
   queries: string[];
+  /** Every distinct target role across active profiles, for sources that list all of a company's jobs. */
+  roles?: string[];
   /** Postings older than this are not worth paging back to. */
   since: Date;
   /** Hard cap on HTTP requests for this run (source_catalog.max_requests_per_run). */

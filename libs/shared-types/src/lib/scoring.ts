@@ -6,6 +6,7 @@ import type { Json } from './database.types';
  * a user's search profile may override any of them.
  */
 export type ScoringWeights = {
+  title_match: number;
   framework_primary: number;
   framework_other: number;
   fullstack: number;
@@ -20,6 +21,7 @@ export type ScoringWeights = {
 };
 
 export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
+  title_match: 20,
   framework_primary: 30,
   framework_other: 15,
   fullstack: 10,
@@ -34,8 +36,9 @@ export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
 };
 
 export const SCORING_WEIGHT_LABELS: Record<keyof ScoringWeights, string> = {
-  framework_primary: 'Primary stack is the main framework',
-  framework_other: 'Another senior frontend framework',
+  title_match: 'Job title is one of your target roles',
+  framework_primary: 'Primary stack is the main skill',
+  framework_other: 'Another of your stacks or frameworks',
   fullstack: 'Full-stack with a frontend framework',
   remote_worldwide: 'Remote, worldwide',
   remote_overlap: 'Remote with a timezone-overlap requirement',

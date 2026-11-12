@@ -95,6 +95,7 @@ function scoringLines(p: SearchProfileRow): string {
   const primary = p.stacks[0] ?? 'the primary stack';
   const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
   return [
+    `The job title is one of the target roles ${sign(w.title_match)} (about half for a close but different title).`,
     `${primary} named as the main framework ${sign(w.framework_primary)}; another senior frontend framework ${sign(w.framework_other)}; full-stack with a frontend framework ${sign(w.fullstack)}.`,
     `Remote worldwide ${sign(w.remote_worldwide)}; remote with only a timezone-overlap requirement ${sign(w.remote_overlap)}; remote with vague restrictions ${sign(w.remote_vague)}.`,
     `Mentions AI-assisted development or AI coding tools ${sign(w.ai_assisted)}. Senior or lead level with 5+ years ${sign(w.senior)}.`,

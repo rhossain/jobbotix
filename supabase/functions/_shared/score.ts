@@ -13,9 +13,11 @@ import type { MatchPosting, MatchProfile } from './match.ts';
 import { stackTerm } from './queries.ts';
 import { EMPLOYMENT_LABEL } from './employment.ts';
 import { parseJsonObject } from './json-reply.ts';
+import { bestRoleFit, type Grade } from './role.ts';
 import { normaliseTitle } from './sources/normalise.ts';
 
 export type Weights = {
+  title_match: number;
   framework_primary: number;
   framework_other: number;
   fullstack: number;
@@ -30,6 +32,7 @@ export type Weights = {
 };
 
 export const DEFAULT_WEIGHTS: Weights = {
+  title_match: 20,
   framework_primary: 30,
   framework_other: 15,
   fullstack: 10,
@@ -49,8 +52,9 @@ export function resolveWeights(...layers: unknown[]): Weights {
     if (!layer || typeof layer !== 'object' || Array.isArray(layer)) continue;
     for (const k of Object.keys(out) as (keyof Weights)[]) {
       const v = (layer as Record<string, unknown>)[k];
-      if (typeof v === 'number' && Number.isFinite(v))
+      if (typeof v === 'number' && Number.isFinite(v)) {
         out[k] = Math.max(-50, Math.min(50, Math.round(v)));
+      }
     }
   }
   return out;
@@ -141,6 +145,23 @@ const YEARS = /\b([5-9]|1[0-9])\+?\s*(\+\s*)?years?\b/i;
 const SHORT =
   /\b([1-3]|one|two|three)[- ]?(weeks?|months?)\b[^.\n]{0,30}\b(contract|project|engagement|assignment)\b|\b(contract|project|engagement)\b[^.\n]{0,20}\b([1-3]|one|two|three)[- ]?(weeks?|months?)\b/i;
 
+/** Share of the title weight each grade of fit earns. */
+const GRADE_SHARE: Record<Grade, number> = {
+  exact: 1,
+  variant: 0.8,
+  partial: 0.4,
+  described: 0.2,
+};
+
+/** Frontend signals (other frameworks, the backend penalty) only fit a frontend profile. */
+export function frontendLeaning(
+  p: Pick<MatchProfile, 'target_roles' | 'stacks'>,
+) {
+  return /\b(front[- ]?end|ui|web|full[- ]?stack|angular|react|vue|svelte|next\.?js|nuxt|javascript|typescript)\b/i.test(
+    [...p.target_roles, ...p.stacks].join(' | '),
+  );
+}
+
 const has = (term: string, text: string) =>
   new RegExp(
     `(^|[^a-z0-9+#.])${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9+#]|$)`,
@@ -163,7 +184,28 @@ export function heuristicScore(
   const reasons: string[] = [];
   const gaps: string[] = [];
 
+  // The designation itself: the first target role counts in full, later ones a little less
+  const fit = bestRoleFit(
+    p.target_roles,
+    post.title,
+    `${post.tags.join(' | ')} | ${post.description.slice(0, 1500)}`,
+  );
+  if (fit) {
+    const points = Math.round(
+      w.title_match *
+        GRADE_SHARE[fit.grade] *
+        Math.max(0.7, 1 - 0.1 * fit.index),
+    );
+    if (points) breakdown.title_match = points;
+    reasons.push(
+      fit.grade === 'exact' || fit.grade === 'variant'
+        ? `Title matches ${fit.role}`
+        : `Close to ${fit.role}`,
+    );
+  }
+
   // Stack
+  const frontendProfile = frontendLeaning(p);
   const primary = stackTerm(p.stacks[0] ?? '') ?? '';
   const others = [
     ...new Set([
@@ -171,7 +213,7 @@ export function heuristicScore(
         .slice(1)
         .map((s) => stackTerm(s))
         .filter((s): s is string => !!s),
-      ...FRONTEND,
+      ...(frontendProfile ? FRONTEND : []),
     ]),
   ].filter((t) => t !== primary);
   const otherInHead = others.find((t) => has(t, head));
@@ -184,10 +226,11 @@ export function heuristicScore(
   } else if (otherInHead) {
     breakdown.framework_other = w.framework_other;
     reasons.push(`${titleCase(otherInHead)} role`);
-    if (primary)
+    if (primary) {
       gaps.push(
         `${titleCase(primary)} not mentioned; ${titleCase(otherInHead)} instead`,
       );
+    }
   } else if (primary) {
     gaps.push(`${titleCase(primary)} not mentioned`);
   }
@@ -242,16 +285,18 @@ export function heuristicScore(
     YEARS.test(body)
   ) {
     breakdown.senior = w.senior;
-    if (!reasons.some((r) => r.startsWith('Senior')))
+    if (!reasons.some((r) => r.startsWith('Senior'))) {
       reasons.push('Senior level');
+    }
   }
 
   // Penalties
   const backend = count(BACKEND_WORDS, all);
   const frontend = count(FRONTEND, all);
   if (
-    /\b(backend|devops|sre|data engineer|platform engineer)\b/.test(title) ||
-    (backend >= 4 && backend > 2 * frontend)
+    frontendProfile &&
+    (/\b(backend|devops|sre|data engineer|platform engineer)\b/.test(title) ||
+      (backend >= 4 && backend > 2 * frontend))
   ) {
     breakdown.backend_heavy = w.backend_heavy;
     gaps.push('Backend-heavy');
@@ -304,13 +349,14 @@ function titleCase(s: string): string {
 // ---------------------------------------------------------------------------
 
 export function scorePrompt(
-  p: MatchProfile & { min_seniority?: string },
+  p: MatchProfile,
   w: Weights,
   post: MatchPosting,
   heuristic: number,
 ): string {
   const sign = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
   const primary = p.stacks[0] ?? 'their primary stack';
+  const frontend = frontendLeaning(p);
   const where =
     post.remote_policy === 'worldwide'
       ? 'remote, worldwide'
@@ -326,10 +372,19 @@ Minimum seniority: ${p.min_seniority ?? 'senior'}
 Prefers roles that mention AI-assisted development (Cursor, Claude Code, Copilot, agentic workflows).
 
 WEIGHTS (points added; negative = penalty; sum the ones that apply, cap 0-100)
-${primary} as the main framework ${sign(w.framework_primary)}; another senior frontend framework ${sign(w.framework_other)}; full-stack with a frontend framework ${sign(w.fullstack)}
-Remote worldwide ${sign(w.remote_worldwide)}; remote with a timezone-overlap requirement ${sign(w.remote_overlap)}; remote with vague restrictions ${sign(w.remote_vague)}
+The job title is one of the target roles ${sign(
+    w.title_match,
+  )} (about half for a close but different title, less for a lower-priority role)
+${primary} as the main ${frontend ? 'framework' : 'skill'} ${sign(w.framework_primary)}; ${
+    frontend ? 'another senior frontend framework' : 'another of their stacks'
+  } ${sign(w.framework_other)}; full-stack with a frontend framework ${sign(w.fullstack)}
+Remote worldwide ${sign(w.remote_worldwide)}; remote with a timezone-overlap requirement ${sign(
+    w.remote_overlap,
+  )}; remote with vague restrictions ${sign(w.remote_vague)}
 AI-assisted development ${sign(w.ai_assisted)}; senior or lead, 5+ years ${sign(w.senior)}
-Backend-heavy ${sign(w.backend_heavy)}; unclear remote eligibility ${sign(w.remote_unclear)}; project under 3 months ${sign(w.short_project)}
+${frontend ? `Backend-heavy ${sign(w.backend_heavy)}; ` : ''}unclear remote eligibility ${sign(
+    w.remote_unclear,
+  )}; project under 3 months ${sign(w.short_project)}
 
 POSTING
 ${post.title} at ${post.company}

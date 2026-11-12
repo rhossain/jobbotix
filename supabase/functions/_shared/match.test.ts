@@ -207,12 +207,13 @@ Deno.test(
 Deno.test('heuristic score applies the weights the profile sets', () => {
   const s = heuristicScore(profile, base, DEFAULT_WEIGHTS);
   assertEquals(s.breakdown, {
+    title_match: 20,
     framework_primary: 30,
     remote_worldwide: 25,
     ai_assisted: 20,
     senior: 10,
   });
-  assertEquals(s.score, 85);
+  assertEquals(s.score, 100);
   assertEquals(s.aiMatch, true);
   assert(s.stack.includes('Angular') && s.stack.includes('TypeScript'));
 
@@ -227,12 +228,14 @@ Deno.test('heuristic score applies the weights the profile sets', () => {
     }),
     DEFAULT_WEIGHTS,
   );
+  // the second-choice role, so a little under the full title weight
   assertEquals(react.breakdown, {
+    title_match: 18,
     framework_other: 15,
     remote_unclear: -10,
     senior: 10,
   });
-  assertEquals(react.score, 15);
+  assertEquals(react.score, 33);
   assert(react.gaps.some((g) => g.startsWith('Angular not mentioned')));
 
   const backend = heuristicScore(

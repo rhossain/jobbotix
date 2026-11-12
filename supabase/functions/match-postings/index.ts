@@ -234,6 +234,7 @@ async function matchForUser(
     home_country: p.home_country,
     allowed_countries: p.allowed_countries ?? [],
     remote_only: p.remote_only !== false,
+    min_seniority: p.min_seniority,
   };
 
   const candidates: {

@@ -32,6 +32,7 @@ import type {
   RemotePolicy,
   SourceAdapter,
 } from './types.ts';
+import { anyRoleWants } from '../role.ts';
 
 type Json = Record<string, unknown>;
 
@@ -39,10 +40,17 @@ const ENGINEERING =
   /\b(frontend|backend|fullstack|engineer|engineering|developer|programmer|software|web|ui|ux|javascript|typescript|mobile|devops|sre|architect)\b/;
 
 /** Keeps titles that match a search term, or product-engineering roles generally. */
-export function wanted(title: string, queries: string[]): boolean {
+export function wanted(
+  title: string,
+  queries: string[],
+  roles: string[] = [],
+): boolean {
   const t = normaliseTitle(title);
-  if (queries.some((q) => q.split(' ').every((w) => t.includes(w))))
+  if (queries.some((q) => q.split(' ').every((w) => t.includes(w)))) {
     return true;
+  }
+  // any user's designation, whatever the profession
+  if (roles.length && anyRoleWants(roles, title)) return true;
   return ENGINEERING.test(t);
 }
 
@@ -252,7 +260,7 @@ export const ats: SourceAdapter = {
       const company = name || c.name || c.slug;
       for (const j of jobs) {
         const d = PARSE[c.kind](j, company);
-        if (d && wanted(d.title, ctx.queries)) postings.push(d);
+        if (d && wanted(d.title, ctx.queries, ctx.roles)) postings.push(d);
       }
       companies.push({
         id: c.id,

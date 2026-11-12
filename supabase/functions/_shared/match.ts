@@ -10,14 +10,15 @@
 // form: a key that is missing means "exclude".
 
 import { regionIncludes } from './countries.ts';
-import { roleKeywords, stackTerm } from './queries.ts';
+import { stackTerm } from './queries.ts';
+import { bestRoleFit, type RoleFit } from './role.ts';
 import { normaliseTitle } from './sources/normalise.ts';
 import type { RemotePolicy } from './sources/types.ts';
 import { formatYearly, meetsMinimum, salaryFrom, yearlyIn } from './salary.ts';
 import {
   EMPLOYMENT_LABEL,
-  typeList,
   type EmploymentType,
+  typeList,
 } from './employment.ts';
 
 export interface MatchProfile {
@@ -30,6 +31,8 @@ export interface MatchProfile {
   home_country: string | null;
   allowed_countries: string[];
   remote_only: boolean;
+  /** 'mid' | 'senior' | 'lead'; absent means senior, as the profile form defaults. */
+  min_seniority?: string | null;
 }
 
 export interface MatchPosting {
@@ -69,7 +72,8 @@ const word = (term: string) =>
   );
 
 const JUNIOR =
-  /\b(junior|jr\.?|intern(ship)?|graduate|entry[- ]level|trainee|apprentice|mid[- ]level|mid[- ]senior)\b/i;
+  /\b(junior|jr\.?|intern(ship)?|graduate|entry[- ]level|trainee|apprentice)\b/i;
+const MID = /\b(mid[- ]level|mid[- ]senior|intermediate)\b/i;
 
 const LANGUAGES = [
   'German',
@@ -115,14 +119,21 @@ const AUTH =
 const bool = (v: unknown, fallback: boolean) =>
   typeof v === 'boolean' ? v : fallback;
 
-/** Words or terms from the profile that make a posting "their kind of job". */
+/** How a posting's title fits one of the profile's target roles, if it does. */
+export function roleFit(p: MatchProfile, post: MatchPosting): RoleFit | null {
+  return bestRoleFit(
+    p.target_roles,
+    post.title,
+    `${post.tags.join(' | ')} | ${post.description.slice(0, 1500)}`,
+  );
+}
+
+/** The target role or stack that makes a posting "their kind of job". */
 export function relevance(p: MatchProfile, post: MatchPosting): string | null {
+  const fit = roleFit(p, post);
+  if (fit) return fit.role;
   const title = normaliseTitle(post.title);
   const tags = post.tags.map((t) => t.toLowerCase()).join(' | ');
-  for (const role of p.target_roles) {
-    const kw = roleKeywords(role);
-    if (kw.length && kw.every((k) => word(k).test(title))) return role;
-  }
   // Any stack in the title counts; in the tags only the primary stack or a
   // frontend framework does: "TypeScript" or "Node" tags sit on countless
   // backend, data and interviewer jobs.
@@ -161,33 +172,46 @@ export function matchPosting(
   const excl = p.exclusions ?? {};
 
   // 1. Their kind of job at all?
-  if (!relevance(p, post))
+  if (!relevance(p, post)) {
     return { kind: 'irrelevant', why: 'no target role or stack in title' };
+  }
 
   // 2. Still open and recent enough
   const maxAge = Number(excl['older_than_days'] ?? 45) || 45;
   if (
     post.posted_at &&
     Date.parse(post.posted_at) < now.getTime() - maxAge * 86_400_000
-  )
+  ) {
     return { kind: 'irrelevant', why: 'older than the profile allows' };
-  if (post.expires_at && Date.parse(post.expires_at) < now.getTime())
+  }
+  if (post.expires_at && Date.parse(post.expires_at) < now.getTime()) {
     return { kind: 'irrelevant', why: 'expired' };
+  }
 
   // 3. Level and contract type
-  if (
-    bool(excl['junior_or_mid'], true) &&
-    (JUNIOR.test(post.title) || /junior|entry|intern/i.test(post.seniority))
-  )
-    return { kind: 'excluded', reason: 'Junior or mid-level role' };
+  if (bool(excl['junior_or_mid'], true)) {
+    // someone whose floor is mid still wants mid-level roles
+    const midOk = p.min_seniority === 'mid';
+    const junior =
+      JUNIOR.test(post.title) || /junior|entry|intern/i.test(post.seniority);
+    if (junior || (!midOk && MID.test(post.title))) {
+      return {
+        kind: 'excluded',
+        reason: midOk ? 'Junior role' : 'Junior or mid-level role',
+      };
+    }
+  }
   if (
     p.employment_types.length &&
     !p.employment_types.includes(post.employment_type)
-  )
+  ) {
     return {
       kind: 'excluded',
-      reason: `${EMPLOYMENT_LABEL[post.employment_type]} role; profile wants ${typeList(p.employment_types).toLowerCase()}`,
+      reason: `${EMPLOYMENT_LABEL[post.employment_type]} role; profile wants ${typeList(
+        p.employment_types,
+      ).toLowerCase()}`,
     };
+  }
   const minPay = Number(excl['min_salary'] ?? 0);
   if (minPay > 0) {
     const cur = String(excl['min_salary_currency'] || 'USD');
@@ -227,8 +251,9 @@ export function matchPosting(
     case 'region_locked':
       if (!post.hiring_countries.length && !post.hiring_regions.length) break;
       if (!allowed.size) return { kind: 'needs_country' };
-      if (!fits(post.hiring_countries, post.hiring_regions))
+      if (!fits(post.hiring_countries, post.hiring_regions)) {
         return { kind: 'excluded', reason: `Limited to ${place}` };
+      }
       break;
     case 'hybrid':
     case 'onsite': {
@@ -242,12 +267,13 @@ export function matchPosting(
           ],
           post.hiring_regions,
         );
-      if (!onsiteOk)
+      if (!onsiteOk) {
         return {
           kind: 'excluded',
           reason:
             post.remote_policy === 'hybrid' ? 'Hybrid role' : 'On-site role',
         };
+      }
       break;
     }
   }
@@ -258,8 +284,9 @@ export function matchPosting(
     const m = text.match(LANG_RE);
     const lang = (m?.[2] ?? m?.[3] ?? '').toLowerCase();
     const speaks = p.languages.map((l) => l.toLowerCase());
-    if (lang && !speaks.includes(lang))
+    if (lang && !speaks.includes(lang)) {
       return { kind: 'excluded', reason: `Requires ${titleCase(lang)}` };
+    }
   }
   if (bool(excl['visa_required'], true) && post.remote_policy !== 'worldwide') {
     const m = text.match(AUTH);
@@ -267,8 +294,9 @@ export function matchPosting(
     const around = m
       ? text.slice(m.index ?? 0, (m.index ?? 0) + m[0].length + 60)
       : '';
-    if (m && !mentionsAllowedCountry(around, allowed))
+    if (m && !mentionsAllowedCountry(around, allowed)) {
       return { kind: 'excluded', reason: 'Requires local work authorisation' };
+    }
   }
 
   return { kind: 'match' };

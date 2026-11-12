@@ -70,6 +70,18 @@ Deno.serve(async (req) => {
   if (!queries.length)
     return json(200, { queries, runs: [], note: 'No active search profiles' });
 
+  // Every distinct designation, so sources that list all of a company's jobs
+  // keep the ones some user is looking for, whatever the profession.
+  const roles = [
+    ...new Set(
+      (profiles ?? []).flatMap((p) =>
+        ((p.target_roles ?? []) as string[])
+          .map((r) => r.trim())
+          .filter(Boolean),
+      ),
+    ),
+  ].slice(0, 500);
+
   // Countries users can work in, most common first, for country-scoped sources.
   const tally = new Map<string, number>();
   for (const p of profiles ?? [])
@@ -116,6 +128,7 @@ Deno.serve(async (req) => {
 
       const result = await adapter.run({
         queries,
+        roles,
         since,
         maxRequests: s.max_requests_per_run,
         fetch: globalThis.fetch.bind(globalThis),

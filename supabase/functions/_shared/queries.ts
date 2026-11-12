@@ -1,8 +1,10 @@
-// Search terms for the adapters, built from every active search profile, and
-// the role keywords the match step reuses. "Senior Angular Developer" and
-// "Senior Frontend Engineer" become "angular" and "frontend": the words that
-// say what the job is, without seniority or job-family filler.
+// Search terms for the adapters, built from every active search profile.
+// "Senior Angular Developer" and "Senior Frontend Engineer" become "angular"
+// and "frontend"; "SQA Engineer" becomes "qa"; "Product Manager" stays
+// "product manager" (role.ts decides). What a title must say to be that job
+// is role.ts too; roleKeywords is kept for the stack terms and older callers.
 
+import { searchTerm } from './role.ts';
 import { normaliseTitle } from './sources/normalise.ts';
 
 const FILLER = new Set([
@@ -84,8 +86,9 @@ export function buildQueries(profiles: QueryProfile[], max = 12): string[] {
   const add = (q: string) => count.set(q, (count.get(q) ?? 0) + 1);
   for (const p of profiles) {
     for (const r of p.target_roles.slice(0, 4)) {
-      const kw = roleKeywords(r);
-      if (kw.length) add(kw.join(' '));
+      // a known job by its usual short name, anything else by its own words
+      const term = searchTerm(r);
+      if (term) add(term);
     }
     for (const s of p.stacks.slice(0, 2)) {
       const t = stackTerm(s);
