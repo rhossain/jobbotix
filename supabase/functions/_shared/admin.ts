@@ -5,6 +5,7 @@ export const ADMIN_ACTIONS = [
   'list',
   'export',
   'get',
+  'explain_search',
   'money',
   'suspend',
   'unsuspend',

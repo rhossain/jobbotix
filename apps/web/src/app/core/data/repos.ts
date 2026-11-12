@@ -2,6 +2,7 @@ import type { Signal } from '@angular/core';
 import type {
   AdminMoney,
   AdminUserDetail,
+  SearchExplain,
   AdminUserFilters,
   AdminUserRow,
   AiConnectionView,
@@ -438,6 +439,11 @@ export abstract class AdminRepo {
   abstract exportUsers(filters: AdminUserFilters): Promise<AdminUserRow[]>;
   /** One account: profile, billing, AI usage, activity. Null when unknown. */
   abstract user(id: string): Promise<AdminUserDetail | null>;
+  /**
+   * Why the account's search finds what it finds: its match rules replayed
+   * over the last `days` of postings. Reads only the search profile; audited.
+   */
+  abstract explainSearch(userId: string, days?: number): Promise<SearchExplain>;
   abstract money(): Promise<AdminMoney>;
   /** Blocks sign-in, AI calls and scheduled matching for the account. */
   abstract suspend(userId: string, reason: string): Promise<void>;

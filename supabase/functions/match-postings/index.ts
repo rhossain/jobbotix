@@ -87,6 +87,10 @@ interface UserSummary {
   excluded: number;
   /** Region-locked postings left unjudged because the profile has no country. */
   needsCountry: number;
+  /** Another kind of job: no target role or stack in the title. */
+  notRelevant: number;
+  /** Their kind of job, but scored under the filing threshold. */
+  lowMatch: number;
   aiScored: number;
   /** Model calls that failed, and the first reason (never the key). */
   aiFailed: number;
@@ -170,6 +174,8 @@ async function matchForUser(
     added: 0,
     excluded: 0,
     needsCountry: 0,
+    notRelevant: 0,
+    lowMatch: 0,
     aiScored: 0,
     aiFailed: 0,
     errors: [],
@@ -268,7 +274,10 @@ async function matchForUser(
     summary.considered++;
 
     const r = matchPosting(profile, post, now);
-    if (r.kind === 'irrelevant') continue;
+    if (r.kind === 'irrelevant') {
+      if (r.why.startsWith('no target role')) summary.notRelevant++;
+      continue;
+    }
     if (r.kind === 'needs_country') {
       summary.needsCountry++;
       continue;
@@ -380,6 +389,23 @@ async function matchForUser(
   const toFile = candidates
     .filter((c) => c.scored.score >= cfg.min_file_score)
     .slice(0, cfg.max_new_per_user_per_run);
+
+  // Their kind of job, but too weak to file: kept with the score, so "why
+  // not" has an answer. The strongest few, not the whole tail.
+  const low = candidates.filter((c) => c.scored.score < cfg.min_file_score);
+  summary.lowMatch = low.length;
+  for (const c of low.slice(0, 15)) {
+    if (excludedUrls.has(normaliseUrl(c.link)) || excludedRows.length >= 60)
+      continue;
+    excludedRows.push({
+      user_id: p.user_id,
+      company: c.post.company,
+      title: c.post.title,
+      url: c.link,
+      reason: `Low match (score ${c.scored.score}): ${c.scored.gaps[0] ?? 'few of your signals'}`,
+    });
+    excludedUrls.add(normaliseUrl(c.link));
+  }
   for (const c of toFile) {
     const { post, scored } = c;
     const { data: inserted, error } = await admin
@@ -494,6 +520,8 @@ async function matchForUser(
         aiFailed: summary.aiFailed,
         ...(summary.aiError ? { aiError: summary.aiError } : {}),
         needsCountry: summary.needsCountry,
+        notRelevant: summary.notRelevant,
+        lowMatch: summary.lowMatch,
         ...(summary.alerted ? { alerted: summary.alerted } : {}),
       },
     });

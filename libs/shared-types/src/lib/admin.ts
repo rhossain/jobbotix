@@ -328,6 +328,84 @@ export function adminUserDetail(v: unknown): AdminUserDetail {
   };
 }
 
+/**
+ * Why an account's search finds what it finds: the match and score rules
+ * replayed over the recent pool, counted at every step (admin-users,
+ * action "explain_search"). Nothing is written when it runs.
+ */
+export interface SearchExplain {
+  days: number;
+  targetRoles: string[];
+  searchTerms: string[];
+  warnings: string[];
+  /** Postings in the pool for the period. */
+  pool: number;
+  /** Another kind of job: no target role or stack in the title. */
+  notRelevant: number;
+  tooOld: number;
+  /** Limited to a region, and the profile has no country to compare. */
+  needsCountry: number;
+  excluded: { reason: string; count: number }[];
+  /** Their kind of job, scored under the filing threshold. */
+  lowScore: number;
+  wouldFile: number;
+  threshold: number;
+  byGrade: {
+    exact: number;
+    variant: number;
+    partial: number;
+    described: number;
+    stack: number;
+  };
+  bySource: { source: string; pool: number; matched: number }[];
+  top: { title: string; company: string; score: number }[];
+  low: { title: string; company: string; score: number }[];
+}
+
+export function adminSearchExplain(v: unknown): SearchExplain {
+  const o = obj(v);
+  const strs = (x: unknown) =>
+    Array.isArray(x) ? x.filter((s): s is string => typeof s === 'string') : [];
+  const g = obj(o['by_grade']);
+  const titles = (x: unknown) =>
+    arr(x).map((t) => ({
+      title: str(t['title']),
+      company: str(t['company']),
+      score: num(t['score']),
+    }));
+  return {
+    days: num(o['days']),
+    targetRoles: strs(o['target_roles']),
+    searchTerms: strs(o['search_terms']),
+    warnings: strs(o['warnings']),
+    pool: num(o['pool']),
+    notRelevant: num(o['not_relevant']),
+    tooOld: num(o['too_old']),
+    needsCountry: num(o['needs_country']),
+    excluded: arr(o['excluded']).map((e) => ({
+      reason: str(e['reason']),
+      count: num(e['count']),
+    })),
+    lowScore: num(o['low_score']),
+    wouldFile: num(o['would_file']),
+    threshold: num(o['threshold']),
+    byGrade: {
+      exact: num(g['exact']),
+      variant: num(g['variant']),
+      partial: num(g['partial']),
+      described: num(g['described']),
+      stack: num(g['stack']),
+    },
+    bySource: arr(o['by_source']).map((s) => ({
+      source: str(s['source']),
+      pool: num(s['pool']),
+      matched: num(s['matched']),
+    })),
+    top: titles(o['top']),
+    low: titles(o['low']),
+  };
+}
+
 /** What an audit row says, in a few words. */
 export function auditLabel(action: string, detail: Record<string, unknown>) {
   const d = (k: string) =>
@@ -347,6 +425,8 @@ export function auditLabel(action: string, detail: Record<string, unknown>) {
       return 'Suspension lifted';
     case 'send_login_link':
       return 'Sent a sign-in link';
+    case 'explain_search':
+      return 'Checked why their search finds what it finds';
     case 'delete_account':
       return 'Deleted the account';
     case 'delete_account_failed':

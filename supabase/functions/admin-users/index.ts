@@ -3,6 +3,7 @@
 //   { "action": "list", "q"?: "...", "plan"?: "free"|"pro", "route"?: "own"|"credits"|"none", "limit"?: 50, "offset"?: 0 }
 //   { "action": "export", ...the same filters }       every match, for the CSV
 //   { "action": "get", "userId": "..." }               one account
+//   { "action": "explain_search", "userId": "...", "days"?: 14 }   why their search finds what it finds
 //   { "action": "money" }                              revenue, subscriptions, AI spend
 //   { "action": "suspend", "userId": "...", "reason": "..." }
 //   { "action": "unsuspend", "userId": "..." }
@@ -16,6 +17,9 @@
 // action in admin_audit. Plans and credits are changed through their own
 // database functions, which are audited by triggers.
 
+import { createExplain, type ExplainPosting } from '../_shared/explain.ts';
+import type { MatchProfile } from '../_shared/match.ts';
+import { resolveWeights } from '../_shared/score.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { deleteAccount } from '../_shared/account.ts';
 import {
@@ -178,6 +182,78 @@ Deno.serve(
           banned_until: u?.banned_until ?? null,
         },
       });
+    }
+
+    if (action === 'explain_search') {
+      // The match and score rules replayed over the recent pool; nothing is
+      // written. It reads the account's search profile (what they look for),
+      // not their roles, resume or notes.
+      const days = Math.min(
+        30,
+        Math.max(1, Math.trunc(Number(body['days']) || 14)),
+      );
+      const [{ data: sp }, { data: settings }] = await Promise.all([
+        admin
+          .from('search_profiles')
+          .select(
+            'target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights',
+          )
+          .eq('user_id', userId)
+          .eq('active', true)
+          .maybeSingle(),
+        admin
+          .from('settings')
+          .select('key, value')
+          .in('key', ['sourcing', 'scoring_defaults']),
+      ]);
+      if (!sp) return json(404, { error: 'No active search profile' });
+      const setting = (k: string) =>
+        (settings ?? []).find((x) => x.key === k)?.value as
+          Record<string, unknown> | undefined;
+      const profile: MatchProfile = {
+        target_roles: sp.target_roles ?? [],
+        stacks: sp.stacks ?? [],
+        languages: sp.languages?.length ? sp.languages : ['english'],
+        employment_types: sp.employment_types ?? ['full_time', 'contract'],
+        remote_rules: sp.remote_rules ?? {},
+        exclusions: sp.exclusions ?? {},
+        home_country: sp.home_country,
+        allowed_countries: sp.allowed_countries ?? [],
+        remote_only: sp.remote_only !== false,
+        min_seniority: sp.min_seniority,
+      };
+      const explain = createExplain(
+        profile,
+        resolveWeights(setting('scoring_defaults'), sp.scoring_weights),
+        {
+          days,
+          threshold: Number(setting('sourcing')?.['min_file_score']) || 30,
+        },
+      );
+      const since = new Date(Date.now() - days * 86_400_000).toISOString();
+      const PAGE = 400;
+      for (let from = 0; from < 4000; from += PAGE) {
+        const { data: rows, error } = await admin
+          .from('postings')
+          .select(
+            'title, company, description, tags, location, remote_policy, hiring_countries, hiring_regions, source_country, employment_type, seniority, salary_min, salary_max, salary_currency, salary_text, posted_at, expires_at, posting_sources(source_id)',
+          )
+          .gt('first_seen_at', since)
+          .order('first_seen_at', { ascending: false })
+          .range(from, from + PAGE - 1);
+        if (error) return json(500, { error: error.message });
+        explain.add(
+          (rows ?? []).map((r) => ({
+            ...(r as unknown as ExplainPosting),
+            sources: ((r.posting_sources ?? []) as { source_id: string }[]).map(
+              (x) => x.source_id,
+            ),
+          })),
+        );
+        if ((rows ?? []).length < PAGE) break;
+      }
+      await audit('explain_search', userId, { days }, 10);
+      return json(200, explain.result());
     }
 
     if (action === 'suspend' || action === 'unsuspend') {

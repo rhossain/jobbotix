@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   ATS_LABEL,
   adminMoney,
+  adminSearchExplain,
   adminUserDetail,
   adminUserRow,
   careersSystem,
@@ -1050,6 +1051,12 @@ export class SupabaseAdminRepo extends AdminRepo {
       if ((e as Error).message === 'No such account') return null;
       throw e;
     }
+  }
+
+  async explainSearch(userId: string, days = 14) {
+    return adminSearchExplain(
+      await this.console({ action: 'explain_search', userId, days }),
+    );
   }
 
   async money() {

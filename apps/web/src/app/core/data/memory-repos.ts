@@ -30,6 +30,7 @@ import {
   type AiRouteInfo,
   type ProAiAdmin,
   adminMoney,
+  adminSearchExplain,
   adminUserDetail,
   adminUserRow,
   CREDIT_PRICES,
@@ -1644,6 +1645,43 @@ export class MemoryAdminRepo extends AdminRepo {
 
   async sendLoginLink(userId: string) {
     this.record(userId, 'send_login_link');
+  }
+
+  /** Demo figures: the shape of a real answer, for the sample accounts. */
+  async explainSearch(userId: string, days = 14) {
+    this.record(userId, 'explain_search');
+    return adminSearchExplain({
+      days,
+      target_roles: ['Senior Angular Developer', 'Senior Frontend Engineer'],
+      search_terms: ['angular', 'frontend'],
+      warnings: [],
+      pool: 1840,
+      not_relevant: 1622,
+      too_old: 9,
+      needs_country: 0,
+      excluded: [
+        { reason: 'Open to other countries only', count: 84 },
+        { reason: 'Junior or mid-level role', count: 21 },
+        { reason: 'Hybrid role', count: 12 },
+      ],
+      low_score: 31,
+      would_file: 61,
+      threshold: 30,
+      by_grade: { exact: 38, variant: 9, partial: 29, described: 4, stack: 12 },
+      by_source: [
+        { source: 'himalayas', pool: 640, matched: 41 },
+        { source: 'remoteok', pool: 310, matched: 19 },
+        { source: 'weworkremotely', pool: 120, matched: 17 },
+        { source: 'ats', pool: 420, matched: 11 },
+        { source: 'jobicy', pool: 350, matched: 4 },
+      ],
+      top: [
+        { title: 'Senior Angular Engineer', company: 'Lumenstack', score: 100 },
+        { title: 'Senior Frontend Engineer', company: 'Northwind', score: 78 },
+        { title: 'Frontend Lead (Angular)', company: 'Kestrel', score: 63 },
+      ],
+      low: [{ title: 'Web Developer', company: 'Brightside', score: 18 }],
+    });
   }
 
   async deleteUser(userId: string, confirmEmail: string) {

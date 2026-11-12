@@ -18,6 +18,7 @@ import {
   planLine,
   providerName,
   type AdminUserDetail,
+  type SearchExplain,
   type AiJob,
 } from '@jobbotix/shared-types';
 import { AdminRepo } from '../../core/data/repos';
@@ -34,7 +35,7 @@ import {
   type TabItem,
 } from '../../ui';
 
-type TabId = 'account' | 'billing' | 'ai' | 'activity' | 'content';
+type TabId = 'account' | 'billing' | 'ai' | 'search' | 'activity' | 'content';
 
 /** "$15.00", "-$5.00" for an amount in cents. */
 export function cents(amount: number, currency = 'usd'): string {
@@ -260,6 +261,104 @@ export function cents(amount: number, currency = 'usd'): string {
                 Cost is what Jobbotix paid; calls on the account's own key cost
                 Jobbotix nothing.
               </p>
+            }
+          }
+          @case ('search') {
+            <p class="text-sm text-ink-muted">
+              Replays this account's search rules over recent postings and
+              counts where each one stopped. It reads their search profile only,
+              writes nothing, and is recorded under Activity.
+            </p>
+            <div class="mt-3">
+              <button
+                type="button"
+                jbButton
+                size="sm"
+                [busy]="busy() === 'explain'"
+                [disabled]="!!busy()"
+                (click)="explain()"
+              >
+                {{ search() ? 'Check again' : 'Check the last 14 days' }}
+              </button>
+            </div>
+            @if (search(); as x) {
+              <p class="mt-4 text-sm text-ink">
+                Looking for
+                <strong>{{
+                  x.targetRoles.join(', ') || 'no target role'
+                }}</strong
+                >. Searched on the boards as:
+                {{ x.searchTerms.join(', ') || 'nothing' }}.
+              </p>
+              @for (w of x.warnings; track w) {
+                <p class="mt-1 text-sm text-warn" role="note">{{ w }}</p>
+              }
+              <dl
+                class="mt-4 grid grid-cols-2 gap-x-8 gap-y-3 text-sm sm:grid-cols-3"
+              >
+                @for (f of searchFacts(); track f.label) {
+                  <div>
+                    <dt class="text-xs text-ink-muted">{{ f.label }}</dt>
+                    <dd class="text-ink">{{ f.value }}</dd>
+                  </div>
+                }
+              </dl>
+              @if (x.excluded.length) {
+                <h3 class="mt-5 text-sm font-semibold text-ink">
+                  Their kind of job, ruled out by
+                </h3>
+                <ul class="mt-1 divide-y divide-line text-sm">
+                  @for (e of x.excluded; track e.reason) {
+                    <li class="flex justify-between gap-2 py-2">
+                      <span>{{ e.reason }}</span>
+                      <span class="tabular-nums text-ink-muted">{{
+                        e.count
+                      }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+              <h3 class="mt-5 text-sm font-semibold text-ink">By source</h3>
+              <ul class="mt-1 divide-y divide-line text-sm">
+                @for (s of x.bySource; track s.source) {
+                  <li class="flex justify-between gap-2 py-2">
+                    <span>{{ s.source }}</span>
+                    <span class="tabular-nums text-ink-muted"
+                      >{{ s.matched }} matched of {{ s.pool }}</span
+                    >
+                  </li>
+                }
+              </ul>
+              @if (x.top.length) {
+                <h3 class="mt-5 text-sm font-semibold text-ink">
+                  Strongest matches
+                </h3>
+                <ul class="mt-1 divide-y divide-line text-sm">
+                  @for (t of x.top; track $index) {
+                    <li class="flex justify-between gap-2 py-2">
+                      <span>{{ t.title }} · {{ t.company }}</span>
+                      <span class="tabular-nums text-ink-muted">{{
+                        t.score
+                      }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+              @if (x.low.length) {
+                <h3 class="mt-5 text-sm font-semibold text-ink">
+                  Matched but under {{ x.threshold }}
+                </h3>
+                <ul class="mt-1 divide-y divide-line text-sm">
+                  @for (t of x.low; track $index) {
+                    <li class="flex justify-between gap-2 py-2">
+                      <span>{{ t.title }} · {{ t.company }}</span>
+                      <span class="tabular-nums text-ink-muted">{{
+                        t.score
+                      }}</span>
+                    </li>
+                  }
+                </ul>
+              }
             }
           }
           @case ('activity') {
@@ -522,9 +621,30 @@ export class AdminUser {
   readonly error = signal('');
   readonly actionError = signal('');
   readonly busy = signal<
-    '' | 'plan' | 'credits' | 'link' | 'suspend' | 'delete'
+    '' | 'plan' | 'credits' | 'link' | 'suspend' | 'delete' | 'explain'
   >('');
   readonly tab = signal<TabId>('account');
+  readonly search = signal<SearchExplain | null>(null);
+  readonly searchFacts = computed(() => {
+    const x = this.search();
+    if (!x) return [];
+    const ruledOut = x.excluded.reduce((n, e) => n + e.count, 0);
+    const g = x.byGrade;
+    return [
+      { label: `Postings, last ${x.days} days`, value: String(x.pool) },
+      { label: 'Another kind of job', value: String(x.notRelevant) },
+      { label: 'Too old or expired', value: String(x.tooOld) },
+      { label: 'Ruled out by their settings', value: String(ruledOut) },
+      { label: 'No country set to compare', value: String(x.needsCountry) },
+      { label: `Scored under ${x.threshold}`, value: String(x.lowScore) },
+      { label: 'Good enough to file', value: String(x.wouldFile) },
+      {
+        label: 'Matched by title',
+        value: `${g.exact} exact, ${g.variant} other name, ${g.partial + g.described} close`,
+      },
+      { label: 'Matched by stack only', value: String(g.stack) },
+    ];
+  });
 
   readonly planChoice = signal<'free' | 'pro'>('pro');
   readonly planReason = signal('');
@@ -537,6 +657,7 @@ export class AdminUser {
     { id: 'account', label: 'Account' },
     { id: 'billing', label: 'Billing' },
     { id: 'ai', label: 'AI usage' },
+    { id: 'search', label: 'Search results' },
     { id: 'activity', label: 'Activity' },
     ...(this.detail()?.content
       ? [{ id: 'content' as const, label: 'Roles and resume' }]
@@ -639,6 +760,7 @@ export class AdminUser {
       this.id();
       untracked(() => {
         this.detail.set(null);
+        this.search.set(null);
         void this.load();
       });
     });
@@ -714,6 +836,12 @@ export class AdminUser {
     });
   }
 
+  async explain() {
+    await this.run('explain', async () => {
+      this.search.set(await this.repo.explainSearch(this.id()));
+    });
+  }
+
   async sendLink() {
     const email = this.detail()?.account.email;
     const ok = await this.confirm.ask({
@@ -778,7 +906,7 @@ export class AdminUser {
 
   /** One action at a time; the account is read again when it worked. */
   private async run(
-    what: 'plan' | 'credits' | 'link' | 'suspend',
+    what: 'plan' | 'credits' | 'link' | 'suspend' | 'explain',
     action: () => Promise<void>,
   ) {
     if (this.busy()) return;
