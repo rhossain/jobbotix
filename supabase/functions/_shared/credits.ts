@@ -124,15 +124,32 @@ export async function reserve(
 export async function settle(
   admin: Admin,
   hold: string,
-  usage: { tokensIn: number; tokensOut: number; webSearches?: number },
+  usage: {
+    /** All input tokens, the cached ones included. */
+    tokensIn: number;
+    tokensOut: number;
+    webSearches?: number;
+    /** Of tokensIn: read from the prompt cache, and written to it. */
+    cacheRead?: number;
+    cacheWrite?: number;
+  },
   charge = true,
 ): Promise<number | null> {
+  const cached =
+    Math.round(usage.cacheRead ?? 0) || Math.round(usage.cacheWrite ?? 0);
   const { data, error } = await admin.rpc('ai_settle_credits', {
     p_hold: hold,
     p_tokens_in: Math.round(usage.tokensIn),
     p_tokens_out: Math.round(usage.tokensOut),
     p_web_searches: Math.round(usage.webSearches ?? 0),
     p_charge: charge,
+    // Only named when a call used the cache, so nothing changes for the rest.
+    ...(cached
+      ? {
+          p_cache_read: Math.round(usage.cacheRead ?? 0),
+          p_cache_write: Math.round(usage.cacheWrite ?? 0),
+        }
+      : {}),
   });
   if (error) {
     // The hold expires by itself; the call is simply not charged.

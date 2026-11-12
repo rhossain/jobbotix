@@ -13,6 +13,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 import { normaliseResume } from '../_shared/resume.ts';
+import { resumeContext } from '../_shared/resume-context.ts';
 import {
   applyVariant,
   keywordReport,
@@ -103,7 +104,8 @@ Deno.serve(
       admin,
       userId,
       {
-        prompt: tailorPrompt(sections, posting),
+        context: resumeContext(sections),
+        prompt: tailorPrompt(posting),
         maxTokens: 2500,
         timeoutMs: 60_000,
       },

@@ -13,6 +13,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 import { normaliseResume } from '../_shared/resume.ts';
+import { resumeContext } from '../_shared/resume-context.ts';
 import {
   localPrep,
   normalisePrep,
@@ -89,6 +90,7 @@ Deno.serve(
       admin,
       userId,
       {
+        context: resumeContext(resume),
         prompt: prepPrompt(resume, posting),
         maxTokens: 3000,
         timeoutMs: 90_000,

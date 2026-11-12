@@ -14,6 +14,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 import { normaliseResume } from '../_shared/resume.ts';
+import { resumeContext } from '../_shared/resume-context.ts';
 import {
   LETTER_MIN_WORDS,
   letterPrompt,
@@ -104,7 +105,12 @@ Deno.serve(
     const ai = await runAi(
       admin,
       userId,
-      { prompt: letterPrompt(ctx), maxTokens: 1200, timeoutMs: 60_000 },
+      {
+        context: resumeContext(ctx.resume),
+        prompt: letterPrompt(ctx),
+        maxTokens: 1200,
+        timeoutMs: 60_000,
+      },
       {
         job: 'letter',
         choice: body.model,

@@ -40,6 +40,7 @@ describe('screening', () => {
     });
     expect(p).toContain('q1: Years of Angular?');
     expect(p).toContain('JSON only');
+    expect(p).toContain('RESUME above');
   });
 
   it('parses a fenced JSON reply and ignores unknown ids', () => {

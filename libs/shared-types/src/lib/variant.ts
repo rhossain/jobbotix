@@ -228,11 +228,17 @@ export const DEFAULT_KEYWORDS: readonly string[] = [
 ];
 
 /** The prompt that asks the model for tailored changes. The reply is parsed by parseVariantReply. */
-export function tailorPrompt(
-  master: ResumeSections,
-  posting: { company: string; title: string; text: string; stack: string[] },
-): string {
-  return `You are tailoring a resume for one specific job. Propose changes to the MASTER RESUME so it speaks to the POSTING, without inventing experience. Keep the person's voice; prefer rewording existing bullets to adding new ones; never change dates, employers, degrees or links.
+/**
+ * The task of tailoring. The resume itself is not in here: the caller sends
+ * it as the call's context (resumeContext), ahead of this.
+ */
+export function tailorPrompt(posting: {
+  company: string;
+  title: string;
+  text: string;
+  stack: string[];
+}): string {
+  return `You are tailoring a resume for one specific job. Propose changes to the RESUME above so it speaks to the POSTING, without inventing experience. Keep the person's voice; prefer rewording existing bullets to adding new ones; never change dates, employers, degrees or links.
 
 Reply with a JSON array of changes, each: {"path": "<dot path>", "kind": "replace"|"add"|"remove", "before": "<exact current text or empty>", "after": "<new text or empty>", "reason": "<one short sentence>"}.
 Paths: "summary"; "contact.headline"; "experience.<i>.bullets.<j>" (replace/remove); "experience.<i>.bullets" (add); "skills.<i>.items" (add); "projects.<i>.description" (replace); "aiToolkit" (add).
@@ -240,10 +246,7 @@ Propose at most 10 changes, best first. Return only the JSON array.
 
 POSTING: ${posting.title} at ${posting.company}
 Stack named: ${posting.stack.join(', ') || 'not stated'}
-${posting.text.slice(0, 12_000)}
-
-MASTER RESUME (JSON):
-${JSON.stringify(master)}`;
+${posting.text.slice(0, 12_000)}`;
 }
 
 export function parseVariantReply(

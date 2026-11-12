@@ -20,6 +20,7 @@ import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 import { requireAiJob } from '../_shared/gate.ts';
 import { normaliseResume } from '../_shared/resume.ts';
+import { resumeContext } from '../_shared/resume-context.ts';
 import {
   hasReviewableText,
   parseReviewReply,
@@ -72,7 +73,8 @@ Deno.serve(
       admin,
       userId,
       {
-        prompt: reviewPrompt(sections),
+        context: resumeContext(sections),
+        prompt: reviewPrompt(),
         maxTokens: 3000,
         timeoutMs: 75_000,
       },

@@ -30,23 +30,16 @@ export function wordCount(text: string): number {
   return text.trim() ? text.trim().split(/\s+/).length : 0;
 }
 
+/**
+ * The task of writing a letter. The resume itself is not in here: the caller
+ * sends it as the call's context (resumeContext), ahead of this.
+ */
 export function letterPrompt(ctx: LetterContext): string {
   const { resume, posting } = ctx;
   const samples = (ctx.voiceSamples ?? []).filter((s) => s.trim());
-  const skills = resume.skills
-    .map((g) => `${g.name}: ${g.items.join(', ')}`)
-    .join('\n');
-  const experience = resume.experience
-    .slice(0, 3)
-    .map(
-      (e) =>
-        `${e.title} at ${e.company} (${e.start || '?'}–${e.end || 'present'})\n` +
-        e.bullets.map((b) => `  - ${b}`).join('\n'),
-    )
-    .join('\n');
   return [
     `Write a cover letter for this application. Plain text, ${LETTER_MIN_WORDS}-${LETTER_MAX_WORDS} words, 3-4 short paragraphs, no subject line, no address block, no placeholders in square brackets.`,
-    `Rules: every claim must come from the resume below; never invent employers, numbers or tools. Name the company and the role once each in the first paragraph. Pick the two or three posting requirements the resume matches best and show them with specifics from the experience bullets. If the resume mentions AI-assisted development, say so plainly in one sentence as a way of working, not a buzzword. End with one sentence on availability or next step. No flattery of the company, no "I am writing to apply", no bullet points.`,
+    `Rules: every claim must come from the RESUME above; never invent employers, numbers or tools. Name the company and the role once each in the first paragraph. Pick the two or three posting requirements the resume matches best and show them with specifics from its most recent experience bullets. If the resume mentions AI-assisted development, say so plainly in one sentence as a way of working, not a buzzword. End with one sentence on availability or next step. No flattery of the company, no "I am writing to apply", no bullet points.`,
     samples.length
       ? `Match the voice of these letters the candidate wrote (sentence length, directness, warmth), not their content:\n${samples.map((s, i) => `--- sample ${i + 1} ---\n${s.trim()}`).join('\n')}\n--- end samples ---`
       : 'Voice: direct, concrete, warm but not effusive. First person, short sentences.',
@@ -54,10 +47,6 @@ export function letterPrompt(ctx: LetterContext): string {
       ? `Improve this existing draft rather than starting over; keep what already works:\n${ctx.current.trim()}`
       : '',
     `Candidate: ${resume.contact.name || 'the candidate'}${resume.contact.headline ? `, ${resume.contact.headline}` : ''}`,
-    resume.summary ? `Summary: ${resume.summary}` : '',
-    skills ? `Skills:\n${skills}` : '',
-    experience ? `Experience:\n${experience}` : '',
-    resume.aiToolkit.length ? `AI toolkit: ${resume.aiToolkit.join(', ')}` : '',
     `Role: ${posting.title} at ${posting.company}`,
     posting.stack.length ? `Posting stack: ${posting.stack.join(', ')}` : '',
     posting.reasons?.length

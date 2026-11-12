@@ -39,14 +39,17 @@ const posting = {
 };
 
 describe('letters', () => {
-  it('builds a prompt that carries the facts and the voice samples', () => {
+  it('builds a task that points at the resume and carries the voice samples', () => {
     const p = letterPrompt({
       resume,
       posting,
       voiceSamples: ['Hi there, short and direct.'],
     });
     expect(p).toContain('Angular Developer at Globex');
-    expect(p).toContain('Cut bundle size by 38%');
+    // The resume travels as the call's context, ahead of the task, so the
+    // task refers to it and repeats none of it.
+    expect(p).toContain('RESUME above');
+    expect(p).not.toContain('Cut bundle size by 38%');
     expect(p).toContain('--- sample 1 ---');
     expect(p).not.toContain('Voice: direct');
     expect(letterPrompt({ resume, posting })).toContain('Voice: direct');

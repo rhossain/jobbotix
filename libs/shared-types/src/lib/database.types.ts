@@ -453,8 +453,13 @@ export type AiUsageRow = {
   /** Whose key paid: the user's own, or Jobbotix's (on credits). */
   route?: 'own' | 'platform';
   model: string;
+  /** The whole prompt, the cached part included. */
   tokens_in: number;
   tokens_out: number;
+  /** Of tokens_in: read from the provider's prompt cache (from 0040). */
+  cache_read_tokens?: number;
+  /** Of tokens_in: written to the prompt cache by this call (from 0040). */
+  cache_write_tokens?: number;
   cost_usd: number;
   /** Web searches billed during the call (company research). */
   web_searches: number;

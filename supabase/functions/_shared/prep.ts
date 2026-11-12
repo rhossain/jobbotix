@@ -96,32 +96,22 @@ export function normalisePrep(raw: unknown): PrepSheet {
   };
 }
 
+/**
+ * The task of preparing for an interview. The resume itself is not in here:
+ * the caller sends it as the call's context (resumeContext), ahead of this.
+ */
 export function prepPrompt(
   resume: ResumeSections,
   posting: LetterPosting,
 ): string {
-  const experience = resume.experience
-    .slice(0, 4)
-    .map(
-      (e) =>
-        `${e.title} at ${e.company} (${e.start || '?'}–${e.end || 'present'}):\n` +
-        e.bullets.map((b) => `  - ${b}`).join('\n'),
-    )
-    .join('\n');
   return [
     `Prepare a candidate for an interview. Reply with JSON only, this shape:
 {"companyNotes": ["..."], "questions": [{"question": "...", "why": "...", "story": 0}], "stories": [{"title": "...", "situation": "...", "action": "...", "result": "...", "source": "..."}], "questionsToAsk": ["..."]}`,
     `companyNotes: 3-5 short facts or inferences about the company and the team from the posting only (product, stage, how they work, what the posting stresses). Never invent facts not in the posting; say "the posting suggests" when inferring.`,
     `questions: 8-10 questions this interviewer is likely to ask, mixing technical ones drawn from the posting's stack and requirements, one or two about the gaps, and three behavioural ones. "why" says in one sentence what they are probing and what to hit. "story" is the index of the story that answers it, when one does.`,
-    `stories: 4-6 STAR stories built only from the resume bullets below, each with situation, action, result (keep the resume's numbers) and source (role and company).`,
+    `stories: 4-6 STAR stories built only from the experience bullets in the RESUME above, each with situation, action, result (keep the resume's numbers) and source (role and company).`,
     `questionsToAsk: 4 sharp questions for the candidate to ask them, specific to the posting.`,
     `Candidate: ${resume.contact.name || 'the candidate'}${resume.contact.headline ? `, ${resume.contact.headline}` : ''}`,
-    resume.summary ? `Summary: ${resume.summary}` : '',
-    resume.skills.length
-      ? `Skills: ${resume.skills.map((g) => `${g.name}: ${g.items.join(', ')}`).join(' | ')}`
-      : '',
-    experience ? `Experience:\n${experience}` : '',
-    resume.aiToolkit.length ? `AI toolkit: ${resume.aiToolkit.join(', ')}` : '',
     `Role: ${posting.title} at ${posting.company}`,
     posting.stack.length ? `Posting stack: ${posting.stack.join(', ')}` : '',
     posting.reasons?.length

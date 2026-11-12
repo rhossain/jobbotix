@@ -61,6 +61,7 @@ describe('prep', () => {
     expect(prepPrompt(resume, posting)).toContain(
       'Angular Developer at Globex',
     );
+    expect(prepPrompt(resume, posting)).toContain('RESUME above');
     const sheet = parsePrepReply(
       'Here you go:\n{"companyNotes":["x"],"questions":[{"question":"Q?","why":"w","story":0}],"stories":[{"title":"t","situation":"s","action":"a","result":"r","source":"src"}],"questionsToAsk":["a?"]}',
     );

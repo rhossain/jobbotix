@@ -1748,4 +1748,56 @@ begin
   delete from public.resume_variants where id = vid;
 end $$;
 
+-- 0040: a platform call that used the prompt cache is costed part by part,
+-- and a call that names no cached tokens costs what it did before.
+do $$ declare u uuid := '33333333-3333-3333-3333-333333333333'; cfg jsonb; r jsonb; row public.ai_usage%rowtype;
+begin
+  select value into cfg from public.settings where key = 'pro_ai';
+  update public.settings set value = value
+      || '{"enabled": true, "daily_credit_cap": 100000, "daily_unmetered_calls": 100000, "monthly_budget_usd": 100000}'
+    where key = 'pro_ai';
+  insert into public.credit_ledger (user_id, delta, kind, reason) values (u, 100, 'admin', 'cache test');
+
+  -- Sonnet: $2 in, $10 out per million; cache read at 0.05, write at 1.25.
+  -- 5,001 in, of which 3,000 read and 1,000 written, and 600 out:
+  -- (1001 + 1000 * 1.25 + 3000 * 0.05) * 2 + 600 * 10 = 10,802 millionths.
+  -- (Each call has its own token count so its usage row can be found.)
+  r := public.ai_reserve_credits(u, 'letter');
+  if not (r ->> 'ok')::boolean then raise exception 'FAIL: cache test setup: %', r; end if;
+  perform public.ai_settle_credits((r ->> 'hold')::uuid, 5001, 600, 0, false, 3000, 1000);
+  select * into row from public.ai_usage where user_id = u and tokens_in = 5001;
+  if row.tokens_in is distinct from 5001 or row.cache_read_tokens <> 3000 or row.cache_write_tokens <> 1000 then
+    raise exception 'FAIL: cached tokens logged as % / % / %', row.tokens_in, row.cache_read_tokens, row.cache_write_tokens;
+  end if;
+  if row.cost_usd <> 0.0108 then raise exception 'FAIL: cached call cost %', row.cost_usd; end if;
+
+  -- No cached tokens named: 5,002 * 2 + 600 * 10 = 16,004 millionths.
+  r := public.ai_reserve_credits(u, 'letter');
+  perform public.ai_settle_credits((r ->> 'hold')::uuid, 5002, 600, 0, false);
+  select * into row from public.ai_usage where user_id = u and tokens_in = 5002;
+  if row.cost_usd <> 0.016 or row.cache_read_tokens <> 0 or row.cache_write_tokens <> 0 then
+    raise exception 'FAIL: uncached call cost % with % read', row.cost_usd, row.cache_read_tokens;
+  end if;
+
+  -- Cached counts larger than the prompt are cut down to it.
+  r := public.ai_reserve_credits(u, 'letter');
+  perform public.ai_settle_credits((r ->> 'hold')::uuid, 1003, 0, 0, false, 5000, 5000);
+  select * into row from public.ai_usage where user_id = u and tokens_in = 1003;
+  if row.cache_read_tokens is distinct from 1003 or row.cache_write_tokens <> 0 or row.cost_usd <> 0.0001 then
+    raise exception 'FAIL: oversized cached counts: % read, % written, cost %', row.cache_read_tokens, row.cache_write_tokens, row.cost_usd;
+  end if;
+
+  -- Haiku has no share of its own: the default 0.1 applies.
+  r := public.ai_reserve_credits(u, 'extract');
+  perform public.ai_settle_credits((r ->> 'hold')::uuid, 10004, 0, 0, false, 10004, 0);
+  select * into row from public.ai_usage where user_id = u and tokens_in = 10004;
+  if row.model is distinct from 'claude-haiku-5-5' or row.cost_usd <> 0.0001 then
+    raise exception 'FAIL: default cache share: % cost %', row.model, row.cost_usd;
+  end if;
+
+  delete from public.ai_usage where user_id = u and tokens_in in (5001, 5002, 1003, 10004);
+  delete from public.credit_ledger where user_id = u and reason = 'cache test';
+  update public.settings set value = cfg where key = 'pro_ai';
+end $$;
+
 \echo RLS tests passed

@@ -20,25 +20,16 @@ export interface ScreeningContext {
   existing?: { question: string; answer: string }[];
 }
 
+/**
+ * The task of answering screening questions. The resume itself is not in
+ * here: the caller sends it as the call's context (resumeContext), ahead of
+ * this.
+ */
 export function screeningPrompt(ctx: ScreeningContext): string {
   const { resume, posting } = ctx;
-  const skills = resume.skills
-    .map((g) => `${g.name}: ${g.items.join(', ')}`)
-    .join('\n');
-  const experience = resume.experience
-    .slice(0, 4)
-    .map(
-      (e) =>
-        `${e.title} at ${e.company} (${e.start || '?'}–${e.end || 'present'}): ${e.bullets.join(' ')}`,
-    )
-    .join('\n');
   return [
-    'Answer these application screening questions for the candidate. Each answer is 1-4 sentences of plain text, first person, specific, and true to the resume below. Never invent employers, numbers, tools or certifications. For questions about salary, notice period, visas, work authorization, location or availability that the resume does not answer, write a short honest answer that keeps the door open ("open to discussing a range that fits the role and market", "available within 2-4 weeks") rather than a number. Yes/no questions get the yes or no first, then one sentence of evidence. If the resume mentions AI-assisted development, answer AI-tooling questions concretely and briefly.',
+    'Answer these application screening questions for the candidate. Each answer is 1-4 sentences of plain text, first person, specific, and true to the RESUME above. Never invent employers, numbers, tools or certifications. For questions about salary, notice period, visas, work authorization, location or availability that the resume does not answer, write a short honest answer that keeps the door open ("open to discussing a range that fits the role and market", "available within 2-4 weeks") rather than a number. Yes/no questions get the yes or no first, then one sentence of evidence. If the resume mentions AI-assisted development, answer AI-tooling questions concretely and briefly.',
     `Candidate: ${resume.contact.name || 'the candidate'}${resume.contact.headline ? `, ${resume.contact.headline}` : ''}${resume.contact.location ? `, based in ${resume.contact.location}` : ''}`,
-    resume.summary ? `Summary: ${resume.summary}` : '',
-    skills ? `Skills:\n${skills}` : '',
-    experience ? `Experience:\n${experience}` : '',
-    resume.aiToolkit.length ? `AI toolkit: ${resume.aiToolkit.join(', ')}` : '',
     `Role: ${posting.title} at ${posting.company}`,
     posting.stack.length ? `Posting stack: ${posting.stack.join(', ')}` : '',
     posting.text ? `Posting:\n${posting.text.slice(0, 4000)}` : '',

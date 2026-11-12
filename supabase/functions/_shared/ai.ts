@@ -6,6 +6,11 @@
 //                   caller's parser and asked for once more when unreadable,
 //                   and every call is written to ai_usage
 //
+// A call can carry `context`: material that stays the same from one call to
+// the next (the person's resume). It is sent ahead of the prompt, and on
+// Anthropic it is marked cacheable, so a second job for the same person
+// within a few minutes reads it at a fraction of the input price.
+//
 // Anthropic goes through its Messages API (anthropic.ts); every other
 // provider through the OpenAI-compatible chat completions API it offers.
 // Keys are read from Vault only at the moment a connection is tried.
@@ -46,6 +51,12 @@ export type AiJobName =
 export interface AiCall {
   prompt: string;
   system?: string;
+  /**
+   * Material the task works from that repeats across calls, sent ahead of the
+   * prompt. Calls share a cached copy only when this text (and `system`) is
+   * the same to the character, so build it one way everywhere.
+   */
+  context?: string;
   /** Room the reply itself needs; thinking headroom is added per model. */
   maxTokens: number;
   timeoutMs: number;
@@ -59,8 +70,13 @@ export type AiAnswer =
   | {
       ok: true;
       text: string;
+      /** All input tokens, the cached ones included. */
       tokensIn: number;
       tokensOut: number;
+      /** Of tokensIn: read from the provider's prompt cache (cheaper). */
+      cacheRead?: number;
+      /** Of tokensIn: written to the prompt cache by this call (dearer). */
+      cacheWrite?: number;
       provider: ProviderId;
       model: string;
       /** Why the model stopped ("stop", "length"), when the provider says. */
@@ -190,7 +206,14 @@ export function openAiBody(
     model,
     messages: [
       ...(call.system ? [{ role: 'system', content: call.system }] : []),
-      { role: 'user', content: call.prompt },
+      // The context goes first, so a provider that caches prompt prefixes on
+      // its own finds the same opening on the next call.
+      {
+        role: 'user',
+        content: call.context
+          ? `${call.context}\n\n${call.prompt}`
+          : call.prompt,
+      },
     ],
     [info.tokenParam]: reply + (reasoning?.headroom ?? 0),
     ...(typeof call.temperature === 'number'
@@ -198,6 +221,24 @@ export function openAiBody(
       : {}),
     ...(reasoning ? { reasoning_effort: reasoning.effort } : {}),
   };
+}
+
+/**
+ * The user turn for Anthropic. With a context, the context is its own block
+ * with a cache breakpoint after it: everything up to there is stored for five
+ * minutes and read back at a fraction of the price by the next call that
+ * starts the same way. Too short a context is simply not cached.
+ */
+export function anthropicContent(call: AiCall): unknown {
+  if (!call.context) return call.prompt;
+  return [
+    {
+      type: 'text',
+      text: call.context,
+      cache_control: { type: 'ephemeral' },
+    },
+    { type: 'text', text: call.prompt },
+  ];
 }
 
 async function readBody(
@@ -246,7 +287,7 @@ export async function callProvider(
           ...(typeof call.temperature === 'number'
             ? { temperature: call.temperature }
             : {}),
-          messages: [{ role: 'user', content: call.prompt }],
+          messages: [{ role: 'user', content: anthropicContent(call) }],
         },
         call.timeoutMs,
       );
@@ -265,15 +306,26 @@ export async function callProvider(
       }
       const p = json as {
         content?: { text?: string }[];
-        usage?: { input_tokens?: number; output_tokens?: number };
+        usage?: {
+          input_tokens?: number;
+          output_tokens?: number;
+          cache_read_input_tokens?: number;
+          cache_creation_input_tokens?: number;
+        };
       } | null;
+      // Anthropic's input_tokens leaves the cached part out; add it back so
+      // tokensIn is the whole prompt, and say how much of it was cached.
+      const cacheRead = Number(p?.usage?.cache_read_input_tokens ?? 0);
+      const cacheWrite = Number(p?.usage?.cache_creation_input_tokens ?? 0);
       return {
         ok: true,
         text: Array.isArray(p?.content)
           ? p.content.map((c) => c.text ?? '').join('')
           : '',
-        tokensIn: Number(p?.usage?.input_tokens ?? 0),
+        tokensIn: Number(p?.usage?.input_tokens ?? 0) + cacheRead + cacheWrite,
         tokensOut: Number(p?.usage?.output_tokens ?? 0),
+        ...(cacheRead ? { cacheRead } : {}),
+        ...(cacheWrite ? { cacheWrite } : {}),
         provider,
         model,
       };
@@ -547,8 +599,7 @@ async function runPlatform<T>(
   opts: RunOptions<T>,
 ): Promise<RunResult<T>> {
   const now = opts.now ?? Date.now;
-  let tokensIn = 0;
-  let tokensOut = 0;
+  const used = { tokensIn: 0, tokensOut: 0, cacheRead: 0, cacheWrite: 0 };
   for (let attempt = 0; attempt < 2; attempt++) {
     const answer = await callProvider(
       'anthropic',
@@ -562,8 +613,8 @@ async function runPlatform<T>(
       console.error(
         `platform ${opts.job} on ${hold.model} failed (${answer.kind} ${answer.status}): ${answer.message}`,
       );
-      if (tokensIn || tokensOut)
-        await settle(admin, hold.hold, { tokensIn, tokensOut }, false);
+      if (used.tokensIn || used.tokensOut)
+        await settle(admin, hold.hold, used, false);
       else await release(admin, hold.hold);
       return {
         ok: false,
@@ -571,13 +622,15 @@ async function runPlatform<T>(
         message: 'Jobbotix AI could not answer just now; no credits were used.',
       };
     }
-    tokensIn += answer.tokensIn;
-    tokensOut += answer.tokensOut;
+    used.tokensIn += answer.tokensIn;
+    used.tokensOut += answer.tokensOut;
+    used.cacheRead += answer.cacheRead ?? 0;
+    used.cacheWrite += answer.cacheWrite ?? 0;
     const value = opts.parse
       ? opts.parse(answer.text)
       : (answer.text as unknown as T);
     if (value !== null && value !== undefined && value !== '') {
-      const balance = await settle(admin, hold.hold, { tokensIn, tokensOut });
+      const balance = await settle(admin, hold.hold, used);
       return {
         ok: true,
         value: value as T,
@@ -590,7 +643,7 @@ async function runPlatform<T>(
       };
     }
   }
-  await settle(admin, hold.hold, { tokensIn, tokensOut }, false);
+  await settle(admin, hold.hold, used, false);
   return {
     ok: false,
     reason: 'bad_output',
@@ -635,6 +688,10 @@ async function runOwn<T>(
       model: a.model,
       tokens_in: a.tokensIn,
       tokens_out: a.tokensOut,
+      // Only sent when there is something to say, so a call without caching
+      // is logged the same way as before.
+      ...(a.cacheRead ? { cache_read_tokens: a.cacheRead } : {}),
+      ...(a.cacheWrite ? { cache_write_tokens: a.cacheWrite } : {}),
       cost_usd: 0,
     });
 

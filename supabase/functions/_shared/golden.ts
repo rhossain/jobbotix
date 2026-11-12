@@ -23,6 +23,7 @@ import type { MatchPosting, MatchProfile } from './match.ts';
 import { PROVIDERS, type ProviderId } from './providers.ts';
 import { normaliseResume } from './resume.ts';
 import { parseScoreReply, resolveWeights, scorePrompt } from './score.ts';
+import { resumeContext } from './resume-context.ts';
 import { parseVariantReply, tailorPrompt } from './variant.ts';
 
 export type GoldenJob = 'score' | 'extract' | 'tailor' | 'letter';
@@ -225,7 +226,8 @@ export const GOLDEN_CASES: GoldenCase[] = [
     job: 'tailor',
     fast: false,
     call: {
-      prompt: tailorPrompt(GOLDEN_RESUME, POSTING),
+      context: resumeContext(GOLDEN_RESUME),
+      prompt: tailorPrompt(POSTING),
       maxTokens: 2500,
       timeoutMs: 45_000,
     },
@@ -243,6 +245,7 @@ export const GOLDEN_CASES: GoldenCase[] = [
     job: 'letter',
     fast: false,
     call: {
+      context: resumeContext(GOLDEN_RESUME),
       prompt: letterPrompt({ resume: GOLDEN_RESUME, posting: POSTING }),
       maxTokens: 1200,
       timeoutMs: 45_000,

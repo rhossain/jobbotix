@@ -1,5 +1,6 @@
 import { deepStrictEqual as assertEquals, ok as assert } from 'node:assert';
 import { normaliseResume } from './resume.ts';
+import { resumeForModel } from './resume-context.ts';
 import {
   hasReviewableText,
   parseReviewReply,
@@ -37,22 +38,12 @@ const MASTER = normaliseResume({
   ],
 });
 
-Deno.test('the model is sent the wording, not the contact details', () => {
-  const prompt = reviewPrompt(MASTER);
-  for (const secret of [
-    'Rafi Ahmed',
-    'rafi@example.com',
-    '+880',
-    'github.com/rafi',
-    'rafi.example',
-  ])
-    assert(!prompt.includes(secret), secret);
-  assert(prompt.includes('Senior Frontend Engineer'));
-  assert(prompt.includes('Responsible for the dashboard'));
-  // Indexes are unchanged, so the paths in the reply fit the real resume.
-  const sent = reviewable(MASTER) as typeof MASTER;
-  assertEquals(sent.experience, MASTER.experience);
-  assertEquals(sent.projects, MASTER.projects);
+Deno.test('the review task refers to the resume and does not carry it', () => {
+  const prompt = reviewPrompt();
+  assert(prompt.includes('RESUME above'));
+  assert(!prompt.includes('Responsible for the dashboard'));
+  // What is sent of the resume is the same for a review as for any resume job.
+  assertEquals(reviewable(MASTER), resumeForModel(MASTER));
 });
 
 Deno.test(

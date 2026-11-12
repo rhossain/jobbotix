@@ -342,6 +342,174 @@ Deno.test(
   },
 );
 
+// --- the cacheable context ---------------------------------------------------
+
+const withContext = { ...call, context: 'RESUME (JSON).\n{"summary":"x"}' };
+
+Deno.test(
+  'callProvider: on Anthropic the context is its own block with a cache breakpoint',
+  async () => {
+    const p = provider({
+      body: {
+        content: [{ type: 'text', text: 'Dear team' }],
+        usage: {
+          input_tokens: 400,
+          output_tokens: 90,
+          cache_read_input_tokens: 0,
+          cache_creation_input_tokens: 1200,
+        },
+      },
+    });
+    try {
+      const a = await callProvider(
+        'anthropic',
+        'sk-ant-1',
+        'claude-sonnet-5-5',
+        withContext,
+      );
+      assertEquals(p.sent[0].body['messages'], [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: withContext.context,
+              cache_control: { type: 'ephemeral' },
+            },
+            { type: 'text', text: 'Write a letter' },
+          ],
+        },
+      ]);
+      // tokensIn is the whole prompt; the stored part is named beside it.
+      assertEquals(
+        a.ok && [a.tokensIn, a.tokensOut, a.cacheWrite],
+        [1600, 90, 1200],
+      );
+      assert(a.ok && a.cacheRead === undefined);
+    } finally {
+      p.restore();
+    }
+  },
+);
+
+Deno.test(
+  'callProvider: a later call reads the context from the cache',
+  async () => {
+    const p = provider({
+      body: {
+        content: [{ type: 'text', text: 'Dear team' }],
+        usage: {
+          input_tokens: 400,
+          output_tokens: 90,
+          cache_read_input_tokens: 1200,
+          cache_creation_input_tokens: 0,
+        },
+      },
+    });
+    try {
+      const a = await callProvider(
+        'anthropic',
+        'sk-ant-1',
+        'claude-sonnet-5-5',
+        withContext,
+      );
+      assertEquals(a.ok && [a.tokensIn, a.cacheRead], [1600, 1200]);
+      assert(a.ok && a.cacheWrite === undefined);
+    } finally {
+      p.restore();
+    }
+  },
+);
+
+Deno.test(
+  'callProvider: without a context the Anthropic prompt is sent as before',
+  async () => {
+    const p = provider(claudeOk('Dear team'));
+    try {
+      const a = await callProvider('anthropic', 'k', 'claude-sonnet-5-5', call);
+      assertEquals(p.sent[0].body['messages'], [
+        { role: 'user', content: 'Write a letter' },
+      ]);
+      assertEquals(a.ok && [a.tokensIn, a.cacheRead, a.cacheWrite], [
+        50,
+        undefined,
+        undefined,
+      ]);
+    } finally {
+      p.restore();
+    }
+  },
+);
+
+Deno.test('openAiBody: the context goes ahead of the prompt', () => {
+  const b = openAiBody(PROVIDERS.gemini, 'gemini-3.8-flash', {
+    ...withContext,
+    system: 'Be brief.',
+  });
+  assertEquals(b['messages'], [
+    { role: 'system', content: 'Be brief.' },
+    {
+      role: 'user',
+      content: 'RESUME (JSON).\n{"summary":"x"}\n\nWrite a letter',
+    },
+  ]);
+});
+
+Deno.test(
+  'runAi: cached tokens reach the settle on credits and the usage row on an own key',
+  async () => {
+    const cached = {
+      body: {
+        content: [{ type: 'text', text: 'Dear team' }],
+        usage: {
+          input_tokens: 300,
+          output_tokens: 80,
+          cache_read_input_tokens: 1000,
+          cache_creation_input_tokens: 200,
+        },
+      },
+    };
+    // On credits: the settle is told how much of the prompt was cached.
+    setPlatformKeyForTests('sk-ant-platform');
+    const d = db([]);
+    d.reservations.push(HOLD);
+    let p = provider(cached);
+    try {
+      const r = await runAi(d.admin, 'u', withContext, { job: 'letter' });
+      assert(r.ok && r.route === 'platform');
+      assertEquals(d.credits[1].args, {
+        p_hold: 'h1',
+        p_tokens_in: 1500,
+        p_tokens_out: 80,
+        p_web_searches: 0,
+        p_charge: true,
+        p_cache_read: 1000,
+        p_cache_write: 200,
+      });
+    } finally {
+      p.restore();
+      setPlatformKeyForTests(null);
+    }
+    // On the account's own Anthropic key: the usage row carries the counts.
+    const own = db([{ provider: 'anthropic' }]);
+    p = provider(cached);
+    try {
+      const r = await runAi(own.admin, 'u', withContext, { job: 'letter' });
+      assert(r.ok && r.route === 'own');
+      assertEquals(
+        [
+          own.usage[0]['tokens_in'],
+          own.usage[0]['cache_read_tokens'],
+          own.usage[0]['cache_write_tokens'],
+        ],
+        [1500, 1000, 200],
+      );
+    } finally {
+      p.restore();
+    }
+  },
+);
+
 Deno.test(
   'callProvider: how the reply ended, and reasoning with no answer, are reported',
   async () => {
