@@ -96,12 +96,14 @@ export abstract class RolesRepo {
   /**
    * Researches the employer (web search on the user's key, the posting and
    * company site otherwise) and stores it on the role. `reused` when another
-   * role at the same company had recent research.
+   * role at the same company had recent research; `shared` when it came from
+   * a web research Jobbotix did for the company in the last 30 days, which
+   * costs no credits.
    */
   abstract researchCompany(
     id: string,
     opts?: { model?: string; refresh?: boolean },
-  ): Promise<{ research: CompanyResearch; reused: boolean }>;
+  ): Promise<{ research: CompanyResearch; reused: boolean; shared: boolean }>;
 }
 
 export type SearchProfileInput = Omit<

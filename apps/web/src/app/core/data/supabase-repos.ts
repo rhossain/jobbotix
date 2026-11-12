@@ -284,6 +284,7 @@ export class SupabaseRolesRepo extends RolesRepo {
     const { data, error } = await this.supabase.functions.invoke<{
       research?: CompanyResearch;
       reused?: boolean;
+      shared?: boolean;
       error?: string;
     }>('research-company', { body: { roleId: id, ...opts } });
     if (error) throw await functionError(error);
@@ -293,7 +294,7 @@ export class SupabaseRolesRepo extends RolesRepo {
     const role = this._roles().find((r) => r.id === id);
     if (role)
       this.replace({ ...role, company_research: research as unknown as Json });
-    return { research, reused: !!data.reused };
+    return { research, reused: !!data.reused, shared: !!data.shared };
   }
 
   private replace(row: RoleRow) {

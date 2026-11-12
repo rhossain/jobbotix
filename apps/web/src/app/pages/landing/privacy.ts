@@ -93,6 +93,16 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
         nothing is sent to any model: scoring and drafting use Jobbotix's
         built-in rules and templates.
       </p>
+      <p class="mt-2">
+        Two results are kept once for everyone, so the same work is not paid for
+        twice, and neither says who it came from. When a model reads a posting
+        you add, the fields it finds (company, title, location, pay, stack) are
+        stored against a fingerprint of that posting, and the next person who
+        adds the same posting gets them without a model call. And when Jobbotix
+        pays for web research on a company, what it found about the company is
+        reused for 30 days for anyone who looks at that company. Your account,
+        your resume and your notes are never part of either.
+      </p>
 
       <h2 class="mt-10 text-xl font-semibold">Who can see what</h2>
       <p class="mt-2">

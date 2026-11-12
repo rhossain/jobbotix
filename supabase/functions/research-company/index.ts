@@ -19,7 +19,9 @@
 //   Every model call is metered in ai_usage as 'research'.
 //
 // Research for the same company on another of the user's roles, less than
-// 30 days old, is reused unless "refresh" is set.
+// 30 days old, is reused unless "refresh" is set. So is a web research
+// Jobbotix paid for on any account in the last 30 days (research-cache.ts):
+// it costs no credits, and "refresh" or a picked model searches again.
 
 import { loadConnections, runAi } from '../_shared/ai.ts';
 import { callMessages } from '../_shared/anthropic.ts';
@@ -42,6 +44,11 @@ import {
   settle,
 } from '../_shared/credits.ts';
 import { requireAiJob } from '../_shared/gate.ts';
+import {
+  readResearch,
+  sharedNote,
+  writeResearch,
+} from '../_shared/research-cache.ts';
 import {
   parseModelChoice,
   providerName,
@@ -96,7 +103,11 @@ Deno.serve(
     ]);
     if (!role) return json(404, { error: 'Role not found' });
 
-    const save = async (research: CompanyResearch, reused: boolean) => {
+    const save = async (
+      research: CompanyResearch,
+      reused: boolean,
+      shared = false,
+    ) => {
       const { error } = await admin
         .from('roles')
         .update({ company_research: research })
@@ -113,9 +124,11 @@ Deno.serve(
           model: research.model,
           provider: research.provider,
           reused,
+          ...(shared ? { shared: true } : {}),
         },
       });
-      return json(200, { research, reused });
+      // shared: reused from Jobbotix's own recent research, not the caller's
+      return json(200, { research, reused, shared });
     };
 
     // 1. Same company researched recently on another role?
@@ -176,6 +189,29 @@ Deno.serve(
     const picked = parseModelChoice(body.model);
     const failures: string[] = [];
 
+    // 1b. Researched with web search on Jobbotix's key, for anyone, in the
+    //     last 30 days? Then there is nothing to search and nothing to charge.
+    //     What this posting says about hiring and risks is added to it.
+    if (!body.refresh && !picked) {
+      const shared = await readResearch(admin, role.company, {
+        site: local.website,
+      });
+      if (shared)
+        return await save(
+          {
+            ...merge(shared.research, {
+              provider: 'anthropic',
+              model: shared.model,
+              webSearch: true,
+              note: sharedNote(role.company, shared.researchedAt),
+            }),
+            researchedAt: shared.researchedAt,
+          },
+          true,
+          true,
+        );
+    }
+
     const logOwn = (model: string, u: Usage) =>
       u.tokensIn || u.tokensOut || u.webSearches
         ? admin.from('ai_usage').insert({
@@ -225,6 +261,13 @@ Deno.serve(
       const out = await withClaude(platform, hold.model);
       if ('research' in out.result) {
         await settle(admin, hold.hold, out.usage);
+        // Paid for from Jobbotix's key: the next account to ask about this
+        // company within 30 days gets it without a search.
+        await writeResearch(admin, role.company, out.result.research, {
+          postingUrl: role.url,
+          webSearch: out.webSearch,
+          model: hold.model,
+        });
         return await save(
           merge(out.result.research, {
             provider: 'anthropic',

@@ -305,14 +305,16 @@ export class CompanyPanel {
     if (this.busy()) return;
     this.busy.set(true);
     try {
-      const { reused } = await this.repo.researchCompany(this.role().id, {
-        model: this.model() || undefined,
-        refresh,
-      });
+      const { reused, shared } = await this.repo.researchCompany(
+        this.role().id,
+        { model: this.model() || undefined, refresh },
+      );
       this.toast.show(
-        reused
-          ? `Used your recent research on ${this.role().company}`
-          : 'Company research ready',
+        shared
+          ? `Used Jobbotix's recent research on ${this.role().company}; no credits used`
+          : reused
+            ? `Used your recent research on ${this.role().company}`
+            : 'Company research ready',
       );
     } catch (e) {
       if (await this.plan.handled(e)) return;

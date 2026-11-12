@@ -479,7 +479,7 @@ export class MemoryRolesRepo extends RolesRepo {
         created_at: now,
       });
     });
-    return { research, reused: false };
+    return { research, reused: false, shared: false };
   }
 
   /** Shared with MemorySearchProfileRepo so one storage key holds everything. */

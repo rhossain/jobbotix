@@ -1847,4 +1847,48 @@ do $$ begin
   delete from public.posting_extractions;
 end $$;
 
+-- 0042: the shared company research is for the Edge Functions alone, and a
+-- row carries no account and no posting.
+insert into public.company_research_cache (company_key, research, model)
+values ('globex', '{"summary": "Globex builds dashboards."}', 'claude-sonnet-5-5');
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  if exists (select 1 from public.company_research_cache) then
+    raise exception 'FAIL: a signed-in user can read the shared research';
+  end if;
+  begin
+    insert into public.company_research_cache (company_key, research) values ('initech', '{"summary": "x"}');
+    raise exception 'FAIL: a signed-in user can write shared research';
+  exception when insufficient_privilege then null;
+  end;
+  update public.company_research_cache set research = '{"summary": "changed"}';
+  delete from public.company_research_cache;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role anon;
+do $$ begin
+  if exists (select 1 from public.company_research_cache) then
+    raise exception 'FAIL: a visitor can read the shared research';
+  end if;
+end $$;
+reset role;
+do $$ begin
+  if (select research ->> 'summary' from public.company_research_cache where company_key = 'globex')
+       is distinct from 'Globex builds dashboards.' then
+    raise exception 'FAIL: a signed-in user changed or removed shared research';
+  end if;
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'company_research_cache'
+                and column_name ~ '(user|role|url)') then
+    raise exception 'FAIL: the shared research names an account or a posting';
+  end if;
+  begin
+    insert into public.company_research_cache (company_key, research) values ('x', '{}');
+    raise exception 'FAIL: a one-letter company key was stored';
+  exception when check_violation then null;
+  end;
+  delete from public.company_research_cache;
+end $$;
+
 \echo RLS tests passed
