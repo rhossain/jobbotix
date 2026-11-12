@@ -1055,6 +1055,73 @@ for (const f of FAMILIES) {
 }
 
 // ---------------------------------------------------------------------------
+// A stack in the title is not the job: a QA engineer who lists C# and Azure
+// is not looking for a C# developer or an Azure DevOps role
+// ---------------------------------------------------------------------------
+
+/** Families close enough that a shared stack makes one a fair match for the other. */
+const GROUPS: Record<string, string> = {
+  software: 'dev',
+  web: 'dev',
+  frontend: 'dev',
+  backend: 'dev',
+  fullstack: 'dev',
+  mobile: 'dev',
+  ios: 'dev',
+  android: 'dev',
+  wordpress: 'dev',
+  devops: 'ops',
+  sysadmin: 'ops',
+  dba: 'ops',
+  'data-engineer': 'data',
+  'data-analyst': 'data',
+  'data-scientist': 'data',
+  ml: 'data',
+};
+const groupOf = (f: Family) => GROUPS[f.id] ?? f.id;
+
+/**
+ * May a posting count as "their kind of job" on a stack alone, when its
+ * title fits none of the target roles? Only when the title is the same broad
+ * kind of work as a target role: a frontend developer may be shown a
+ * full-stack role that names their framework; a QA engineer is not shown
+ * developer, DevOps or Salesforce roles because a tool they use is in the
+ * title. With no usable target role, the stack is all there is, so it counts.
+ */
+export function stackOnlyFits(
+  targetRoles: string[],
+  title: string,
+  stackWords: string[],
+): boolean {
+  const roles = targetRoles
+    .map(parseRole)
+    .filter((r): r is ParsedRole => r !== null);
+  if (!roles.length) return true;
+  const groups = new Set(
+    roles.map((r) =>
+      r.family ? groupOf(r.family) : r.head === 'engineer' ? 'dev' : '',
+    ),
+  );
+  const t = coreWords(title);
+  const titleFamilies = FAMILIES.filter((f) =>
+    f.same.some((p) => containsRun(t, p)),
+  );
+  if (titleFamilies.length)
+    return titleFamilies.some((f) => groups.has(groupOf(f)));
+  // a title no family lists: no speciality the user never named, and the same job word
+  const known = new Set([
+    ...roles.flatMap((r) => r.words),
+    ...stackWords.flatMap((w) => coreWords(w)),
+  ]);
+  if (t.some((w) => STRONG.has(w) && !known.has(w))) return false;
+  // "X Developer" with their tool in it is a developer's job: only a
+  // developer is shown it. Other job words must be the role's own.
+  return roles.some(
+    (r) => t.includes(r.head) && (r.head !== 'engineer' || groups.has('dev')),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Other titles for a designation: what the profile page offers to add
 // ---------------------------------------------------------------------------
 

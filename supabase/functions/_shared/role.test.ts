@@ -595,3 +595,86 @@ Deno.test(
     );
   },
 );
+
+// From the reporting user's real results (12 Nov): six of eight filed roles
+// were developer, DevOps or Salesforce jobs, matched because a tool the user
+// lists was in the title.
+Deno.test(
+  'a stack in the title does not make another profession their job',
+  () => {
+    const qaUser: MatchProfile = {
+      ...sqa,
+      target_roles: [
+        'Senior SQA Engineer II',
+        'Senior Software Quality Assurance Engineer',
+        'Sr. SQA Automation Engineer',
+        'SQA',
+        'QA',
+        'SDET',
+      ],
+      stacks: [
+        'Selenium',
+        'C#',
+        'Azure',
+        'TypeScript',
+        'Salesforce',
+        'Angular',
+        'iOS',
+      ],
+    };
+    for (const title of [
+      'Senior Full-Stack Web Developer (.NET/C#/MongoDB/Angular/Redux) – AI-First, with GDPR Experience',
+      'Senior Integration Engineer, Data/ML Engineer, Product Lead',
+      'Senior Mobile & Platform Engineer - iOS/Android, KMP & DevOps',
+      'Senior Salesforce Developer',
+      'Full Stack Engineer (TypeScript/React/Node)',
+      'Senior DevOps Engineer (Azure)',
+    ])
+      assertEquals(
+        matchPosting(qaUser, posting({ title, tags: ['Selenium'] })).kind,
+        'irrelevant',
+        title,
+      );
+    for (const title of [
+      'Senior QA Automation Engineer',
+      'QA Tester (Future Roles)',
+      'SDET',
+      'Test Engineer (Selenium)',
+    ])
+      assertEquals(
+        matchPosting(qaUser, posting({ title })).kind,
+        'match',
+        title,
+      );
+
+    // a frontend developer is still shown full-stack and plain engineering
+    // roles that name their framework
+    const fe: MatchProfile = {
+      ...sqa,
+      target_roles: ['Senior Angular Developer', 'Senior Frontend Engineer'],
+      stacks: ['Angular', 'TypeScript'],
+      min_seniority: 'senior',
+    };
+    for (const title of [
+      'Senior Full-Stack Engineer (Angular)',
+      'Software Engineer (TypeScript)',
+      'Senior Engineer, Angular',
+    ])
+      assertEquals(matchPosting(fe, posting({ title })).kind, 'match', title);
+    assertEquals(
+      matchPosting(
+        fe,
+        posting({ title: 'Senior DevOps Engineer (TypeScript)' }),
+      ).kind,
+      'irrelevant',
+    );
+    // with no usable target role, the stack is all there is
+    assertEquals(
+      matchPosting(
+        { ...fe, target_roles: [] },
+        posting({ title: 'Senior DevOps Engineer (TypeScript)' }),
+      ).kind,
+      'match',
+    );
+  },
+);

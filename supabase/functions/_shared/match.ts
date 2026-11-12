@@ -11,7 +11,7 @@
 
 import { regionIncludes } from './countries.ts';
 import { stackTerm } from './queries.ts';
-import { bestRoleFit, type RoleFit } from './role.ts';
+import { bestRoleFit, type RoleFit, stackOnlyFits } from './role.ts';
 import { normaliseTitle } from './sources/normalise.ts';
 import type { RemotePolicy } from './sources/types.ts';
 import { formatYearly, meetsMinimum, salaryFrom, yearlyIn } from './salary.ts';
@@ -134,6 +134,10 @@ export function relevance(p: MatchProfile, post: MatchPosting): string | null {
   if (fit) return fit.role;
   const title = normaliseTitle(post.title);
   const tags = post.tags.map((t) => t.toLowerCase()).join(' | ');
+  // A stack alone makes it their kind of job only when the title is the same
+  // broad kind of work as a target role (role.ts, stackOnlyFits): a tool a QA
+  // engineer uses does not make a developer or DevOps role theirs.
+  if (!stackOnlyFits(p.target_roles, post.title, p.stacks)) return null;
   // Any stack in the title counts; in the tags only the primary stack or a
   // frontend framework does: "TypeScript" or "Node" tags sit on countless
   // backend, data and interviewer jobs.
