@@ -9,7 +9,7 @@
 // a user's data.
 
 import { json, requireCronSecret, serviceClient } from '../_shared/auth.ts';
-import { buildQueries, rotateFor } from '../_shared/queries.ts';
+import { buildQueries, planQueries } from '../_shared/queries.ts';
 import { finishPosting } from '../_shared/sources/normalise.ts';
 import { ADAPTERS } from '../_shared/sources/registry.ts';
 import type { CompanyTarget, PoolPosting } from '../_shared/sources/types.ts';
@@ -26,6 +26,11 @@ interface RunSummary {
   warnings: string[];
   error?: string;
 }
+
+/** Sources that search by term, so a new term can be looked up on them. */
+const SEARCHABLE = new Set(['himalayas', 'jobicy', 'adzuna', 'jooble', 'reed']);
+/** How far back those sources page for a term nobody has searched before. */
+const BACKFILL_DAYS = 14;
 
 Deno.serve(async (req) => {
   if (req.method !== 'POST') return json(405, { error: 'POST only' });
@@ -97,6 +102,19 @@ Deno.serve(async (req) => {
     ) || DEFAULT_LOOKBACK_DAYS;
   const runs: RunSummary[] = [];
 
+  // Terms that have never been searched (a new user's designation) go to the
+  // front of every searchable source this run, and those sources page back
+  // two weeks for them, where a normal run pages back about a day.
+  const { data: searchedRow } = await admin
+    .from('settings')
+    .select('value')
+    .eq('key', 'searched_terms')
+    .maybeSingle();
+  const searched = (searchedRow?.value ?? {}) as Record<string, string>;
+  const freshTerms = queries.filter((q) => !(q in searched));
+  // how many of the new terms every searchable source got through this run
+  let freshDone = Infinity;
+
   for (const s of sources ?? []) {
     const started = new Date();
     const adapter = ADAPTERS[s.id];
@@ -115,7 +133,15 @@ Deno.serve(async (req) => {
       const last = s.last_success_at
         ? Date.parse(s.last_success_at) - 86_400_000
         : floor;
-      const since = new Date(Math.max(floor, last));
+      const backfill = freshTerms.length > 0 && SEARCHABLE.has(s.id);
+      const since = new Date(
+        backfill
+          ? Math.min(
+              Math.max(floor, last),
+              Date.now() - BACKFILL_DAYS * 86_400_000,
+            )
+          : Math.max(floor, last),
+      );
 
       const companies =
         s.id === 'ats'
@@ -127,12 +153,14 @@ Deno.serve(async (req) => {
           : undefined;
 
       const result = await adapter.run({
-        // each source starts further along the terms every run (runs are 6 hours apart)
-        queries: rotateFor(
+        // new terms first, then the rest in rotation: each source starts
+        // further along the list every run (runs are 6 hours apart)
+        queries: planQueries(
           queries,
+          searched,
           Math.floor(started.getTime() / (6 * 3_600_000)),
           s.max_requests_per_run,
-        ),
+        ).queries,
         roles,
         since,
         maxRequests: s.max_requests_per_run,
@@ -146,6 +174,8 @@ Deno.serve(async (req) => {
         await admin.rpc('record_company_polls', { p: result.companies });
       run.requests = result.requests;
       run.warnings = result.warnings.slice(0, 10);
+      if (backfill && result.requests > 0)
+        freshDone = Math.min(freshDone, s.max_requests_per_run);
 
       const byKey = new Map<string, PoolPosting>();
       for (const d of result.postings) {
@@ -181,7 +211,24 @@ Deno.serve(async (req) => {
     runs.push(run);
   }
 
-  return json(200, { queries, runs });
+  // Remember the new terms every searchable source reached, so the next run
+  // is an ordinary one for them; the rest go first again next time. The
+  // newest 400 are kept.
+  if (Number.isFinite(freshDone)) {
+    const at = new Date().toISOString();
+    const merged = { ...searched };
+    for (const t of freshTerms.slice(0, freshDone)) merged[t] = at;
+    const kept = Object.fromEntries(
+      Object.entries(merged)
+        .sort((a, b) => String(b[1]).localeCompare(String(a[1])))
+        .slice(0, 400),
+    );
+    await admin
+      .from('settings')
+      .upsert({ key: 'searched_terms', value: kept }, { onConflict: 'key' });
+  }
+
+  return json(200, { queries, freshTerms, runs });
 });
 
 /**

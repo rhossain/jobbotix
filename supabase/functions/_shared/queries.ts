@@ -117,3 +117,26 @@ export function rotateFor(
     (((run * budget) % queries.length) + queries.length) % queries.length;
   return [...queries.slice(start), ...queries.slice(0, start)];
 }
+
+/**
+ * This run's terms for one source: terms nobody has searched before go
+ * first, so a new user's designation is searched at once on every source,
+ * and the rest follow in rotation.
+ */
+export function planQueries(
+  queries: string[],
+  searched: Record<string, unknown>,
+  run: number,
+  budget: number,
+): { queries: string[]; fresh: string[] } {
+  const fresh = queries.filter((q) => !(q in searched));
+  if (!fresh.length) return { queries: rotateFor(queries, run, budget), fresh };
+  const rest = queries.filter((q) => q in searched);
+  return {
+    queries: [
+      ...fresh,
+      ...rotateFor(rest, run, Math.max(1, budget - fresh.length)),
+    ],
+    fresh,
+  };
+}
