@@ -520,6 +520,40 @@ export class MemorySearchProfileRepo extends SearchProfileRepo {
     });
   }
 
+  /** Demo figures in the shape of a real preview. */
+  async previewSearch(roles: string[]) {
+    return adminSearchExplain({
+      days: 14,
+      target_roles: roles,
+      search_terms: roles.map((r) => r.toLowerCase()),
+      warnings: [],
+      pool: 1840,
+      not_relevant: 1622,
+      too_old: 9,
+      needs_country: 0,
+      excluded: [
+        { reason: 'Open to other countries only', count: 84 },
+        { reason: 'Junior or mid-level role', count: 21 },
+      ],
+      low_score: 31,
+      would_file: 73,
+      threshold: 30,
+      by_grade: { exact: 38, variant: 9, partial: 29, described: 4, stack: 24 },
+      by_source: [
+        { source: 'himalayas', pool: 640, matched: 41 },
+        { source: 'remoteok', pool: 310, matched: 19 },
+        { source: 'weworkremotely', pool: 120, matched: 17 },
+        { source: 'jobicy', pool: 350, matched: 0 },
+      ],
+      top: [
+        { title: 'Senior Angular Engineer', company: 'Lumenstack', score: 100 },
+        { title: 'Senior Frontend Engineer', company: 'Northwind', score: 78 },
+        { title: 'Frontend Lead (Angular)', company: 'Kestrel', score: 63 },
+      ],
+      low: [{ title: 'Web Developer', company: 'Brightside', score: 18 }],
+    });
+  }
+
   /** Demo mode has no model: a few well-known jobs, nothing for the rest. */
   async suggestTitles(roles: string[]) {
     const demo: [RegExp, string[]][] = [

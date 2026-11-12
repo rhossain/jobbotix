@@ -124,6 +124,15 @@ export abstract class SearchProfileRepo {
    * Other job titles for each target role: built-in names for common jobs,
    * the model's for the rest (`aiNote` says why when it could not answer).
    */
+  /**
+   * What these roles and stacks would find: the saved profile with them laid
+   * over it, replayed over the last two weeks of postings. Saves nothing.
+   */
+  abstract previewSearch(
+    roles: string[],
+    stacks: string[],
+    minSeniority: string,
+  ): Promise<SearchExplain>;
   abstract suggestTitles(
     roles: string[],
     stacks: string[],

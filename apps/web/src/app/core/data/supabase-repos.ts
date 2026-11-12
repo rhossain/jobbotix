@@ -355,6 +355,22 @@ export class SupabaseSearchProfileRepo extends SearchProfileRepo {
     return data ?? '';
   }
 
+  async previewSearch(roles: string[], stacks: string[], minSeniority: string) {
+    const { data, error } = await this.supabase.functions.invoke<
+      Record<string, unknown>
+    >('preview-search', {
+      body: { target_roles: roles, stacks, min_seniority: minSeniority },
+    });
+    if (error) throw await functionError(error);
+    if (!data || typeof data['pool'] !== 'number')
+      throw new Error(
+        typeof data?.['error'] === 'string'
+          ? data['error']
+          : 'Could not preview the search',
+      );
+    return adminSearchExplain(data);
+  }
+
   async suggestTitles(roles: string[], stacks: string[]) {
     const { data, error } = await this.supabase.functions.invoke<{
       suggestions?: unknown;

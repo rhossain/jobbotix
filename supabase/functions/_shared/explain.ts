@@ -4,6 +4,7 @@
 // the database: how many postings there were, how many were another kind of
 // job, what excluded the rest, and which sources carried the matches.
 
+import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { matchPosting, type MatchPosting, type MatchProfile } from './match.ts';
 import { stackTerm } from './queries.ts';
 import { bestRoleFit, type Grade, parseRole, searchTerm } from './role.ts';
@@ -170,4 +171,63 @@ export function createExplain(
       return res;
     },
   };
+}
+
+/** The columns a search profile contributes to matching. */
+export const PROFILE_COLUMNS =
+  'target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights';
+
+/** A search_profiles row as the match rules read it. */
+// deno-lint-ignore no-explicit-any
+export function toMatchProfile(sp: any): MatchProfile {
+  return {
+    target_roles: sp.target_roles ?? [],
+    stacks: sp.stacks ?? [],
+    languages: sp.languages?.length ? sp.languages : ['english'],
+    employment_types: sp.employment_types ?? ['full_time', 'contract'],
+    remote_rules: sp.remote_rules ?? {},
+    exclusions: sp.exclusions ?? {},
+    home_country: sp.home_country ?? null,
+    allowed_countries: sp.allowed_countries ?? [],
+    remote_only: sp.remote_only !== false,
+    min_seniority: sp.min_seniority ?? null,
+  };
+}
+
+/**
+ * Replays a profile over the last `days` of the pool, a page at a time so a
+ * month of postings never sits in memory at once. Returns an error message
+ * when the pool could not be read.
+ */
+export async function replayPool(
+  admin: SupabaseClient,
+  profile: MatchProfile,
+  weights: Weights,
+  opts: { days: number; threshold: number; maxPostings?: number },
+): Promise<{ result: SearchExplain } | { error: string }> {
+  const explain = createExplain(profile, weights, opts);
+  const since = new Date(Date.now() - opts.days * 86_400_000).toISOString();
+  const PAGE = 400;
+  const max = opts.maxPostings ?? 4000;
+  for (let from = 0; from < max; from += PAGE) {
+    const { data: rows, error } = await admin
+      .from('postings')
+      .select(
+        'title, company, description, tags, location, remote_policy, hiring_countries, hiring_regions, source_country, employment_type, seniority, salary_min, salary_max, salary_currency, salary_text, posted_at, expires_at, posting_sources(source_id)',
+      )
+      .gt('first_seen_at', since)
+      .order('first_seen_at', { ascending: false })
+      .range(from, from + PAGE - 1);
+    if (error) return { error: error.message };
+    explain.add(
+      (rows ?? []).map((r) => ({
+        ...(r as unknown as ExplainPosting),
+        sources: ((r.posting_sources ?? []) as { source_id: string }[]).map(
+          (x) => x.source_id,
+        ),
+      })),
+    );
+    if ((rows ?? []).length < PAGE) break;
+  }
+  return { result: explain.result() };
 }

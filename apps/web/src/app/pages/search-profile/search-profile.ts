@@ -20,6 +20,7 @@ import {
   resolveScoringWeights,
   normaliseResume,
   suggestProfile,
+  type SearchExplain,
   type TitleSuggestion,
   type EmploymentType,
   type ScoringWeights,
@@ -109,10 +110,82 @@ const splitLines = (s: string) =>
               >
                 Suggest other job titles
               </button>
-              <span class="text-xs text-ink-muted"
-                >Employers name the same job in different ways.</span
+              <button
+                type="button"
+                jbButton="ghost"
+                size="sm"
+                [busy]="previewing()"
+                [disabled]="
+                  previewing() || !form.controls.targetRoles.value.trim()
+                "
+                (click)="previewSearch()"
               >
+                Preview what this finds
+              </button>
             </div>
+            <p class="text-xs text-ink-muted">
+              Employers name the same job in different ways. The preview uses
+              the last 14 days of listings and saves nothing.
+            </p>
+            @if (previewError()) {
+              <p class="text-xs text-bad" role="alert">{{ previewError() }}</p>
+            }
+            @if (preview(); as x) {
+              <div
+                class="mt-2 rounded-control border border-line p-3"
+                role="status"
+              >
+                <p class="text-ink">
+                  <b class="font-semibold">{{ x.wouldFile }}</b> of
+                  {{ x.pool }} listings would be added to your roles.
+                  {{ x.notRelevant }} were another kind of job,
+                  {{ previewRuledOut() }} were ruled out by your settings and
+                  {{ x.lowScore }} scored under {{ x.threshold }}.
+                </p>
+                @for (w of x.warnings; track w) {
+                  <p class="mt-1 text-xs text-warn">{{ w }}</p>
+                }
+                @if (x.top.length) {
+                  <p class="mt-3 text-xs font-medium text-ink-muted">
+                    Strongest matches
+                  </p>
+                  <ul class="mt-1 text-xs">
+                    @for (t of x.top.slice(0, 6); track $index) {
+                      <li class="flex justify-between gap-2 py-0.5">
+                        <span>{{ t.title }} · {{ t.company }}</span>
+                        <span class="tabular-nums text-ink-muted">{{
+                          t.score
+                        }}</span>
+                      </li>
+                    }
+                  </ul>
+                } @else {
+                  <p class="mt-2 text-xs text-ink-muted">
+                    Nothing strong enough in the last 14 days. Try "Suggest
+                    other job titles", or check the settings below that rule
+                    listings out.
+                  </p>
+                }
+                @if (x.excluded.length) {
+                  <p class="mt-3 text-xs font-medium text-ink-muted">
+                    Ruled out by
+                  </p>
+                  <ul class="mt-1 text-xs">
+                    @for (e of x.excluded.slice(0, 5); track e.reason) {
+                      <li class="flex justify-between gap-2 py-0.5">
+                        <span>{{ e.reason }}</span>
+                        <span class="tabular-nums text-ink-muted">{{
+                          e.count
+                        }}</span>
+                      </li>
+                    }
+                  </ul>
+                }
+                <p class="mt-3 text-xs text-ink-muted">
+                  Sources with matches: {{ previewSources() }}.
+                </p>
+              </div>
+            }
             @if (titleNote()) {
               <p class="text-xs text-ink-muted" role="status">
                 {{ titleNote() }}
@@ -570,6 +643,18 @@ export class SearchProfile {
 
   readonly saving = signal(false);
   readonly suggesting = signal(false);
+  readonly previewing = signal(false);
+  readonly preview = signal<SearchExplain | null>(null);
+  readonly previewError = signal('');
+  readonly previewRuledOut = computed(() =>
+    (this.preview()?.excluded ?? []).reduce((n, e) => n + e.count, 0),
+  );
+  readonly previewSources = computed(() => {
+    const with_ = (this.preview()?.bySource ?? []).filter((s) => s.matched > 0);
+    return with_.length
+      ? with_.map((s) => `${s.source} ${s.matched}`).join(', ')
+      : 'none yet';
+  });
   readonly titleIdeas = signal<TitleSuggestion[]>([]);
   readonly titleNote = signal('');
   readonly savedAt = signal<number | null>(null);
@@ -577,6 +662,30 @@ export class SearchProfile {
   readonly ingestKey = signal('');
 
   readonly currencies = SALARY_CURRENCIES;
+
+  /** What the roles and stacks in the form would find, before saving. */
+  async previewSearch() {
+    const roles = splitLines(this.form.controls.targetRoles.value);
+    if (!roles.length || this.previewing()) return;
+    this.previewing.set(true);
+    this.previewError.set('');
+    try {
+      this.preview.set(
+        await this.repo.previewSearch(
+          roles,
+          splitLines(this.form.controls.stacks.value),
+          this.form.controls.minSeniority.value,
+        ),
+      );
+    } catch (e) {
+      this.preview.set(null);
+      this.previewError.set(
+        (e as Error).message || 'Could not preview; try again.',
+      );
+    } finally {
+      this.previewing.set(false);
+    }
+  }
 
   /** Other names for each target role, to add with one click. */
   async suggestTitles() {
