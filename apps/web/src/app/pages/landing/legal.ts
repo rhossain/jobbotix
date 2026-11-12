@@ -2,19 +2,29 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 
 /**
  * The facts the Terms and the Refund Policy need about who runs Jobbotix.
- * They are blank on purpose: fill them in (and have someone qualified read
- * both pages) before the pages are published. A blank shows on the page as a
- * marked gap, so it cannot be missed.
+ * A blank shows on the page as a marked gap, so it cannot be missed. Only
+ * `effective` is blank now: it is set on the day the pages are published.
+ * Someone qualified should still read both pages before then.
  */
 export const LEGAL = {
   /** The person or company that runs Jobbotix and is party to the Terms. */
-  operator: '',
-  /** Postal address of the operator. */
-  address: '',
+  operator: 'MD SAZZAD HOSSAIN',
+  /**
+   * Where the operator is based. City and country only for now: replace it
+   * with a full postal address if a payment company or the law asks for one.
+   */
+  address: 'Dhaka, Bangladesh',
   /** Where users write about their account, billing and refunds. */
   email: 'support@jobbotix.com',
   /** The country whose law governs the Terms. */
-  governingLaw: '',
+  governingLaw: 'Bangladesh',
+  /** Where a dispute is heard, unless the user's own law says otherwise. */
+  courts: 'Dhaka, Bangladesh',
+  /**
+   * The company that takes payments as merchant of record. Named in one
+   * place because the choice is not final until its review accepts Jobbotix.
+   */
+  paymentProvider: 'Polar',
   /** The date these pages take effect, e.g. "1 December 2026". */
   effective: '',
 };
@@ -23,8 +33,10 @@ export const LEGAL = {
 @Component({
   selector: 'jb-legal-fact',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // The value sits in a span so the template's own line breaks are dropped
+  // and a comma or full stop after the fact stays attached to it.
   template: `@if (value()) {
-      {{ value() }}
+      <span>{{ value() }}</span>
     } @else {
       <mark class="rounded-sm bg-warn-tint px-1 text-warn"
         >[to fill in: {{ what() }}]</mark

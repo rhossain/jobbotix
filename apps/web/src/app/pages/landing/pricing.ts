@@ -9,7 +9,7 @@ import {
 } from '@jobbotix/shared-types';
 import { RESUME_TEMPLATES } from '../../shared/resume-templates';
 import { Button, Icon } from '../../ui';
-import { DraftNote } from './legal';
+import { DraftNote, LEGAL } from './legal';
 import { REFUND_RULES } from './refunds';
 
 interface CompareRow {
@@ -87,10 +87,7 @@ export const PLANNED_FOR_PRO = [
         adds AI credits, so letters, tailored resumes and company research work
         without a key of your own.
       </p>
-      <jb-draft-note>
-        Checkout is not connected yet, and rows marked "to confirm" are
-        proposals.
-      </jb-draft-note>
+      <jb-draft-note> Checkout is not connected yet. </jb-draft-note>
 
       <!-- Plans -->
       <div class="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -224,9 +221,6 @@ export const PLANNED_FOR_PRO = [
                 <tr class="border-t border-line">
                   <th class="py-2.5 pr-4 text-left font-normal" scope="row">
                     {{ p.label }}
-                    @if (!p.confirmed) {
-                      <span class="jb-tag jb-tag-warn ml-1">to confirm</span>
-                    }
                   </th>
                   <td class="py-2.5 pr-4 text-right tabular-nums">
                     {{ p.credits }}
@@ -309,7 +303,7 @@ export class Pricing {
     },
     {
       q: 'Who takes the payment?',
-      a: 'Polar, the payment company Jobbotix sells through. It takes the payment, adds any tax and sends the invoice. Jobbotix never sees your card number.',
+      a: `${LEGAL.paymentProvider}, the payment company Jobbotix sells through. It takes the payment, adds any tax and sends the invoice. Jobbotix never sees your card number.`,
     },
   ];
 

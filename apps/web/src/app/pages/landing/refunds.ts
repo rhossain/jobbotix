@@ -8,21 +8,21 @@ import { DraftNote, LEGAL, LegalFact } from './legal';
  */
 export const REFUND_RULES = {
   /** Days after the first Pro payment in which it is refunded on request. */
-  firstPaymentDays: 7,
+  firstPaymentDays: 14,
   /** A first-payment refund is in full when no more credits than this were used. */
   firstPaymentCredits: 100,
   /** Days after a renewal in which it is refunded if no credit was used since. */
-  renewalDays: 3,
+  renewalDays: 7,
   /** Days after a top-up in which it is refunded if none of it was used. */
-  topUpDays: 7,
+  topUpDays: 14,
   /** Working days within which a refund request is answered. */
   answerWorkingDays: 3,
 } as const;
 
 /**
  * Refund Policy. A draft: the route exists in development builds only until
- * the rules above are confirmed, the facts in legal.ts are filled in and
- * billing goes live (subscription TODO, section 7).
+ * the effective date in legal.ts is set and billing goes live (subscription
+ * TODO, section 7). The rules above were settled on 12 Nov 2026.
  */
 @Component({
   selector: 'jb-refunds',
@@ -40,7 +40,8 @@ export const REFUND_RULES = {
         When you get your money back, and how to ask.
       </p>
       <jb-draft-note>
-        The day counts and the credit limit below are proposals to confirm.
+        Have a lawyer read it before publishing. The date at the foot is set on
+        the day it goes live.
       </jb-draft-note>
 
       <h2 class="mt-10 text-xl font-semibold">The short version</h2>
@@ -96,9 +97,9 @@ export const REFUND_RULES = {
         <jb-legal-fact [value]="legal.email" what="contact email" /> from the
         email address on your account and say which payment. You get an answer
         within {{ r.answerWorkingDays }} working days. Refunds go back through
-        Polar, which handles Jobbotix's payments, to the card or method you paid
-        with; your bank can take 5 to 10 working days to show it. A refund ends
-        Pro on the account straight away.
+        {{ legal.paymentProvider }}, which handles Jobbotix's payments, to the
+        card or method you paid with; your bank can take 5 to 10 working days to
+        show it. A refund ends Pro on the account straight away.
       </p>
 
       <p class="mt-8 text-sm text-ink-muted">

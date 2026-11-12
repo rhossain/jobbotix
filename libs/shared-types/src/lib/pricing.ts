@@ -28,8 +28,6 @@ export interface CreditPrice {
   label: string;
   /** 0 = not metered. */
   credits: number;
-  /** Decided in the plan; false = proposed here and still to confirm. */
-  confirmed: boolean;
 }
 
 /**
@@ -37,40 +35,35 @@ export interface CreditPrice {
  * credits). Roughly one credit per $0.012 of model cost at list prices.
  */
 export const CREDIT_PRICES: CreditPrice[] = [
-  { job: 'score', label: 'Scoring a posting', credits: 0, confirmed: true },
+  { job: 'score', label: 'Scoring a posting', credits: 0 },
   {
     job: 'extract',
     label: 'Reading a posting you add',
     credits: 0,
-    confirmed: true,
   },
-  { job: 'letter', label: 'Cover letter', credits: 3, confirmed: true },
-  { job: 'tailor', label: 'Tailored resume', credits: 5, confirmed: true },
-  { job: 'prep', label: 'Interview prep sheet', credits: 5, confirmed: true },
+  { job: 'letter', label: 'Cover letter', credits: 3 },
+  { job: 'tailor', label: 'Tailored resume', credits: 5 },
+  { job: 'prep', label: 'Interview prep sheet', credits: 5 },
   {
     job: 'research',
     label: 'Company research with web search',
     credits: 15,
-    confirmed: true,
   },
   {
     job: 'answer',
     label: 'Screening answers for a role',
     credits: 2,
-    confirmed: false,
   },
   {
     job: 'import',
     label: 'Reading a resume file with AI',
     credits: 5,
-    confirmed: false,
   },
-  { job: 'thank_you', label: 'Thank-you note', credits: 1, confirmed: false },
+  { job: 'thank_you', label: 'Thank-you note', credits: 1 },
   {
     job: 'message',
     label: 'Message to a contact',
     credits: 1,
-    confirmed: false,
   },
 ];
 

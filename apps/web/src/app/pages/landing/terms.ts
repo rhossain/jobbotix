@@ -5,7 +5,7 @@ import { DraftNote, LEGAL, LegalFact } from './legal';
 
 /**
  * Terms of Service. A draft: the route exists in development builds only
- * until the facts in legal.ts are filled in, someone qualified has read it,
+ * until the effective date in legal.ts is set, someone qualified has read it,
  * and billing goes live (subscription TODO, section 7).
  */
 @Component({
@@ -24,7 +24,8 @@ import { DraftNote, LEGAL, LegalFact } from './legal';
         The agreement between you and Jobbotix, in plain words.
       </p>
       <jb-draft-note>
-        Fill in the marked gaps and have a lawyer read it before publishing.
+        Have a lawyer read it before publishing. The date at the foot is set on
+        the day it goes live.
       </jb-draft-note>
 
       <h2 class="mt-10 text-xl font-semibold">Who you are dealing with</h2>
@@ -93,9 +94,9 @@ import { DraftNote, LEGAL, LegalFact } from './legal';
           checkout is the price you pay; taxes may be added where they apply.
         </li>
         <li>
-          Payments are handled by Polar, which sells Pro to you as the merchant
-          of record: it takes the payment, adds any tax and sends the invoice.
-          Jobbotix never sees your card number.
+          Payments are handled by {{ legal.paymentProvider }}, which sells Pro
+          to you as the merchant of record: it takes the payment, adds any tax
+          and sends the invoice. Jobbotix never sees your card number.
         </li>
         <li>
           Pro renews at the end of each period until you cancel. You can cancel
@@ -183,17 +184,17 @@ import { DraftNote, LEGAL, LegalFact } from './legal';
         Jobbotix is provided as it is. To the extent the law allows, Jobbotix is
         not liable for lost job opportunities, lost income or other indirect
         losses, and its total liability to you is limited to what you paid for
-        Jobbotix in the three months before the claim. Nothing here limits
-        rights the law says cannot be limited, including your rights as a
-        consumer.
+        Jobbotix in the 12 months before the claim. Nothing here limits rights
+        the law says cannot be limited, including your rights as a consumer.
       </p>
 
       <h2 class="mt-10 text-xl font-semibold">Law</h2>
       <p class="mt-2">
         These terms are governed by the law of
-        <jb-legal-fact [value]="legal.governingLaw" what="country" />. If you
-        are a consumer, the protections of the law where you live still apply to
-        you.
+        <jb-legal-fact [value]="legal.governingLaw" what="country" />, and a
+        dispute is heard by the courts of {{ legal.courts }}. If you are a
+        consumer, the protections of the law where you live still apply to you,
+        and so does any right it gives you to use your own courts.
       </p>
 
       <h2 class="mt-10 text-xl font-semibold">Changes to these terms</h2>
