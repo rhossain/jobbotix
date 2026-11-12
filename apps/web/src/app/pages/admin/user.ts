@@ -18,6 +18,7 @@ import {
   planLine,
   providerName,
   type AdminUserDetail,
+  type RoleRecheck,
   type SearchExplain,
   type AiJob,
 } from '@jobbotix/shared-types';
@@ -360,6 +361,57 @@ export function cents(amount: number, currency = 'usd'): string {
                 </ul>
               }
             }
+            <h3 class="mt-6 text-sm font-semibold text-ink">
+              Filed roles that no longer match
+            </h3>
+            <p class="mt-1 text-sm text-ink-muted">
+              Roles Jobbotix filed for this account that today's rules would
+              call another kind of job. Only roles they have not touched: still
+              New, no notes, nothing drafted. Moving them to Skipped deletes
+              nothing; they can move any of them back.
+            </p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                jbButton="ghost"
+                size="sm"
+                [busy]="busy() === 'recheck'"
+                [disabled]="!!busy()"
+                (click)="recheck(false)"
+              >
+                Find them
+              </button>
+              @if (stale(); as st) {
+                @if (st.count && !st.applied) {
+                  <button
+                    type="button"
+                    jbButton
+                    size="sm"
+                    [busy]="busy() === 'recheck'"
+                    [disabled]="!!busy()"
+                    (click)="recheck(true)"
+                  >
+                    Move {{ st.count }} to Skipped
+                  </button>
+                }
+              }
+            </div>
+            @if (stale(); as st) {
+              <p class="mt-3 text-sm text-ink" role="status">
+                @if (st.applied) {
+                  Moved {{ st.count }} of {{ st.checked }} untouched roles to
+                  Skipped.
+                } @else {
+                  {{ st.count }} of {{ st.checked }} untouched roles no longer
+                  match.
+                }
+              </p>
+              <ul class="mt-1 divide-y divide-line text-sm">
+                @for (r of st.roles; track $index) {
+                  <li class="py-2">{{ r.title }} · {{ r.company }}</li>
+                }
+              </ul>
+            }
           }
           @case ('activity') {
             <dl class="grid grid-cols-1 gap-x-8 gap-y-3 text-sm sm:grid-cols-2">
@@ -621,10 +673,18 @@ export class AdminUser {
   readonly error = signal('');
   readonly actionError = signal('');
   readonly busy = signal<
-    '' | 'plan' | 'credits' | 'link' | 'suspend' | 'delete' | 'explain'
+    | ''
+    | 'plan'
+    | 'credits'
+    | 'link'
+    | 'suspend'
+    | 'delete'
+    | 'explain'
+    | 'recheck'
   >('');
   readonly tab = signal<TabId>('account');
   readonly search = signal<SearchExplain | null>(null);
+  readonly stale = signal<RoleRecheck | null>(null);
   readonly searchFacts = computed(() => {
     const x = this.search();
     if (!x) return [];
@@ -761,6 +821,7 @@ export class AdminUser {
       untracked(() => {
         this.detail.set(null);
         this.search.set(null);
+        this.stale.set(null);
         void this.load();
       });
     });
@@ -836,6 +897,12 @@ export class AdminUser {
     });
   }
 
+  async recheck(apply: boolean) {
+    await this.run('recheck', async () => {
+      this.stale.set(await this.repo.recheckRoles(this.id(), apply));
+    });
+  }
+
   async explain() {
     await this.run('explain', async () => {
       this.search.set(await this.repo.explainSearch(this.id()));
@@ -906,7 +973,7 @@ export class AdminUser {
 
   /** One action at a time; the account is read again when it worked. */
   private async run(
-    what: 'plan' | 'credits' | 'link' | 'suspend' | 'explain',
+    what: 'plan' | 'credits' | 'link' | 'suspend' | 'explain' | 'recheck',
     action: () => Promise<void>,
   ) {
     if (this.busy()) return;

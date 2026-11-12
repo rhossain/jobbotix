@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import {
   ATS_LABEL,
   adminMoney,
+  adminRoleRecheck,
   adminSearchExplain,
   titleSuggestions,
   adminUserDetail,
@@ -1088,6 +1089,12 @@ export class SupabaseAdminRepo extends AdminRepo {
   async explainSearch(userId: string, days = 14) {
     return adminSearchExplain(
       await this.console({ action: 'explain_search', userId, days }),
+    );
+  }
+
+  async recheckRoles(userId: string, apply: boolean) {
+    return adminRoleRecheck(
+      await this.console({ action: 'recheck_roles', userId, apply }),
     );
   }
 

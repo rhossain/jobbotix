@@ -30,6 +30,7 @@ import {
   type AiRouteInfo,
   type ProAiAdmin,
   adminMoney,
+  adminRoleRecheck,
   adminSearchExplain,
   titleSuggestions,
   adminUserDetail,
@@ -1710,6 +1711,19 @@ export class MemoryAdminRepo extends AdminRepo {
 
   async sendLoginLink(userId: string) {
     this.record(userId, 'send_login_link');
+  }
+
+  async recheckRoles(userId: string, apply: boolean) {
+    this.record(userId, 'recheck_roles', { found: 2, applied: apply });
+    return adminRoleRecheck({
+      checked: 14,
+      count: 2,
+      applied: apply,
+      roles: [
+        { title: 'Senior DevOps Engineer (Azure)', company: 'Proxify' },
+        { title: 'Senior Salesforce Developer', company: 'Proxify' },
+      ],
+    });
   }
 
   /** Demo figures: the shape of a real answer, for the sample accounts. */

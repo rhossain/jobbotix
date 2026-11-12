@@ -362,6 +362,29 @@ export interface SearchExplain {
   low: { title: string; company: string; score: number }[];
 }
 
+/** Filed roles the current rules would call another kind of job (admin-users, "recheck_roles"). */
+export interface RoleRecheck {
+  /** Untouched, matcher-filed roles that were looked at. */
+  checked: number;
+  count: number;
+  /** True when they were moved to Skipped by this call. */
+  applied: boolean;
+  roles: { title: string; company: string }[];
+}
+
+export function adminRoleRecheck(v: unknown): RoleRecheck {
+  const o = obj(v);
+  return {
+    checked: num(o['checked']),
+    count: num(o['count']),
+    applied: o['applied'] === true,
+    roles: arr(o['roles']).map((r) => ({
+      title: str(r['title']),
+      company: str(r['company']),
+    })),
+  };
+}
+
 export function adminSearchExplain(v: unknown): SearchExplain {
   const o = obj(v);
   const strs = (x: unknown) =>
@@ -425,6 +448,10 @@ export function auditLabel(action: string, detail: Record<string, unknown>) {
       return 'Suspension lifted';
     case 'send_login_link':
       return 'Sent a sign-in link';
+    case 'recheck_roles':
+      return detail['applied'] === true
+        ? `Moved ${num(detail['found'])} filed roles that no longer match to Skipped`
+        : 'Checked filed roles against the current rules';
     case 'explain_search':
       return 'Checked why their search finds what it finds';
     case 'delete_account':

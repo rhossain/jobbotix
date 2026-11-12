@@ -4,6 +4,7 @@
 //   { "action": "export", ...the same filters }       every match, for the CSV
 //   { "action": "get", "userId": "..." }               one account
 //   { "action": "explain_search", "userId": "...", "days"?: 14 }   why their search finds what it finds
+//   { "action": "recheck_roles", "userId": "...", "apply"?: true }   filed roles the current rules reject; apply moves them to Skipped
 //   { "action": "money" }                              revenue, subscriptions, AI spend
 //   { "action": "suspend", "userId": "...", "reason": "..." }
 //   { "action": "unsuspend", "userId": "..." }
@@ -22,6 +23,7 @@ import {
   replayPool,
   toMatchProfile,
 } from '../_shared/explain.ts';
+import { relevance } from '../_shared/match.ts';
 import { resolveWeights } from '../_shared/score.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { deleteAccount } from '../_shared/account.ts';
@@ -226,6 +228,92 @@ Deno.serve(
       if ('error' in replay) return json(500, { error: replay.error });
       await audit('explain_search', userId, { days }, 10);
       return json(200, replay.result);
+    }
+
+    if (action === 'recheck_roles') {
+      // Roles the matcher filed that today's rules would call another kind
+      // of job. Only roles the user has not touched: still New, no notes,
+      // nothing drafted. With apply they move to Skipped (the user can move
+      // them back); nothing is deleted.
+      const { data: sp } = await admin
+        .from('search_profiles')
+        .select(PROFILE_COLUMNS)
+        .eq('user_id', userId)
+        .eq('active', true)
+        .maybeSingle();
+      if (!sp) return json(404, { error: 'No active search profile' });
+      const profile = toMatchProfile(sp);
+      const { data: roles, error: rolesErr } = await admin
+        .from('roles')
+        .select('id, title, company, posting_id')
+        .eq('user_id', userId)
+        .eq('status', 'new')
+        .eq('notes', '')
+        .not('posting_id', 'is', null)
+        .limit(1000);
+      if (rolesErr) return json(500, { error: rolesErr.message });
+      const ids = (roles ?? []).map((r) => r.id);
+      const postingIds = [...new Set((roles ?? []).map((r) => r.posting_id))];
+      const [{ data: touched }, { data: posts }] = await Promise.all([
+        ids.length
+          ? admin
+              .from('role_events')
+              .select('role_id')
+              .in('role_id', ids)
+              .in('kind', ['note', 'generated', 'reminder'])
+          : Promise.resolve({ data: [] as { role_id: string }[] }),
+        postingIds.length
+          ? admin
+              .from('postings')
+              .select('id, title, tags, description')
+              .in('id', postingIds)
+          : Promise.resolve({
+              data: [] as {
+                id: string;
+                title: string;
+                tags: string[];
+                description: string;
+              }[],
+            }),
+      ]);
+      const used = new Set((touched ?? []).map((t) => t.role_id));
+      const byId = new Map((posts ?? []).map((p) => [p.id, p]));
+      const stale = (roles ?? []).filter((r) => {
+        const p = byId.get(r.posting_id);
+        return (
+          p &&
+          !used.has(r.id) &&
+          relevance(profile, {
+            title: p.title,
+            tags: p.tags ?? [],
+            description: p.description ?? '',
+          }) === null
+        );
+      });
+      const apply = body['apply'] === true;
+      if (apply && stale.length) {
+        const { error } = await admin
+          .from('roles')
+          .update({ status: 'skipped' })
+          .in(
+            'id',
+            stale.map((r) => r.id),
+          )
+          .eq('status', 'new');
+        if (error) return json(500, { error: error.message });
+      }
+      await audit('recheck_roles', userId, {
+        found: stale.length,
+        applied: apply,
+      });
+      return json(200, {
+        checked: (roles ?? []).length,
+        applied: apply,
+        roles: stale
+          .slice(0, 100)
+          .map((r) => ({ title: r.title, company: r.company })),
+        count: stale.length,
+      });
     }
 
     if (action === 'suspend' || action === 'unsuspend') {

@@ -2,6 +2,7 @@ import type { Signal } from '@angular/core';
 import type {
   AdminMoney,
   AdminUserDetail,
+  RoleRecheck,
   SearchExplain,
   TitleSuggestion,
   AdminUserFilters,
@@ -462,6 +463,11 @@ export abstract class AdminRepo {
    * over the last `days` of postings. Reads only the search profile; audited.
    */
   abstract explainSearch(userId: string, days?: number): Promise<SearchExplain>;
+  /**
+   * Filed roles the account has not touched that the current rules would not
+   * file. With `apply` they move to Skipped; nothing is deleted. Audited.
+   */
+  abstract recheckRoles(userId: string, apply: boolean): Promise<RoleRecheck>;
   abstract money(): Promise<AdminMoney>;
   /** Blocks sign-in, AI calls and scheduled matching for the account. */
   abstract suspend(userId: string, reason: string): Promise<void>;

@@ -120,7 +120,10 @@ const bool = (v: unknown, fallback: boolean) =>
   typeof v === 'boolean' ? v : fallback;
 
 /** How a posting's title fits one of the profile's target roles, if it does. */
-export function roleFit(p: MatchProfile, post: MatchPosting): RoleFit | null {
+export function roleFit(
+  p: Pick<MatchProfile, 'target_roles'>,
+  post: Pick<MatchPosting, 'title' | 'tags' | 'description'>,
+): RoleFit | null {
   return bestRoleFit(
     p.target_roles,
     post.title,
@@ -129,7 +132,10 @@ export function roleFit(p: MatchProfile, post: MatchPosting): RoleFit | null {
 }
 
 /** The target role or stack that makes a posting "their kind of job". */
-export function relevance(p: MatchProfile, post: MatchPosting): string | null {
+export function relevance(
+  p: Pick<MatchProfile, 'target_roles' | 'stacks'>,
+  post: Pick<MatchPosting, 'title' | 'tags' | 'description'>,
+): string | null {
   const fit = roleFit(p, post);
   if (fit) return fit.role;
   const title = normaliseTitle(post.title);
