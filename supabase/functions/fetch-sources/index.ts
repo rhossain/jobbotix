@@ -9,7 +9,7 @@
 // a user's data.
 
 import { json, requireCronSecret, serviceClient } from '../_shared/auth.ts';
-import { buildQueries } from '../_shared/queries.ts';
+import { buildQueries, rotateFor } from '../_shared/queries.ts';
 import { finishPosting } from '../_shared/sources/normalise.ts';
 import { ADAPTERS } from '../_shared/sources/registry.ts';
 import type { CompanyTarget, PoolPosting } from '../_shared/sources/types.ts';
@@ -127,7 +127,12 @@ Deno.serve(async (req) => {
           : undefined;
 
       const result = await adapter.run({
-        queries,
+        // each source starts further along the terms every run (runs are 6 hours apart)
+        queries: rotateFor(
+          queries,
+          Math.floor(started.getTime() / (6 * 3_600_000)),
+          s.max_requests_per_run,
+        ),
         roles,
         since,
         maxRequests: s.max_requests_per_run,

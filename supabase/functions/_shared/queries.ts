@@ -81,7 +81,7 @@ export interface QueryProfile {
 }
 
 /** Up to `max` distinct search terms across all profiles, most common first. */
-export function buildQueries(profiles: QueryProfile[], max = 12): string[] {
+export function buildQueries(profiles: QueryProfile[], max = 60): string[] {
   const count = new Map<string, number>();
   const add = (q: string) => count.set(q, (count.get(q) ?? 0) + 1);
   for (const p of profiles) {
@@ -99,4 +99,21 @@ export function buildQueries(profiles: QueryProfile[], max = 12): string[] {
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, max)
     .map(([q]) => q);
+}
+
+/**
+ * The terms one source searches this run. A source with a small request
+ * budget only gets through the first few terms, so each run starts further
+ * along the list: over a day or two every user's designation is searched on
+ * every source, not only the most common ones.
+ */
+export function rotateFor(
+  queries: string[],
+  run: number,
+  budget: number,
+): string[] {
+  if (queries.length <= budget || !queries.length) return queries;
+  const start =
+    (((run * budget) % queries.length) + queries.length) % queries.length;
+  return [...queries.slice(start), ...queries.slice(0, start)];
 }

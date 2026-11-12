@@ -22,6 +22,7 @@ import {
   toIso,
 } from './normalise.ts';
 import type { AdapterContext, DraftPosting, SourceAdapter } from './types.ts';
+import { anyRoleWants } from '../role.ts';
 
 // ---------------------------------------------------------------------------
 // RSS (just enough for job feeds: <item> blocks, plain or CDATA fields)
@@ -118,7 +119,10 @@ export interface HnComment {
   created_at_i?: number;
 }
 
-export function parseHnComment(c: HnComment): DraftPosting | null {
+export function parseHnComment(
+  c: HnComment,
+  roles: string[] = [],
+): DraftPosting | null {
   const html = c.text ?? '';
   if (!html) return null;
   const decoded = decodeEntities(html);
@@ -136,7 +140,15 @@ export function parseHnComment(c: HnComment): DraftPosting | null {
     .replace(URLISH, '')
     .trim()
     .slice(0, 200);
-  const titlePart = parts.slice(1).find((p) => ROLE.test(p) && !SALARY.test(p));
+  // a header part that names a job: the usual tech roles, or any role some
+  // user is looking for (a nurse, an accountant)
+  const titlePart = parts
+    .slice(1)
+    .find(
+      (p) =>
+        !SALARY.test(p) &&
+        (ROLE.test(p) || (roles.length > 0 && anyRoleWants(roles, p))),
+    );
   if (!company || !titlePart) return null;
 
   const rest = parts.slice(1).filter((p) => p !== titlePart);
@@ -241,7 +253,10 @@ export const hn: SourceAdapter = {
       const item = (await f.json(
         `https://hn.algolia.com/api/v1/items/${thread.objectID}`,
       )) as { children?: HnComment[] } | null;
-      posts = keepRecent((item?.children ?? []).map(parseHnComment), ctx.since);
+      posts = keepRecent(
+        (item?.children ?? []).map((c) => parseHnComment(c, ctx.roles)),
+        ctx.since,
+      );
     }
     f.assertSomeSucceeded('Hacker News');
     return {

@@ -546,3 +546,17 @@ Deno.test('company careers keep any title some user is looking for', () => {
   assert(wanted('Senior Product Manager', ['angular'], ['Product Manager']));
   assert(!wanted('Head of People', ['angular'], ['Product Manager']));
 });
+
+Deno.test(
+  'Hacker News keeps a post whose header names a role some user wants',
+  async () => {
+    const { parseHnComment } = await import('./sources/feeds.ts');
+    const c = {
+      id: 1,
+      text: 'Carewell | Registered Nurse | Remote (US) | Full-time<p>Telehealth team.',
+      created_at: '2026-11-10T00:00:00Z',
+    };
+    assertEquals(parseHnComment(c), null);
+    assertEquals(parseHnComment(c, ['Nurse'])?.title, 'Registered Nurse');
+  },
+);

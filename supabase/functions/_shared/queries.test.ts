@@ -1,5 +1,5 @@
 import { deepStrictEqual as assertEquals } from 'node:assert';
-import { buildQueries, roleKeywords, stackTerm } from './queries.ts';
+import { buildQueries, roleKeywords, rotateFor, stackTerm } from './queries.ts';
 
 Deno.test('roleKeywords keeps what the job is, not its level', () => {
   assertEquals(roleKeywords('Senior Angular Developer'), ['angular']);
@@ -39,4 +39,17 @@ Deno.test('buildQueries merges profiles, most shared first, capped', () => {
     ),
     ['solid', 'svelte'],
   );
+});
+
+Deno.test('rotateFor: a small budget reaches every term across runs', () => {
+  const q = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  assertEquals(rotateFor(q, 0, 3), q);
+  assertEquals(rotateFor(q, 1, 3).slice(0, 3), ['d', 'e', 'f']);
+  assertEquals(rotateFor(q, 2, 3).slice(0, 3), ['g', 'a', 'b']);
+  const seen = new Set<string>();
+  for (let run = 0; run < 3; run++)
+    for (const t of rotateFor(q, run, 3).slice(0, 3)) seen.add(t);
+  assertEquals(seen.size, q.length);
+  // a budget that covers everything changes nothing
+  assertEquals(rotateFor(q, 5, 10), q);
 });

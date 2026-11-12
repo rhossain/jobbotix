@@ -47,6 +47,8 @@ interface Sourcing {
   ai_min_heuristic_score: number;
   triage_model: string;
   lookback_days: number;
+  /** How far back the pool is matched: for a new or just-changed profile, and after a long pause. */
+  first_match_days: number;
 }
 
 const DEFAULT_SOURCING: Sourcing = {
@@ -56,6 +58,7 @@ const DEFAULT_SOURCING: Sourcing = {
   ai_min_heuristic_score: 40,
   triage_model: FAST_MODEL,
   lookback_days: 3,
+  first_match_days: 30,
 };
 
 type PostingWithSources = MatchPosting & {
@@ -183,7 +186,11 @@ async function matchForUser(
 
   // The watermark is used as Postgres wrote it (microseconds): a JS Date
   // would round it down and re-read the last posting every hour.
-  const floor = new Date(now.getTime() - cfg.lookback_days * 86_400_000);
+  // A profile that is new or was just changed (last_matched_at cleared) is
+  // judged against the pool it already holds, weeks back, so a new
+  // designation gets results at once. The pool is read oldest first, 800
+  // postings a run, and the watermark carries the catch-up from hour to hour.
+  const floor = new Date(now.getTime() - cfg.first_match_days * 86_400_000);
   const since =
     p.last_matched_at && Date.parse(p.last_matched_at) >= floor.getTime()
       ? p.last_matched_at
