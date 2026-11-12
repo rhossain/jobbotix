@@ -46,4 +46,31 @@ describe('summariseRuns', () => {
     ).toBeNull();
     expect(summariseRuns([], now)).toBeNull();
   });
+
+  it('adds up what the matcher reports about the listings it passed over', () => {
+    const r = summariseRuns(
+      [
+        ev('2026-11-07T05:50:00Z', {
+          searched: 400,
+          added: 5,
+          excluded: 30,
+          notRelevant: 350,
+          lowMatch: 8,
+        }),
+        ev('2026-11-07T04:50:00Z', {
+          searched: 100,
+          added: 1,
+          excluded: 4,
+          notRelevant: 90,
+          lowMatch: 0,
+        }),
+        // an older reporter that does not count them
+        ev('2026-11-07T03:50:00Z', { searched: 10, added: 0, excluded: 1 }),
+      ],
+      now,
+    );
+    expect(r?.notRelevant).toBe(440);
+    expect(r?.lowMatch).toBe(8);
+    expect(r?.searched).toBe(510);
+  });
 });

@@ -32,6 +32,10 @@ export function summariseRuns(
       searched: Number(r.p['searched'] ?? 0) || 0,
       added: Number(r.p['added'] ?? 0) || 0,
       excluded: Number(r.p['excluded'] ?? 0) || 0,
+      // reported by Jobbotix's own matcher since the designation rework
+      notRelevant:
+        typeof r.p['notRelevant'] === 'number' ? r.p['notRelevant'] : null,
+      lowMatch: typeof r.p['lowMatch'] === 'number' ? r.p['lowMatch'] : null,
     }))
     .sort((a, b) => b.at.localeCompare(a.at));
   if (!runs.length) return null;
@@ -46,5 +50,11 @@ export function summariseRuns(
     added: use.reduce((n, r) => n + r.added, 0),
     excluded: use.reduce((n, r) => n + r.excluded, 0),
     runs: use.length,
+    ...(use.some((r) => r.notRelevant !== null)
+      ? { notRelevant: use.reduce((n, r) => n + (r.notRelevant ?? 0), 0) }
+      : {}),
+    ...(use.some((r) => r.lowMatch !== null)
+      ? { lowMatch: use.reduce((n, r) => n + (r.lowMatch ?? 0), 0) }
+      : {}),
   };
 }

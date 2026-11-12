@@ -104,6 +104,10 @@ export interface RunSummary {
   excluded: number;
   /** How many runs this sums (Jobbotix matches hourly; a scheduled task once a day). */
   runs: number;
+  /** Listings that were another kind of job; present once a run reports it. */
+  notRelevant?: number;
+  /** Of the excluded, those that were the right job but scored too low. */
+  lowMatch?: number;
 }
 
 /** One board a posting was seen on, with the page to credit and open. */

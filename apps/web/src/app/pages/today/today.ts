@@ -81,7 +81,7 @@ interface Reminder {
         @if (run(); as r) {
           {{ runPhrase() }} reviewed {{ r.searched }} listings and added
           <b class="font-semibold text-ink">{{ r.added }}</b>
-          worth a look; {{ r.excluded }} were excluded.
+          worth a look; {{ r.excluded }} were excluded{{ passedOver() }}.
         } @else {
           Nothing has been searched yet. Jobbotix checks job boards several
           times a day; new roles appear here within the hour.
@@ -468,6 +468,20 @@ export class Today {
     if (rel === 'today') return `Today's ${time} run`;
     if (rel === 'yesterday') return `Yesterday's ${time} run`;
     return `The run ${rel}`;
+  });
+
+  /** ", 8 of them a close match that scored low. 440 were another kind of job" when the run reports it. */
+  readonly passedOver = computed(() => {
+    const r = this.run();
+    if (!r) return '';
+    const low = r.lowMatch
+      ? `, ${r.lowMatch} of them the right job with a low score`
+      : '';
+    const other =
+      r.notRelevant !== undefined
+        ? `. ${r.notRelevant} were another kind of job`
+        : '';
+    return `${low}${other}`;
   });
 
   readonly fresh = computed(() =>
