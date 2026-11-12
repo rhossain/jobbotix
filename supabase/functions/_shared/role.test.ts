@@ -560,3 +560,38 @@ Deno.test(
     assertEquals(parseHnComment(c, ['Nurse'])?.title, 'Registered Nurse');
   },
 );
+
+Deno.test(
+  'other titles: from the family when it is known, cleaned when a model answers',
+  async () => {
+    const { familyTitles, cleanTitles, variantsPrompt } =
+      await import('./role.ts');
+    const qa = familyTitles('SQA Engineer');
+    assert(qa.known && qa.source === 'family');
+    assert(
+      qa.titles.includes('Test Automation Engineer') &&
+        qa.titles.includes('Software Tester'),
+    );
+    assert(!qa.titles.some((t) => /^(s)?qa engineer$/i.test(t)));
+    assertEquals(familyTitles('Supply Chain Analyst').known, false);
+    assert(familyTitles('Senior').warning.includes('no job word'));
+    assert(familyTitles('Manager').warning.includes('very broad'));
+    assertEquals(
+      cleanTitles('Supply Chain Analyst', [
+        'Logistics Analyst',
+        'Senior Supply Chain Analyst',
+        'Analyst',
+        'logistics analyst',
+        42,
+        'Procurement Analyst',
+        '<script>',
+      ]),
+      ['Logistics Analyst', 'Procurement Analyst'],
+    );
+    assert(
+      variantsPrompt('Medical Coder', ['ICD-10']).includes(
+        '"Medical Coder" (skills: ICD-10)',
+      ),
+    );
+  },
+);

@@ -20,6 +20,7 @@ import {
   resolveScoringWeights,
   normaliseResume,
   suggestProfile,
+  type TitleSuggestion,
   type EmploymentType,
   type ScoringWeights,
   type SearchProfileRow,
@@ -83,19 +84,78 @@ const splitLines = (s: string) =>
           class="jb-card grid grid-cols-1 gap-6 p-5 md:grid-cols-2 md:gap-x-8 md:p-7"
           novalidate
         >
-          <label class="flex flex-col gap-1 text-sm">
-            <span
+          <div class="flex flex-col gap-1 text-sm">
+            <label for="sp-roles"
               >Target roles
               <span class="text-ink-muted"
                 >(one per line, best first)</span
-              ></span
+              ></label
             >
             <textarea
               id="sp-roles"
               formControlName="targetRoles"
               class="jb-input min-h-28"
             ></textarea>
-          </label>
+            <div class="mt-1 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                jbButton="ghost"
+                size="sm"
+                [busy]="suggesting()"
+                [disabled]="
+                  suggesting() || !form.controls.targetRoles.value.trim()
+                "
+                (click)="suggestTitles()"
+              >
+                Suggest other job titles
+              </button>
+              <span class="text-xs text-ink-muted"
+                >Employers name the same job in different ways.</span
+              >
+            </div>
+            @if (titleNote()) {
+              <p class="text-xs text-ink-muted" role="status">
+                {{ titleNote() }}
+              </p>
+            }
+            @for (s of titleIdeas(); track s.role) {
+              <div class="mt-2 rounded-control border border-line p-3">
+                <p class="font-medium text-ink">{{ s.role }}</p>
+                @if (s.warning) {
+                  <p class="mt-1 text-xs text-warn">{{ s.warning }}</p>
+                }
+                @if (s.known) {
+                  <p class="mt-1 text-xs text-ink-muted">
+                    Already searched under these names too. Add one only to rank
+                    it as a role of its own.
+                  </p>
+                } @else if (s.titles.length) {
+                  <p class="mt-1 text-xs text-ink-muted">
+                    Suggested by AI. Add the ones that are your job.
+                  </p>
+                } @else if (!s.warning) {
+                  <p class="mt-1 text-xs text-ink-muted">
+                    No other titles to suggest; it is searched as written.
+                  </p>
+                }
+                @if (s.titles.length) {
+                  <div class="mt-2 flex flex-wrap gap-1.5">
+                    @for (t of s.titles; track t) {
+                      <button
+                        type="button"
+                        class="rounded-full border border-line px-2.5 py-1 text-xs text-ink hover:bg-sunken disabled:opacity-50"
+                        [disabled]="hasRole(t)"
+                        [attr.aria-label]="'Add ' + t + ' to target roles'"
+                        (click)="addRole(t)"
+                      >
+                        {{ hasRole(t) ? '✓' : '+' }} {{ t }}
+                      </button>
+                    }
+                  </div>
+                }
+              </div>
+            }
+          </div>
           <label class="flex flex-col gap-1 text-sm">
             <span
               >Stacks you work in
@@ -509,11 +569,51 @@ export class SearchProfile {
   private readonly toast = inject(Toast);
 
   readonly saving = signal(false);
+  readonly suggesting = signal(false);
+  readonly titleIdeas = signal<TitleSuggestion[]>([]);
+  readonly titleNote = signal('');
   readonly savedAt = signal<number | null>(null);
   readonly keyBusy = signal(false);
   readonly ingestKey = signal('');
 
   readonly currencies = SALARY_CURRENCIES;
+
+  /** Other names for each target role, to add with one click. */
+  async suggestTitles() {
+    const roles = splitLines(this.form.controls.targetRoles.value);
+    if (!roles.length || this.suggesting()) return;
+    this.suggesting.set(true);
+    this.titleNote.set('');
+    try {
+      const r = await this.repo.suggestTitles(
+        roles,
+        splitLines(this.form.controls.stacks.value),
+      );
+      this.titleIdeas.set(r.suggestions);
+      this.titleNote.set(r.aiNote ?? '');
+    } catch (e) {
+      this.titleIdeas.set([]);
+      this.titleNote.set(
+        (e as Error).message || 'Could not suggest titles; try again.',
+      );
+    } finally {
+      this.suggesting.set(false);
+    }
+  }
+
+  hasRole(title: string) {
+    const t = title.trim().toLowerCase();
+    return splitLines(this.form.controls.targetRoles.value).some(
+      (r) => r.toLowerCase() === t,
+    );
+  }
+
+  addRole(title: string) {
+    if (this.hasRole(title)) return;
+    const c = this.form.controls.targetRoles;
+    c.setValue([...splitLines(c.value), title].join('\n'));
+    c.markAsDirty();
+  }
   readonly form = new FormGroup({
     targetRoles: new FormControl('', { nonNullable: true }),
     stacks: new FormControl('', { nonNullable: true }),

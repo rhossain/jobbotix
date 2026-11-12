@@ -3,6 +3,7 @@ import {
   ATS_LABEL,
   adminMoney,
   adminSearchExplain,
+  titleSuggestions,
   adminUserDetail,
   adminUserRow,
   careersSystem,
@@ -352,6 +353,21 @@ export class SupabaseSearchProfileRepo extends SearchProfileRepo {
     });
     if (error) throw error;
     return data ?? '';
+  }
+
+  async suggestTitles(roles: string[], stacks: string[]) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      suggestions?: unknown;
+      aiNote?: string;
+      error?: string;
+    }>('suggest-roles', { body: { roles, stacks } });
+    if (error) throw await functionError(error);
+    if (!data?.suggestions)
+      throw new Error(data?.error ?? 'Could not suggest titles');
+    return {
+      suggestions: titleSuggestions(data.suggestions),
+      aiNote: data.aiNote,
+    };
   }
 }
 

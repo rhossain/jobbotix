@@ -119,3 +119,36 @@ export function suggestProfile(
 
   return { targetRoles, stacks, minSeniority, homeCountry, years };
 }
+
+/**
+ * Other job titles for one target role, as the suggest-roles function
+ * answers: from the built-in role families, or from the model for a role no
+ * family lists. The user adds the ones they want to their target roles.
+ */
+export interface TitleSuggestion {
+  role: string;
+  /** Built in: its other names are matched already. */
+  known: boolean;
+  titles: string[];
+  /** Why this role will find little, when it will. */
+  warning: string;
+  source: 'family' | 'ai' | 'none';
+}
+
+export function titleSuggestions(v: unknown): TitleSuggestion[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === 'object')
+    .map((o) => ({
+      role: typeof o['role'] === 'string' ? o['role'] : '',
+      known: o['known'] === true,
+      titles: Array.isArray(o['titles'])
+        ? o['titles'].filter((t): t is string => typeof t === 'string')
+        : [],
+      warning: typeof o['warning'] === 'string' ? o['warning'] : '',
+      source: (o['source'] === 'family' || o['source'] === 'ai'
+        ? o['source']
+        : 'none') as TitleSuggestion['source'],
+    }))
+    .filter((s) => s.role);
+}

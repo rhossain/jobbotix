@@ -31,6 +31,7 @@ import {
   type ProAiAdmin,
   adminMoney,
   adminSearchExplain,
+  titleSuggestions,
   adminUserDetail,
   adminUserRow,
   CREDIT_PRICES,
@@ -517,6 +518,36 @@ export class MemorySearchProfileRepo extends SearchProfileRepo {
         updated_at: new Date().toISOString(),
       };
     });
+  }
+
+  /** Demo mode has no model: a few well-known jobs, nothing for the rest. */
+  async suggestTitles(roles: string[]) {
+    const demo: [RegExp, string[]][] = [
+      [
+        /front[- ]?end|angular|react|ui/i,
+        ['UI Engineer', 'Web Developer', 'JavaScript Engineer'],
+      ],
+      [
+        /qa|quality|test/i,
+        ['QA Engineer', 'Test Automation Engineer', 'SDET', 'Software Tester'],
+      ],
+      [/product manager/i, ['Product Owner', 'Product Lead']],
+    ];
+    return {
+      suggestions: titleSuggestions(
+        roles.map((role) => {
+          const hit = demo.find(([re]) => re.test(role));
+          return {
+            role,
+            known: !!hit,
+            titles: hit?.[1] ?? [],
+            warning: '',
+            source: hit ? ('family' as const) : ('none' as const),
+          };
+        }),
+      ),
+      aiNote: 'Demo mode suggests titles for a few sample jobs only.',
+    };
   }
 
   async createIngestKey(label: string) {

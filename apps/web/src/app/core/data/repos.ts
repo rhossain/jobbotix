@@ -3,6 +3,7 @@ import type {
   AdminMoney,
   AdminUserDetail,
   SearchExplain,
+  TitleSuggestion,
   AdminUserFilters,
   AdminUserRow,
   AiConnectionView,
@@ -119,6 +120,14 @@ export abstract class SearchProfileRepo {
   abstract save(input: SearchProfileInput): Promise<void>;
   /** Returns the plain ingest key once; the app stores only its hash. */
   abstract createIngestKey(label: string): Promise<string>;
+  /**
+   * Other job titles for each target role: built-in names for common jobs,
+   * the model's for the rest (`aiNote` says why when it could not answer).
+   */
+  abstract suggestTitles(
+    roles: string[],
+    stacks: string[],
+  ): Promise<{ suggestions: TitleSuggestion[]; aiNote?: string }>;
 }
 
 export abstract class SavedViewsRepo {
