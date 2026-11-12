@@ -70,17 +70,43 @@ Deno.test('We Work Remotely items: company and title, region, type', () => {
   assertEquals(c, null);
 });
 
-Deno.test('We Work Remotely adapter reads both category feeds', async () => {
-  const calls: string[] = [];
-  const r = await weworkremotely.run(
-    ctx((u) => {
-      calls.push(String(u));
-      return Promise.resolve(new Response(RSS));
-    }),
-  );
-  assertEquals(calls.length, 2);
-  assertEquals(r.postings.length, 2); // same two items in both feeds, merged by guid/link
-});
+Deno.test(
+  'We Work Remotely adapter reads the all-jobs feed in one request',
+  async () => {
+    const calls: string[] = [];
+    const r = await weworkremotely.run(
+      ctx((u) => {
+        calls.push(String(u));
+        return Promise.resolve(new Response(RSS));
+      }),
+    );
+    assertEquals(calls, ['https://weworkremotely.com/remote-jobs.rss']);
+    assertEquals(r.postings.length, 2);
+  },
+);
+
+Deno.test(
+  'We Work Remotely falls back to the programming feeds when the all-jobs feed is empty',
+  async () => {
+    const calls: string[] = [];
+    const r = await weworkremotely.run(
+      ctx((u) => {
+        const url = String(u);
+        calls.push(url);
+        return Promise.resolve(
+          new Response(
+            url.endsWith('/remote-jobs.rss')
+              ? '<?xml version="1.0"?><rss><channel></channel></rss>'
+              : RSS,
+          ),
+        );
+      }),
+    );
+    assertEquals(calls.length, 3);
+    assert(calls[1].includes('front-end') && calls[2].includes('full-stack'));
+    assertEquals(r.postings.length, 2); // same two items in both feeds, merged by guid/link
+  },
+);
 
 const comment = (id: number, text: string) => ({
   id,

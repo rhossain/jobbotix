@@ -7,7 +7,7 @@
 //   remoteok        GET https://remoteok.com/api                (latest ~100; 1st item is a notice)
 //   workingnomads   GET https://www.workingnomads.com/api/exposed_jobs/
 //   arbeitnow       GET https://www.arbeitnow.com/api/job-board-api?page=<n>   (Europe; remote flag)
-//   remotive        GET https://remotive.com/api/remote-jobs?category=software-dev
+//   remotive        GET https://remotive.com/api/remote-jobs   (all categories)
 //                   (asks for at most ~4 requests a day; the feed is 24 h delayed)
 
 import { parseLocations } from '../countries.ts';
@@ -258,7 +258,7 @@ export const arbeitnow: SourceAdapter = {
 };
 
 // ---------------------------------------------------------------------------
-// Remotive (software-dev category, one request a run)
+// Remotive (all categories, one request a run)
 // ---------------------------------------------------------------------------
 
 export function parseRemotiveJob(j: Json): DraftPosting | null {
@@ -293,7 +293,8 @@ export const remotive: SourceAdapter = {
   async run(ctx: AdapterContext) {
     const f = fetcher(ctx);
     const body = await f.json(
-      'https://remotive.com/api/remote-jobs?category=software-dev',
+      // every category: the API lists all active jobs when none is named
+      'https://remotive.com/api/remote-jobs',
     );
     // the feed runs a day behind, so allow two extra days before calling a post old
     const since = new Date(ctx.since.getTime() - 2 * 86_400_000);

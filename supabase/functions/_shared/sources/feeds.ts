@@ -1,6 +1,6 @@
 // Two sources that are not JSON job feeds:
 //
-//   weworkremotely  RSS per category (front-end and full-stack programming).
+//   weworkremotely  RSS, the all-jobs feed (every category).
 //                   Item titles read "Company: Job title"; <region> says where.
 //   hn              Hacker News "Ask HN: Who is hiring?" (monthly), through the
 //                   free Algolia HN API. Each top-level comment is one company's
@@ -79,7 +79,11 @@ export function parseWwrItem(it: Record<string, string>): DraftPosting | null {
   });
 }
 
-const WWR_FEEDS = [
+// Every category in one feed (weworkremotely.com/remote-job-rss-feed), so a
+// designer, a marketer or a support agent finds their jobs here too. The two
+// programming feeds are the fallback if that feed ever comes back empty.
+const WWR_ALL = 'https://weworkremotely.com/remote-jobs.rss';
+const WWR_FALLBACK = [
   'https://weworkremotely.com/categories/remote-front-end-programming-jobs.rss',
   'https://weworkremotely.com/categories/remote-full-stack-programming-jobs.rss',
 ];
@@ -89,11 +93,14 @@ export const weworkremotely: SourceAdapter = {
   async run(ctx: AdapterContext) {
     const f = fetcher(ctx, 1000);
     const out: (DraftPosting | null)[] = [];
-    for (const url of WWR_FEEDS) {
-      if (f.left <= 0) break;
-      const xml = await f.text(url);
-      if (xml) out.push(...rssItems(xml).map(parseWwrItem));
-    }
+    const all = await f.text(WWR_ALL);
+    if (all) out.push(...rssItems(all).map(parseWwrItem));
+    if (!out.some(Boolean))
+      for (const url of WWR_FALLBACK) {
+        if (f.left <= 0) break;
+        const xml = await f.text(url);
+        if (xml) out.push(...rssItems(xml).map(parseWwrItem));
+      }
     f.assertSomeSucceeded('We Work Remotely');
     return {
       postings: keepRecent(out, ctx.since),
