@@ -1800,4 +1800,51 @@ begin
   update public.settings set value = cfg where key = 'pro_ai';
 end $$;
 
+-- 0041: the shared extraction store is for the Edge Functions alone, and a
+-- row carries no account.
+insert into public.posting_extractions (key, extraction, provider, model)
+values (repeat('a', 64), '{"company": "Globex", "title": "Engineer"}', 'anthropic', 'claude-haiku-5-5');
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  if exists (select 1 from public.posting_extractions) then
+    raise exception 'FAIL: a signed-in user can read the extraction store';
+  end if;
+  begin
+    insert into public.posting_extractions (key, extraction) values (repeat('b', 64), '{"title": "x"}');
+    raise exception 'FAIL: a signed-in user can write to the extraction store';
+  exception when insufficient_privilege then null;
+  end;
+  update public.posting_extractions set extraction = '{"title": "changed"}';
+  delete from public.posting_extractions;
+end $$;
+reset role; reset request.jwt.claim.sub;
+set role anon;
+do $$ begin
+  if exists (select 1 from public.posting_extractions) then
+    raise exception 'FAIL: a visitor can read the extraction store';
+  end if;
+end $$;
+reset role;
+do $$ begin
+  if (select extraction ->> 'title' from public.posting_extractions where key = repeat('a', 64)) is distinct from 'Engineer' then
+    raise exception 'FAIL: a signed-in user changed or removed a stored extraction';
+  end if;
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'posting_extractions' and column_name ~ 'user') then
+    raise exception 'FAIL: the extraction store names an account';
+  end if;
+  begin
+    insert into public.posting_extractions (key, extraction) values ('not-a-fingerprint', '{}');
+    raise exception 'FAIL: a key that is not a fingerprint was stored';
+  exception when check_violation then null;
+  end;
+  begin
+    insert into public.posting_extractions (key, extraction) values (repeat('c', 64), '["a list"]');
+    raise exception 'FAIL: an extraction that is not an object was stored';
+  exception when check_violation then null;
+  end;
+  delete from public.posting_extractions;
+end $$;
+
 \echo RLS tests passed

@@ -6,7 +6,9 @@
 // inserts a role for the caller. With an AI connection the extraction is done
 // by the model and the call is metered in ai_usage; without one, or when
 // every connection fails, the heuristic extractor fills what it can and the
-// user edits the rest (`aiNote` says why). The role is then scored against the user's search profile the
+// user edits the rest (`aiNote` says why). A posting a model has already read
+// for anyone, with the same address and text, is not read again: its fields
+// come from the shared store (extract-cache.ts). The role is then scored against the user's search profile the
 // same way the scheduled run scores what it finds (role-score.ts), so it
 // lands with a match score, reasons and things to watch.
 
@@ -14,6 +16,11 @@ import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
+import {
+  extractionKey,
+  readExtraction,
+  writeExtraction,
+} from '../_shared/extract-cache.ts';
 import {
   extractionPrompt,
   heuristicExtract,
@@ -103,18 +110,28 @@ Deno.serve(
     let posted: string | null = null;
     let method: 'ai' | 'heuristic' = 'heuristic';
 
-    const ai = await runAi(
-      admin,
-      userId,
-      {
-        prompt: extractionPrompt(url, text),
-        maxTokens: 800,
-        timeoutMs: 40_000,
-      },
-      { job: 'extract', parse: parseExtraction },
-    );
-    if (ai.ok) {
-      const parsed = ai.value;
+    // Read by a model before, for anyone? Then there is nothing to ask.
+    const key = await extractionKey(url, text);
+    const stored = await readExtraction(admin, key);
+    const ai = stored
+      ? null
+      : await runAi(
+          admin,
+          userId,
+          {
+            prompt: extractionPrompt(url, text),
+            maxTokens: 800,
+            timeoutMs: 40_000,
+          },
+          { job: 'extract', parse: parseExtraction },
+        );
+    const parsed = stored ?? (ai?.ok ? ai.value : null);
+    if (ai?.ok)
+      await writeExtraction(admin, key, ai.value, {
+        provider: ai.provider,
+        model: ai.model,
+      });
+    if (parsed) {
       role = {
         ...role,
         company: parsed.company || role.company,
@@ -129,10 +146,9 @@ Deno.serve(
         : null;
       method = 'ai';
     }
-    const note = aiNote(
-      ai,
-      'The posting was read without a model; check the fields.',
-    );
+    const note = ai
+      ? aiNote(ai, 'The posting was read without a model; check the fields.')
+      : undefined;
 
     // 3. Insert (unique on user_id + url; a repeat returns the existing row)
     const { data: existing } = await admin
@@ -200,6 +216,7 @@ Deno.serve(
       payload: {
         source: 'manual',
         method,
+        ...(stored ? { shared: true } : {}),
         ...(scoreMethod ? { score: scoring.score, scored: scoreMethod } : {}),
       },
     });
@@ -208,6 +225,8 @@ Deno.serve(
       id: inserted.id,
       existed: false,
       method,
+      // true: a model had read this posting before, so none was called now
+      shared: !!stored,
       score: scoring.score ?? null,
       aiNote: note,
     });
