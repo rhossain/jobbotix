@@ -47,9 +47,11 @@ export const REFUND_RULES = {
       <h2 class="mt-10 text-xl font-semibold">The short version</h2>
       <ul class="mt-2 list-disc space-y-1 pl-5">
         <li>
-          Your first Pro payment is refunded in full if you ask within
-          {{ r.firstPaymentDays }} days.
+          Your first Pro payment is refunded if you ask within
+          {{ r.firstPaymentDays }} days: in full when you used no more than
+          {{ r.firstPaymentCredits }} credits, and less when you used more.
         </li>
+        <li>This refund is given once per person.</li>
         <li>You can cancel at any time; Pro stays on until the period ends.</li>
         <li>A charge made by mistake is always refunded.</li>
       </ul>
@@ -60,7 +62,14 @@ export const REFUND_RULES = {
         your first payment, monthly or three-month, and it is refunded in full.
         This applies when you have used no more than
         {{ r.firstPaymentCredits }} of that period's AI credits; above that, the
-        refund is reduced by the share of the credits you used.
+        refund is reduced by the share of the credits you used. Someone who used
+        half of the period's credits gets half back, and someone who used all of
+        them gets nothing back.
+      </p>
+      <p class="mt-2">
+        This refund is given once per person, not once per account. If you were
+        refunded before and subscribe again, under the same account or a new
+        one, that payment is not a first payment.
       </p>
 
       <h2 class="mt-10 text-xl font-semibold">Renewals</h2>
@@ -91,6 +100,39 @@ export const REFUND_RULES = {
         </li>
       </ul>
 
+      <h2 class="mt-10 text-xl font-semibold">Not refunded</h2>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        <li>
+          A first payment asked about after {{ r.firstPaymentDays }} days.
+        </li>
+        <li>A renewal or a top-up after any of its credits were used.</li>
+        <li>
+          A second first-payment refund for the same person, whatever account or
+          card is used.
+        </li>
+        <li>
+          A period on an account that was suspended or closed for breaking the
+          <a routerLink="/terms" class="underline">terms</a>.
+        </li>
+      </ul>
+      <p class="mt-2">
+        Asking for refunds again and again in order to use Pro without paying is
+        misuse of this policy. Such requests are refused and the account can be
+        closed. None of this takes away a refund the law where you live gives
+        you.
+      </p>
+
+      <h2 class="mt-10 text-xl font-semibold">After a refund</h2>
+      <p class="mt-2">
+        A refund ends Pro on the account straight away, and the credits that
+        came with the refunded payment are removed. The account goes back to
+        Free and keeps everything you saved.
+      </p>
+      <p class="mt-2">
+        Please write before you dispute a charge with your bank: a refund here
+        is quicker. While a bank dispute is open, Pro on the account is paused.
+      </p>
+
       <h2 class="mt-10 text-xl font-semibold">How to ask</h2>
       <p class="mt-2">
         Write to
@@ -99,7 +141,7 @@ export const REFUND_RULES = {
         within {{ r.answerWorkingDays }} working days. Refunds go back through
         {{ legal.paymentProvider }}, which handles Jobbotix's payments, to the
         card or method you paid with; your bank can take 5 to 10 working days to
-        show it. A refund ends Pro on the account straight away.
+        show it.
       </p>
 
       <p class="mt-8 text-sm text-ink-muted">

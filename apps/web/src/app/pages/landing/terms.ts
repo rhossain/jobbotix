@@ -156,6 +156,10 @@ import { DraftNote, LEGAL, LegalFact } from './legal';
           copy the job pool in bulk, or probe, overload or try to get around the
           limits of the service;
         </li>
+        <li>
+          ask for refunds again and again, or open new accounts, in order to use
+          Pro or trial credits without paying;
+        </li>
         <li>try to reach another person's data.</li>
       </ul>
       <p class="mt-2">

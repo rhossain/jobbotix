@@ -299,7 +299,7 @@ export class Pricing {
     },
     {
       q: 'Can I get a refund?',
-      a: `Your first Pro payment is refunded in full if you ask within ${REFUND_RULES.firstPaymentDays} days. The refund policy has the rest.`,
+      a: `Yes. Your first Pro payment is refunded if you ask within ${REFUND_RULES.firstPaymentDays} days: in full when you used no more than ${REFUND_RULES.firstPaymentCredits} credits, and less when you used more. It is given once per person. The refund policy has the rest.`,
     },
     {
       q: 'Who takes the payment?',
