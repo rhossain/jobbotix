@@ -29,7 +29,9 @@ import { ResumeImportPanel } from './resume-import';
 import { ResumeReviewPanel } from './resume-review';
 import { droppedNote } from '../../shared/pdf-text';
 import { fileToPortrait } from '../../shared/photo';
+import { docxFilename, downloadResumeDocx } from '../../shared/resume-docx';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
+import { Plan } from '../../core/plan';
 import { Toast } from '../../shared/toast';
 import { ShellState } from '../../shell/shell-state';
 import {
@@ -122,6 +124,14 @@ const csv = (s: string) =>
             (click)="downloadPdf()"
           >
             <jb-icon name="download" /> PDF
+          </button>
+          <button
+            type="button"
+            jbButton
+            title="Word file (.docx), to edit or to send where one is asked for"
+            (click)="downloadDocx()"
+          >
+            <jb-icon name="download" /> Word
           </button>
           <button
             type="button"
@@ -1076,6 +1086,24 @@ export class ResumeEditor {
     { id: 'preview', label: 'Preview', icon: 'eye' },
   ];
   private readonly confirm = inject(Confirm);
+  private readonly plan = inject(Plan);
+
+  /** The resume in the editor as a Word file; part of Pro. */
+  async downloadDocx() {
+    if (!this.plan.can('docx_export')) {
+      await this.plan.offer('docx_export');
+      return;
+    }
+    try {
+      downloadResumeDocx(
+        this.d(),
+        docxFilename(resumeFilename(this.d())),
+        this.template().id,
+      );
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not build the Word file');
+    }
+  }
 
   async confirmRemove(list: 'experience' | 'projects', i: number) {
     const what = list === 'experience' ? 'position' : 'project';

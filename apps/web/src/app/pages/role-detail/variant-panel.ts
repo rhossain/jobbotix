@@ -28,7 +28,9 @@ import { droppedNote } from '../../shared/pdf-text';
 import { templateOf } from '../../shared/resume-templates';
 import { TemplatePicker } from '../../shared/template-picker';
 import { suggestTemplate } from '../../shared/template-suggest';
+import { docxFilename, downloadResumeDocx } from '../../shared/resume-docx';
 import { downloadResumePdf, resumeFilename } from '../../shared/resume-pdf';
+import { Plan } from '../../core/plan';
 import { Toast } from '../../shared/toast';
 import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
 
@@ -166,6 +168,14 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
                 (click)="downloadPdf()"
               >
                 <jb-icon name="download" /> PDF
+              </button>
+              <button
+                type="button"
+                jbButton
+                title="Word file (.docx) of the result"
+                (click)="downloadDocx()"
+              >
+                <jb-icon name="download" /> Word
               </button>
               <button
                 type="button"
@@ -353,6 +363,7 @@ export class VariantPanel {
     model?: string;
   } | null>(null);
   private readonly toast = inject(Toast);
+  private readonly plan = inject(Plan);
   private readonly templates = inject(ResumeTemplateChoice);
 
   readonly role = input.required<RoleRow>();
@@ -532,6 +543,23 @@ export class VariantPanel {
       this.toast.show((e as Error).message || 'Could not approve');
     } finally {
       this.busy.set(false);
+    }
+  }
+
+  /** The tailored resume as a Word file; part of Pro. */
+  async downloadDocx() {
+    if (!this.plan.can('docx_export')) {
+      await this.plan.offer('docx_export');
+      return;
+    }
+    try {
+      downloadResumeDocx(
+        this.applied(),
+        docxFilename(resumeFilename(this.applied(), this.role().company)),
+        this.template().id,
+      );
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not build the Word file');
     }
   }
 
