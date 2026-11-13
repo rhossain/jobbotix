@@ -31,7 +31,7 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
     </svg>
     @if (wordmark()) {
       <span
-        class="text-[1.0625rem] font-semibold tracking-tight text-ink"
+        class="text-[1.0625rem] font-semibold lowercase tracking-tight text-ink"
         [class]="wordmark() === 'auto' ? 'max-[360px]:hidden' : ''"
         >Jobbotix</span
       >
