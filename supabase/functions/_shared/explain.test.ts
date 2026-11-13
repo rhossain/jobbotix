@@ -121,3 +121,47 @@ Deno.test('warnings name what limits a profile', () => {
     'Open to other countries only',
   );
 });
+
+Deno.test(
+  'ruled-out title matches come with the place and the posting own location line',
+  () => {
+    const e = createExplain(profile, DEFAULT_WEIGHTS, {
+      days: 14,
+      threshold: 30,
+      now: new Date('2026-11-12T00:00:00Z'),
+    });
+    e.add([
+      post({
+        title: 'QA Engineer',
+        remote_policy: 'region_locked',
+        hiring_countries: ['US'],
+        location: 'Remote (US only)',
+      }),
+      post({
+        title: 'SDET',
+        remote_policy: 'region_locked',
+        hiring_countries: ['US'],
+        location: 'USA',
+      }),
+      post({
+        title: 'QA Engineer',
+        remote_policy: 'region_locked',
+        hiring_countries: ['DE'],
+        location: 'Germany',
+      }),
+    ]);
+    const r = e.result();
+    assertEquals(r.limited_to, [
+      { place: 'United States', count: 2 },
+      { place: 'Germany', count: 1 },
+    ]);
+    assertEquals(r.ruled_out.length, 3);
+    assertEquals(r.ruled_out[0], {
+      title: 'QA Engineer',
+      company: 'Acme',
+      reason: 'Limited to United States',
+      where: 'Remote (US only) · region_locked',
+      source: 'remoteok',
+    });
+  },
+);

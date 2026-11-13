@@ -33,6 +33,16 @@ export interface SearchExplain {
   by_source: { source: string; pool: number; matched: number }[];
   top: { title: string; company: string; score: number }[];
   low: { title: string; company: string; score: number }[];
+  /** Where the country-limited postings are limited to, most common first. */
+  limited_to: { place: string; count: number }[];
+  /** Title matches that a setting ruled out, with the reason and the posting's own location line. */
+  ruled_out: {
+    title: string;
+    company: string;
+    reason: string;
+    where: string;
+    source: string;
+  }[];
 }
 
 /** One line per kind of exclusion, so forty "Limited to ..." reasons read as one. */
@@ -110,7 +120,10 @@ export function createExplain(
     by_source: [],
     top: [],
     low: [],
+    limited_to: [],
+    ruled_out: [],
   };
+  const places = new Map<string, number>();
   const excluded = new Map<string, number>();
   const sources = new Map<string, { pool: number; matched: number }>();
   const scored: { title: string; company: string; score: number }[] = [];
@@ -139,6 +152,25 @@ export function createExplain(
         if (r.kind === 'excluded') {
           const g = reasonGroup(r.reason);
           excluded.set(g, (excluded.get(g) ?? 0) + 1);
+          if (r.reason.startsWith('Limited to ')) {
+            const place = r.reason.slice('Limited to '.length);
+            places.set(place, (places.get(place) ?? 0) + 1);
+          }
+          // examples a person can check: the title is their job, a setting stopped it
+          if (
+            res.ruled_out.length < 25 &&
+            bestRoleFit(profile.target_roles, post.title)
+          )
+            res.ruled_out.push({
+              title: post.title,
+              company: post.company,
+              reason: r.reason,
+              where: [post.location, post.remote_policy]
+                .filter(Boolean)
+                .join(' · ')
+                .slice(0, 120),
+              source: from[0],
+            });
           continue;
         }
         const fit = bestRoleFit(
@@ -165,6 +197,10 @@ export function createExplain(
       res.by_source = [...sources.entries()]
         .map(([source, v]) => ({ source, ...v }))
         .sort((a, b) => b.matched - a.matched || b.pool - a.pool);
+      res.limited_to = [...places.entries()]
+        .map(([place, count]) => ({ place, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
       scored.sort((a, b) => b.score - a.score);
       res.top = scored.filter((s) => s.score >= opts.threshold).slice(0, 10);
       res.low = scored.filter((s) => s.score < opts.threshold).slice(0, 5);

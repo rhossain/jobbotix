@@ -360,6 +360,16 @@ export interface SearchExplain {
   bySource: { source: string; pool: number; matched: number }[];
   top: { title: string; company: string; score: number }[];
   low: { title: string; company: string; score: number }[];
+  /** Where the country-limited postings are limited to, most common first. */
+  limitedTo: { place: string; count: number }[];
+  /** Title matches that a setting ruled out: the reason and the posting's own location line. */
+  ruledOut: {
+    title: string;
+    company: string;
+    reason: string;
+    where: string;
+    source: string;
+  }[];
 }
 
 /** Filed roles the current rules would call another kind of job (admin-users, "recheck_roles"). */
@@ -426,6 +436,17 @@ export function adminSearchExplain(v: unknown): SearchExplain {
     })),
     top: titles(o['top']),
     low: titles(o['low']),
+    limitedTo: arr(o['limited_to']).map((l) => ({
+      place: str(l['place']),
+      count: num(l['count']),
+    })),
+    ruledOut: arr(o['ruled_out']).map((r) => ({
+      title: str(r['title']),
+      company: str(r['company']),
+      reason: str(r['reason']),
+      where: str(r['where']),
+      source: str(r['source']),
+    })),
   };
 }
 

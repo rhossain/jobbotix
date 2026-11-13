@@ -319,6 +319,44 @@ export function cents(amount: number, currency = 'usd'): string {
                   }
                 </ul>
               }
+              @if (x.limitedTo.length) {
+                <h3 class="mt-5 text-sm font-semibold text-ink">
+                  Country-limited postings are open to
+                </h3>
+                <ul class="mt-1 divide-y divide-line text-sm">
+                  @for (l of x.limitedTo; track l.place) {
+                    <li class="flex justify-between gap-2 py-2">
+                      <span>{{ l.place }}</span>
+                      <span class="tabular-nums text-ink-muted">{{
+                        l.count
+                      }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+              @if (x.ruledOut.length) {
+                <h3 class="mt-5 text-sm font-semibold text-ink">
+                  Title matches that were ruled out
+                </h3>
+                <ul class="mt-1 divide-y divide-line text-sm">
+                  @for (r of x.ruledOut; track $index) {
+                    <li class="py-2">
+                      <span class="text-ink"
+                        >{{ r.title }} · {{ r.company }}</span
+                      >
+                      <span class="block text-xs text-ink-muted"
+                        >{{ r.reason }}. Posting says:
+                        {{
+                          r.where ||
+                            'no
+                        location'
+                        }}
+                        ({{ r.source }})</span
+                      >
+                    </li>
+                  }
+                </ul>
+              }
               <h3 class="mt-5 text-sm font-semibold text-ink">By source</h3>
               <ul class="mt-1 divide-y divide-line text-sm">
                 @for (s of x.bySource; track s.source) {
