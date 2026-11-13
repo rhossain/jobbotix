@@ -8,6 +8,7 @@ export * from './lib/variant';
 export * from './lib/letter';
 export * from './lib/screening';
 export * from './lib/insights';
+export * from './lib/outcomes';
 export * from './lib/prep';
 export * from './lib/share';
 export * from './lib/market';

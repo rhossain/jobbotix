@@ -8,10 +8,14 @@ import {
 import { RouterLink } from '@angular/router';
 import {
   computeInsights,
+  computeOutcomes,
+  interviewRate,
   type MarketSignals,
   type RoleEventRow,
 } from '@jobbotix/shared-types';
 import { MarketRepo, RolesRepo } from '../../core/data/repos';
+import { Plan } from '../../core/plan';
+import { UpgradeNote } from '../../shared/upgrade-note';
 import { StatusLabelPipe, utcMonthShort } from '../../shared/format';
 import {
   BarRow,
@@ -38,6 +42,7 @@ const WEEKS = 8;
     Skeleton,
     Stat,
     StatusLabelPipe,
+    UpgradeNote,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -108,6 +113,109 @@ const WEEKS = 8;
             [sub]="foundThisWeek() + ' found this week'"
           />
         </div>
+
+        <!-- Outcome insights (Pro): what is getting replies -->
+        <section class="jb-card p-5 md:p-6" aria-labelledby="outcomes-title">
+          <h2 id="outcomes-title" class="text-lg font-semibold text-ink">
+            What is getting replies
+          </h2>
+          @if (!canOutcomes()) {
+            <p class="mt-1 text-sm text-ink-muted">
+              Your applications split by where the role came from, its match
+              score, how soon you applied and whether a cover letter went with
+              it, with how many of each led to an interview.
+            </p>
+            <jb-upgrade-note class="mt-4" feature="outcome_insights" />
+          } @else {
+            @let o = outcomes();
+            @if (o.applied === 0) {
+              <p class="mt-1 text-sm text-ink-muted">
+                Nothing applied to yet. Once you move roles to Applied, this
+                shows which sources, scores and habits lead to interviews.
+              </p>
+            } @else {
+              <p class="mt-1 text-sm text-ink-muted">
+                {{ o.applied }}
+                {{ o.applied === 1 ? 'application' : 'applications' }} in your
+                tracker, {{ o.interviews }} of them reached an interview.
+                @if (o.applied < 8) {
+                  These are early numbers: with so few, one answer moves a
+                  percentage a long way.
+                }
+              </p>
+              @if (o.findings.length) {
+                <ul class="mt-4 flex flex-col gap-2">
+                  @for (f of o.findings; track f) {
+                    <li
+                      class="flex items-start gap-2 rounded-control bg-brand-tint px-3 py-2.5 text-sm text-brand-ink"
+                    >
+                      <jb-icon name="lightbulb" [size]="17" class="mt-px" />
+                      <span class="min-w-0">{{ f }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+              <div class="mt-5 grid gap-x-10 gap-y-7 md:grid-cols-2">
+                @for (g of o.groups; track g.key) {
+                  <div class="min-w-0">
+                    <h3 class="text-sm font-semibold text-ink">
+                      {{ g.title }}
+                    </h3>
+                    <p class="text-xs text-ink-muted">{{ g.lead }}</p>
+                    <div class="mt-2 overflow-x-auto">
+                      <table class="w-full text-sm">
+                        <thead>
+                          <tr
+                            class="border-b border-line text-left text-xs text-ink-muted"
+                          >
+                            <th class="py-1.5 pr-3 font-medium">
+                              <span class="sr-only">{{ g.title }}</span>
+                            </th>
+                            <th class="py-1.5 pr-3 text-right font-medium">
+                              Applied
+                            </th>
+                            <th class="py-1.5 pr-3 text-right font-medium">
+                              Heard back
+                            </th>
+                            <th class="py-1.5 text-right font-medium">
+                              Interviews
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          @for (r of g.rows; track r.label) {
+                            <tr class="border-b border-line last:border-b-0">
+                              <th
+                                scope="row"
+                                class="py-2 pr-3 text-left font-normal text-ink"
+                              >
+                                {{ r.label }}
+                              </th>
+                              <td class="py-2 pr-3 text-right tabular-nums">
+                                {{ r.applied }}
+                              </td>
+                              <td
+                                class="py-2 pr-3 text-right text-ink-muted tabular-nums"
+                              >
+                                {{ r.responded }}
+                              </td>
+                              <td class="py-2 text-right tabular-nums">
+                                {{ r.interviews }}
+                                <span class="text-ink-muted"
+                                  >({{ rate(r) }}%)</span
+                                >
+                              </td>
+                            </tr>
+                          }
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+          }
+        </section>
 
         <!-- Per week -->
         <section class="jb-card p-5 md:p-6">
@@ -322,6 +430,14 @@ export class InsightsPage {
   protected readonly repo = inject(RolesRepo);
   readonly weeks = WEEKS;
   private readonly marketRepo = inject(MarketRepo);
+  private readonly plan = inject(Plan);
+  /** Outcome insights are part of Pro. */
+  readonly canOutcomes = computed(() => this.plan.can('outcome_insights'));
+  /** Every application in the tracker, not only the weeks charted above. */
+  readonly outcomes = computed(() =>
+    computeOutcomes(this.repo.roles(), this.events()),
+  );
+  readonly rate = interviewRate;
   readonly events = signal<RoleEventRow[]>([]);
   readonly market = signal<MarketSignals | null>(null);
   readonly insights = computed(() =>
