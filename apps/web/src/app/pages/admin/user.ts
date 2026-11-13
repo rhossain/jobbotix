@@ -735,6 +735,22 @@ export class AdminUser {
         label: 'Of those, near misses for the AI check',
         value: String(x.nearMiss),
       },
+      {
+        label: 'AI check in their real runs',
+        value: x.aiCheck.looked
+          ? `read ${x.aiCheck.looked}, turned down ${x.aiCheck.turnedDown}, brought in ${x.aiCheck.broughtIn}`
+          : 'has not read a title yet',
+      },
+      ...(x.aiCheck.failedRuns
+        ? [
+            {
+              label: 'Runs where the AI step failed',
+              value: x.aiCheck.error
+                ? `${x.aiCheck.failedRuns}: ${x.aiCheck.error}`
+                : String(x.aiCheck.failedRuns),
+            },
+          ]
+        : []),
       { label: 'Too old or expired', value: String(x.tooOld) },
       { label: 'Ruled out by their settings', value: String(ruledOut) },
       { label: 'No country set to compare', value: String(x.needsCountry) },

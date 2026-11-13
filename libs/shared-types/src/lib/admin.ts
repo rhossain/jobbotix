@@ -344,6 +344,19 @@ export interface SearchExplain {
   notRelevant: number;
   /** Of those, titles close enough that the AI check looks at them when the account has AI. */
   nearMiss: number;
+  /**
+   * What the AI check did in the account's real runs over the same days:
+   * runs that used it, titles it read, turned down and brought in, and runs
+   * whose AI step failed (with the first reason given).
+   */
+  aiCheck: {
+    runs: number;
+    looked: number;
+    turnedDown: number;
+    broughtIn: number;
+    failedRuns: number;
+    error: string;
+  };
   tooOld: number;
   /** Limited to a region, and the profile has no country to compare. */
   needsCountry: number;
@@ -416,6 +429,14 @@ export function adminSearchExplain(v: unknown): SearchExplain {
     pool: num(o['pool']),
     notRelevant: num(o['not_relevant']),
     nearMiss: num(o['near_miss']),
+    aiCheck: {
+      runs: num(obj(o['ai_check'])['runs']),
+      looked: num(obj(o['ai_check'])['looked']),
+      turnedDown: num(obj(o['ai_check'])['turned_down']),
+      broughtIn: num(obj(o['ai_check'])['brought_in']),
+      failedRuns: num(obj(o['ai_check'])['failed_runs']),
+      error: str(obj(o['ai_check'])['error']),
+    },
     tooOld: num(o['too_old']),
     needsCountry: num(o['needs_country']),
     excluded: arr(o['excluded']).map((e) => ({

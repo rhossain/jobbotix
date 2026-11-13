@@ -226,8 +226,42 @@ Deno.serve(
         },
       );
       if ('error' in replay) return json(500, { error: replay.error });
+      // What the AI check did in their real runs over the same days: counts
+      // from the run records only (the replay above never calls a model).
+      const { data: runs } = await admin
+        .from('role_events')
+        .select('payload')
+        .eq('user_id', userId)
+        .eq('kind', 'run')
+        .gte(
+          'created_at',
+          new Date(Date.now() - days * 86_400_000).toISOString(),
+        )
+        .limit(1000);
+      const ai = {
+        runs: 0,
+        looked: 0,
+        turned_down: 0,
+        brought_in: 0,
+        failed_runs: 0,
+        error: '',
+      };
+      for (const r of runs ?? []) {
+        const pl = (r.payload ?? {}) as Record<string, unknown>;
+        if (pl['source'] !== 'jobbotix') continue;
+        const n = (k: string) => Number(pl[k] ?? 0) || 0;
+        if (n('aiJudged') > 0) ai.runs++;
+        ai.looked += n('aiJudged');
+        ai.turned_down += n('aiRejected');
+        ai.brought_in += n('aiRescued');
+        if (n('aiFailed') > 0) {
+          ai.failed_runs++;
+          if (!ai.error && typeof pl['aiError'] === 'string')
+            ai.error = pl['aiError'];
+        }
+      }
       await audit('explain_search', userId, { days }, 10);
-      return json(200, replay.result);
+      return json(200, { ...replay.result, ai_check: ai });
     }
 
     if (action === 'recheck_roles') {
