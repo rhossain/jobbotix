@@ -171,7 +171,13 @@ export function parseSalary(
   return { min, max, currency: currencyOf(s), period };
 }
 
-/** A range from a board's structured fields (always yearly), else its text. */
+/**
+ * A range from a board's structured fields, else its text. The fields are
+ * yearly, except that boards put an hourly rate in the same fields for
+ * hourly and contract roles: a top figure under 500 is an hourly rate, as it
+ * is when read from text. (Seen live: "$82" on a contract SDET role was read
+ * as USD 82 a year and ruled out as pay below the minimum.)
+ */
 export function salaryFrom(
   structured: {
     salary_min?: number | null;
@@ -186,7 +192,7 @@ export function salaryFrom(
       min: min || null,
       max: max || null,
       currency: (cur ?? '').toUpperCase(),
-      period: 'year',
+      period: Math.max(min ?? 0, max ?? 0) < 500 ? 'hour' : 'year',
     };
   }
   return parseSalary(text);

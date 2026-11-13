@@ -116,4 +116,20 @@ describe('formatting and sorting', () => {
     expect(salarySortKey(parseSalary('$100k–140k'))).toBe(140_000);
     expect(salarySortKey(parseSalary('$55/h'))).toBe(114_400);
   });
+
+  it('reads a structured figure under 500 as an hourly rate', () => {
+    // seen live: "$82" on a contract role was taken as USD 82 a year
+    const hourly = salaryFrom(
+      { salary_min: 70, salary_max: 82, salary_currency: 'USD' },
+      null,
+    );
+    expect(hourly?.period).toBe('hour');
+    expect(hourly && meetsMinimum(hourly, 60000, 'USD')).toBe(true);
+    expect(
+      salaryFrom(
+        { salary_min: 90000, salary_max: 120000, salary_currency: 'USD' },
+        null,
+      )?.period,
+    ).toBe('year');
+  });
 });
