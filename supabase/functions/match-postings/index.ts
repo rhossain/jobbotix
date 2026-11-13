@@ -2,14 +2,15 @@
 //   Authorization: Bearer <CRON_SECRET>
 //   { "userId": "..." }   optional: one user only
 //
-// For each active search profile, reads pool postings that arrived since the
-// profile was last matched, and for each one:
+// For each search profile (an account can hold several; a plan's limit
+// decides how many of them are searched), reads pool postings that arrived
+// since the profile was last matched, and for each one:
 //   - drops it if it is not their kind of job or already in their roles
 //   - stores it in excluded_roles with the reason if a rule rules it out
 //   - otherwise scores it with their weights; the strongest candidates are
 //     re-scored by the model when the user has an AI connection
 // and files the best as new roles (score, reasons, gaps, a link to the pool).
-// One "run" event per user summarises it for Today and the digest.
+// One "run" event per profile summarises it for Today and the digest.
 
 import { judgePrompt, nearMiss, parseJudgeReply } from '../_shared/judge.ts';
 import type { Grade } from '../_shared/role.ts';
@@ -34,7 +35,8 @@ import {
   type ScoredPosting,
   type Weights,
 } from '../_shared/score.ts';
-import { can } from '../_shared/entitlements.ts';
+import { can, limitOf } from '../_shared/entitlements.ts';
+import { searchedProfiles } from '../_shared/profiles.ts';
 import { loadEntitlements } from '../_shared/gate.ts';
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
@@ -76,6 +78,11 @@ type PostingWithSources = MatchPosting & {
 };
 
 type ProfileRow = MatchProfile & {
+  id: string;
+  name: string;
+  /** True on the account's main profile. */
+  active: boolean;
+  created_at: string;
   user_id: string;
   min_seniority: string;
   scoring_weights: unknown;
@@ -91,6 +98,8 @@ type ProfileBits = {
 
 interface UserSummary {
   userId: string;
+  /** The profile's name, when the account searches with several. */
+  profile?: string;
   considered: number;
   added: number;
   excluded: number;
@@ -146,33 +155,51 @@ Deno.serve(async (req) => {
   let q = admin
     .from('search_profiles')
     .select(
-      'user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, alert_min_score, profiles!inner(email, name, suspended_at)',
+      'id, name, active, created_at, user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, alert_min_score, profiles!inner(email, name, suspended_at)',
     )
-    .eq('active', true)
     // a suspended account is not matched (or scored, or mailed)
     .is('profiles.suspended_at', null);
   if (body.userId) q = q.eq('user_id', body.userId);
   const { data: profiles, error } = await q;
   if (error) return json(500, { error: error.message });
 
+  const byUser = new Map<string, ProfileRow[]>();
+  for (const p of (profiles ?? []) as unknown as ProfileRow[])
+    byUser.set(p.user_id, [...(byUser.get(p.user_id) ?? []), p]);
+
   const users: UserSummary[] = [];
   const deferred: string[] = [];
-  for (const p of (profiles ?? []) as unknown as ProfileRow[]) {
-    if (Date.now() - startedAt > TIME_BUDGET_MS) {
-      deferred.push(p.user_id); // picked up next hour from the same watermark
-      continue;
+  /** Profiles kept but not searched: over the plan's limit. */
+  let overLimit = 0;
+  for (const [userId, rows] of byUser) {
+    // One profile needs no plan lookup: the main one is always searched.
+    const mine =
+      rows.length > 1
+        ? searchedProfiles(
+            rows,
+            limitOf(await loadEntitlements(admin, userId), 'search_profiles'),
+          )
+        : rows;
+    overLimit += rows.length - mine.length;
+    for (const p of mine) {
+      if (Date.now() - startedAt > TIME_BUDGET_MS) {
+        // picked up next hour from the same watermark
+        if (!deferred.includes(userId)) deferred.push(userId);
+        continue;
+      }
+      users.push(
+        await matchForUser(
+          admin,
+          p,
+          cfg,
+          resolveWeights(defaults, p.scoring_weights),
+          sourceName,
+          mine.length > 1,
+        ),
+      );
     }
-    users.push(
-      await matchForUser(
-        admin,
-        p,
-        cfg,
-        resolveWeights(defaults, p.scoring_weights),
-        sourceName,
-      ),
-    );
   }
-  return json(200, { users, deferred });
+  return json(200, { users, deferred, ...(overLimit ? { overLimit } : {}) });
 });
 
 async function matchForUser(
@@ -181,10 +208,13 @@ async function matchForUser(
   cfg: Sourcing,
   weights: Weights,
   sourceName: Map<string, string>,
+  /** The account searches with several profiles. */
+  several = false,
 ): Promise<UserSummary> {
   const now = new Date();
   const summary: UserSummary = {
     userId: p.user_id,
+    ...(several ? { profile: p.name } : {}),
     considered: 0,
     added: 0,
     excluded: 0,
@@ -542,6 +572,7 @@ async function matchForUser(
   }
 
   const filed: AlertRole[] = [];
+  const filedUrls: string[] = [];
   const toFile = candidates
     .filter((c) => c.scored.score >= cfg.min_file_score)
     .slice(0, cfg.max_new_per_user_per_run);
@@ -594,6 +625,7 @@ async function matchForUser(
         source_id: c.source || null,
         remote_policy: post.remote_policy,
         hiring_countries: post.hiring_countries,
+        search_profile_id: p.id,
       })
       .select('id')
       .single();
@@ -605,6 +637,7 @@ async function matchForUser(
       continue;
     }
     summary.added++;
+    filedUrls.push(c.link);
     filed.push({
       id: inserted.id,
       company: post.company,
@@ -625,6 +658,17 @@ async function matchForUser(
     });
   }
 
+  // What one profile passed over, another may have just filed: a role is not
+  // also listed as passed over.
+  if (several && filedUrls.length) {
+    const { error } = await admin
+      .from('excluded_roles')
+      .delete()
+      .eq('user_id', p.user_id)
+      .in('url', filedUrls);
+    if (error) summary.errors.push(`excluded_roles: ${error.message}`);
+  }
+
   if (excludedRows.length) {
     const { error } = await admin
       .from('excluded_roles')
@@ -633,10 +677,18 @@ async function matchForUser(
     else summary.excluded = excludedRows.length;
   }
 
-  // Instant alert for roles at or above the user's threshold.
+  // Instant alert for roles at or above the user's threshold. Alerts are
+  // part of Pro (feature instant_alerts): a plan without them keeps its
+  // threshold and gets the roles in the digest instead. The plan is only
+  // looked up when there is something to send.
   const worthy = alertWorthy(filed, p.alert_min_score);
   const me = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
-  if (worthy.length && RESEND_KEY && me?.email) {
+  const mayAlert =
+    worthy.length > 0 &&
+    !!RESEND_KEY &&
+    !!me?.email &&
+    can(await loadEntitlements(admin, p.user_id), 'instant_alerts');
+  if (mayAlert && me?.email) {
     const email = buildAlert({
       name: me.name ?? '',
       appUrl: APP_URL,
@@ -687,14 +739,14 @@ async function matchForUser(
             }
           : {}),
         ...(summary.alerted ? { alerted: summary.alerted } : {}),
+        ...(several ? { profile: p.name } : {}),
       },
     });
 
   await admin
     .from('search_profiles')
     .update({ last_matched_at: postings[postings.length - 1].first_seen_at })
-    .eq('user_id', p.user_id)
-    .eq('active', true);
+    .eq('id', p.id);
 
   return summary;
 }

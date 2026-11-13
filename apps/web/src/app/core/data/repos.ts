@@ -116,10 +116,27 @@ export type SearchProfileInput = Omit<
 >;
 
 export abstract class SearchProfileRepo {
+  /**
+   * The account's main profile: the one its email settings live on, and the
+   * one pages that know nothing of several profiles read.
+   */
   abstract readonly profile: Signal<SearchProfileRow | null>;
+  /** Every profile of the account: the main one first, then oldest first. */
+  abstract readonly profiles: Signal<SearchProfileRow[]>;
   abstract readonly loaded: Signal<boolean>;
   abstract load(): Promise<void>;
-  abstract save(input: SearchProfileInput): Promise<void>;
+  /**
+   * Saves over the profile with this id; with no id, over the main profile,
+   * which is created if the account has none yet.
+   */
+  abstract save(input: SearchProfileInput, id?: string): Promise<void>;
+  /**
+   * Adds a further profile and returns it. Throws UpgradeRequiredError when
+   * the plan's limit is reached.
+   */
+  abstract create(input: SearchProfileInput): Promise<SearchProfileRow>;
+  /** Deletes a profile. The roles it found stay. */
+  abstract remove(id: string): Promise<void>;
   /** Returns the plain ingest key once; the app stores only its hash. */
   abstract createIngestKey(label: string): Promise<string>;
   /**
@@ -134,6 +151,8 @@ export abstract class SearchProfileRepo {
     roles: string[],
     stacks: string[],
     minSeniority: string,
+    /** The saved profile to lay them over; the main one when left out. */
+    profileId?: string,
   ): Promise<SearchExplain>;
   abstract suggestTitles(
     roles: string[],

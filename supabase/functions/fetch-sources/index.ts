@@ -59,8 +59,8 @@ Deno.serve(async (req) => {
     catalog,
     admin
       .from('search_profiles')
-      .select('target_roles, stacks, home_country, allowed_countries')
-      .eq('active', true),
+      // every profile of every account: an account can hold several
+      .select('target_roles, stacks, home_country, allowed_countries'),
     admin.from('settings').select('value').eq('key', 'sourcing').maybeSingle(),
   ]);
   if (catErr || profErr)

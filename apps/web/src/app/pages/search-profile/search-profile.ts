@@ -16,6 +16,8 @@ import {
   SCORING_WEIGHT_LABELS,
   countryName,
   countryOptions,
+  limitOf,
+  nextProfileName,
   parseCountryList,
   renderSearchPrompt,
   resolveScoringWeights,
@@ -28,9 +30,16 @@ import {
   type SearchProfileRow,
 } from '@jobbotix/shared-types';
 import { Auth } from '../../core/auth';
-import { ResumesRepo, SearchProfileRepo } from '../../core/data/repos';
+import {
+  ResumesRepo,
+  SearchProfileRepo,
+  type SearchProfileInput,
+} from '../../core/data/repos';
+import { Plan } from '../../core/plan';
 import { Toast } from '../../shared/toast';
+import { UpgradeNote } from '../../shared/upgrade-note';
 import { Button, CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
+import { Confirm } from '../../ui/confirm';
 import { environment } from '../../../environments/environment';
 
 const splitLines = (s: string) =>
@@ -38,6 +47,9 @@ const splitLines = (s: string) =>
     .split(/\r?\n|,/)
     .map((x) => x.trim())
     .filter(Boolean);
+
+/** The most profiles an account holds on any plan (the Pro limit). */
+const MAX_PROFILES = 5;
 
 /** What the daily run looks for, and the prompt that drives it. */
 @Component({
@@ -50,6 +62,7 @@ const splitLines = (s: string) =>
     ReactiveFormsModule,
     RouterLink,
     Skeleton,
+    UpgradeNote,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -61,6 +74,53 @@ const splitLines = (s: string) =>
       @if (!repo.loaded()) {
         <jb-skeleton shape="tile" [count]="3" />
       } @else {
+        @if (repo.profile()) {
+          <nav
+            class="jb-card flex flex-col gap-3 p-4 text-sm md:flex-row md:items-center md:justify-between md:px-5"
+            aria-label="Your search profiles"
+          >
+            <ul class="flex min-w-0 flex-wrap items-center gap-1.5">
+              @for (p of repo.profiles(); track p.id; let i = $index) {
+                <li>
+                  <button
+                    type="button"
+                    class="jb-chip"
+                    [attr.aria-pressed]="p.id === current()?.id"
+                    (click)="select(p.id)"
+                  >
+                    {{ p.name }}
+                    @if (p.active && repo.profiles().length > 1) {
+                      <span class="text-ink-muted">· main</span>
+                    }
+                    @if (i >= searchedCount()) {
+                      <span class="text-warn">· not searched</span>
+                    }
+                  </button>
+                </li>
+              }
+              @if (isNew()) {
+                <li>
+                  <span class="jb-chip" aria-pressed="true" aria-current="true"
+                    >New profile</span
+                  >
+                </li>
+              }
+            </ul>
+            <button
+              type="button"
+              jbButton
+              size="sm"
+              class="shrink-0 self-start md:self-auto"
+              [disabled]="isNew()"
+              (click)="addProfile()"
+            >
+              <jb-icon name="plus" /> Add a profile
+            </button>
+          </nav>
+          @if (repo.profiles().length > searchedCount()) {
+            <jb-upgrade-note feature="multiple_profiles" />
+          }
+        }
         @if (resumes.master()) {
           <div
             class="jb-card flex flex-col gap-3 p-5 text-sm md:flex-row md:items-center md:justify-between"
@@ -86,6 +146,30 @@ const splitLines = (s: string) =>
           class="jb-card grid grid-cols-1 gap-6 p-5 md:grid-cols-2 md:gap-x-8 md:p-7"
           novalidate
         >
+          @if (isNew() || repo.profiles().length > 1) {
+            <div class="flex flex-col gap-1 text-sm md:col-span-2">
+              <label for="sp-name">Profile name</label>
+              <input
+                id="sp-name"
+                type="text"
+                class="jb-input md:max-w-sm"
+                maxlength="60"
+                autocomplete="off"
+                formControlName="name"
+              />
+              <p class="text-xs text-ink-muted">
+                @if (isNew()) {
+                  A further search with its own roles, stacks and rules, matched
+                  every hour next to the others. It starts from your main
+                  profile's country and rules; nothing is added until you press
+                  Add profile.
+                } @else {
+                  Each profile is matched every hour. A role is filed once, by
+                  the first profile that finds it.
+                }
+              </p>
+            </div>
+          }
           <div class="flex flex-col gap-1 text-sm">
             <label for="sp-roles"
               >Target roles
@@ -455,61 +539,72 @@ const splitLines = (s: string) =>
 
           <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
             <legend class="jb-section-title mb-2">Digest</legend>
-            <label class="flex items-center gap-2">
-              <input
-                id="sp-digest-on"
-                type="checkbox"
-                formControlName="digestEnabled"
-              />
-              Email me a morning digest
-            </label>
-            <label class="flex items-center gap-2">
-              at
-              <input
-                id="sp-digest"
-                type="time"
-                formControlName="digestTime"
-                class="jb-input jb-input-inline"
-              />
-              <span class="text-ink-muted"
-                >({{ auth.profile()?.timezone || 'your timezone' }})</span
-              >
-            </label>
-            <div
-              class="flex flex-wrap items-center gap-1.5"
-              role="group"
-              aria-label="Digest days"
-            >
-              <span class="mr-1">on</span>
-              @for (d of weekdays; track d.n) {
-                <button
-                  type="button"
-                  class="jb-chip"
-                  [attr.aria-pressed]="digestDays().includes(d.n)"
-                  (click)="toggleDay(d.n)"
+            @if (!isMain()) {
+              <p class="text-ink-muted">
+                The morning digest covers every profile and follows the settings
+                on your main profile.
+              </p>
+            } @else {
+              <label class="flex items-center gap-2">
+                <input
+                  id="sp-digest-on"
+                  type="checkbox"
+                  formControlName="digestEnabled"
+                />
+                Email me a morning digest
+              </label>
+              <label class="flex items-center gap-2">
+                at
+                <input
+                  id="sp-digest"
+                  type="time"
+                  formControlName="digestTime"
+                  class="jb-input jb-input-inline"
+                />
+                <span class="text-ink-muted"
+                  >({{ auth.profile()?.timezone || 'your timezone' }})</span
                 >
-                  {{ d.label }}
-                </button>
-              }
-            </div>
-            <label class="flex items-center gap-2">
-              Only roles scoring at least
-              <input
-                id="sp-digest-min"
-                type="number"
-                min="0"
-                max="100"
-                step="5"
-                formControlName="digestMinScore"
-                class="jb-input jb-input-inline w-24"
-              />
-            </label>
-            <p class="text-ink-muted">
-              The run itself still records every role; this only shapes the
-              email.
-            </p>
+              </label>
+              <div
+                class="flex flex-wrap items-center gap-1.5"
+                role="group"
+                aria-label="Digest days"
+              >
+                <span class="mr-1">on</span>
+                @for (d of weekdays; track d.n) {
+                  <button
+                    type="button"
+                    class="jb-chip"
+                    [attr.aria-pressed]="digestDays().includes(d.n)"
+                    (click)="toggleDay(d.n)"
+                  >
+                    {{ d.label }}
+                  </button>
+                }
+              </div>
+              <label class="flex items-center gap-2">
+                Only roles scoring at least
+                <input
+                  id="sp-digest-min"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="5"
+                  formControlName="digestMinScore"
+                  class="jb-input jb-input-inline w-24"
+                />
+              </label>
+              <p class="text-ink-muted">
+                The run itself still records every role; this only shapes the
+                email.
+              </p>
+            }
             <label class="mt-2 flex flex-wrap items-center gap-2">
-              Email me right away when a new role scores at least
+              Email me right away when a new role
+              @if (repo.profiles().length > 1 || isNew()) {
+                from this profile
+              }
+              scores at least
               <input
                 id="sp-alert-min"
                 type="number"
@@ -521,10 +616,14 @@ const splitLines = (s: string) =>
                 placeholder="Off"
               />
             </label>
-            <p class="text-ink-muted">
-              Leave it empty for no instant alerts. Checked every hour, as new
-              roles are filed.
-            </p>
+            @if (canAlert()) {
+              <p class="text-ink-muted">
+                Leave it empty for no instant alerts. Checked every hour, as new
+                roles are filed.
+              </p>
+            } @else {
+              <jb-upgrade-note feature="instant_alerts" />
+            }
           </fieldset>
 
           <fieldset
@@ -576,8 +675,13 @@ const splitLines = (s: string) =>
               [attr.aria-busy]="saving() ? 'true' : null"
               [disabled]="form.pristine || saving()"
             >
-              Save profile
+              {{ isNew() ? 'Add profile' : 'Save profile' }}
             </button>
+            @if (isNew()) {
+              <button type="button" jbButton="ghost" (click)="cancelNew()">
+                Cancel
+              </button>
+            }
             @if (savedAt() && form.pristine) {
               <span
                 class="inline-flex items-center gap-1.5 text-sm text-good"
@@ -585,6 +689,19 @@ const splitLines = (s: string) =>
               >
                 <jb-icon name="circle-check" [size]="17" /> Saved
               </span>
+            }
+            @if (current(); as c) {
+              @if (!c.active) {
+                <button
+                  type="button"
+                  jbButton="ghost"
+                  class="ml-auto text-bad"
+                  [disabled]="saving()"
+                  (click)="deleteProfile()"
+                >
+                  <jb-icon name="trash" /> Delete this profile
+                </button>
+              }
             }
           </div>
         </form>
@@ -684,6 +801,37 @@ export class SearchProfile {
   protected readonly resumes = inject(ResumesRepo);
   protected readonly auth = inject(Auth);
   private readonly toast = inject(Toast);
+  private readonly plan = inject(Plan);
+  private readonly confirm = inject(Confirm);
+
+  /**
+   * Which profile the form holds: one by id, 'new' for one not added yet,
+   * null for the main profile.
+   */
+  private readonly selected = signal<string | 'new' | null>(null);
+  readonly isNew = computed(() => this.selected() === 'new');
+  /** The saved profile in the form; null while a new one is being written. */
+  readonly current = computed<SearchProfileRow | null>(() => {
+    const sel = this.selected();
+    if (sel === 'new') return null;
+    return (
+      this.repo.profiles().find((p) => p.id === sel) ?? this.repo.profile()
+    );
+  });
+  /** The form holds the main profile (or the account's first, not saved yet). */
+  readonly isMain = computed(
+    () => !this.isNew() && this.current()?.active !== false,
+  );
+  /**
+   * How many of the profiles, in order, the plan searches: all of them when
+   * nothing limits the account.
+   */
+  readonly searchedCount = computed(() => {
+    const limit = limitOf(this.plan.entitlements(), 'search_profiles');
+    const n = this.repo.profiles().length;
+    return limit === null ? n : Math.min(n, Math.max(1, limit));
+  });
+  readonly canAlert = computed(() => this.plan.can('instant_alerts'));
 
   readonly saving = signal(false);
   /** The target roles in order, kept in step with the form control. */
@@ -721,6 +869,8 @@ export class SearchProfile {
           roles,
           splitLines(this.form.controls.stacks.value),
           this.form.controls.minSeniority.value,
+          // a new profile starts from the main one, which is the default
+          this.current()?.id,
         ),
       );
     } catch (e) {
@@ -830,6 +980,7 @@ export class SearchProfile {
     c.markAsDirty();
   }
   readonly form = new FormGroup({
+    name: new FormControl('', { nonNullable: true }),
     targetRoles: new FormControl('', { nonNullable: true }),
     stacks: new FormControl('', { nonNullable: true }),
     worldwide: new FormControl(true, { nonNullable: true }),
@@ -897,7 +1048,7 @@ export class SearchProfile {
 
   /** The prompt follows the saved profile, not unsaved edits, so what you copy is what runs. */
   readonly prompt = computed(() => {
-    const p = this.repo.profile();
+    const p = this.current() ?? this.repo.profile();
     if (!p) return 'Save a search profile to generate the prompt.';
     const me = this.auth.profile();
     return renderSearchPrompt(p, {
@@ -933,9 +1084,112 @@ export class SearchProfile {
     if (!this.resumes.loaded()) void this.resumes.load();
     void this.repo.load();
     effect(() => {
-      const p = this.repo.profile();
+      // A new profile is filled once, when it is started.
+      const p = this.current();
       if (p) untracked(() => this.fill(p));
     });
+    effect(() => {
+      // Without the feature the threshold is kept as it is and cannot be set.
+      const c = this.form.controls.alertMinScore;
+      if (this.canAlert()) c.enable({ emitEvent: false });
+      else c.disable({ emitEvent: false });
+    });
+  }
+
+  /** True when leaving the form would lose something the user typed. */
+  private async mayLeave(): Promise<boolean> {
+    if (this.form.pristine) return true;
+    if (
+      this.isNew() &&
+      !this.roleList().length &&
+      !this.form.controls.stacks.value.trim()
+    )
+      return true;
+    return this.confirm.ask({
+      title: 'Leave without saving?',
+      body: 'The changes to this profile have not been saved.',
+      action: 'Leave',
+      cancel: 'Stay',
+    });
+  }
+
+  private reset() {
+    this.preview.set(null);
+    this.previewError.set('');
+    this.titleIdeas.set([]);
+    this.titleNote.set('');
+    this.savedAt.set(null);
+  }
+
+  async select(id: string) {
+    if (id === this.current()?.id && !this.isNew()) return;
+    if (!(await this.mayLeave())) return;
+    this.reset();
+    this.form.markAsPristine();
+    this.selected.set(id); // the effect fills the form from it
+  }
+
+  /** Starts a further profile from the main one's country and rules. */
+  async addProfile() {
+    const main = this.repo.profile();
+    if (!main || this.isNew()) return;
+    const have = this.repo.profiles().length;
+    const limit = limitOf(this.plan.entitlements(), 'search_profiles');
+    if (limit !== null && have >= limit) {
+      if (this.plan.can('multiple_profiles'))
+        this.toast.show(
+          `Your plan holds ${limit} search profiles. Delete one to add another.`,
+        );
+      else await this.plan.offer('multiple_profiles');
+      return;
+    }
+    if (have >= MAX_PROFILES) {
+      this.toast.show(
+        `An account holds up to ${MAX_PROFILES} search profiles.`,
+      );
+      return;
+    }
+    if (!(await this.mayLeave())) return;
+    this.reset();
+    this.selected.set('new');
+    this.fill({
+      ...main,
+      name: nextProfileName(this.repo.profiles().map((p) => p.name)),
+      target_roles: [],
+      stacks: [],
+      alert_min_score: null,
+    });
+    this.form.markAsDirty();
+  }
+
+  cancelNew() {
+    const main = this.repo.profile();
+    this.reset();
+    this.selected.set(null);
+    if (main) this.fill(main);
+  }
+
+  async deleteProfile() {
+    const p = this.current();
+    if (!p || p.active || this.saving()) return;
+    const ok = await this.confirm.ask({
+      title: `Delete the profile "${p.name}"?`,
+      body: 'It is no longer searched. The roles it found stay in your tracker.',
+      action: 'Delete profile',
+      danger: true,
+    });
+    if (!ok) return;
+    this.saving.set(true);
+    try {
+      await this.repo.remove(p.id);
+      this.reset();
+      this.selected.set(null);
+      this.toast.show('Profile deleted');
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not delete');
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   private fill(p: SearchProfileRow) {
@@ -945,6 +1199,7 @@ export class SearchProfile {
       p.digest_days?.length ? [...p.digest_days] : [1, 2, 3, 4, 5, 6, 7],
     );
     this.form.reset({
+      name: p.name,
       targetRoles: p.target_roles.join('\n'),
       stacks: p.stacks.join('\n'),
       worldwide: remote['worldwide'] !== false,
@@ -992,11 +1247,19 @@ export class SearchProfile {
       this.toast.show(`Not a country we know: ${allowed.unknown.join(', ')}`);
       return;
     }
+    const target_roles = splitLines(v.targetRoles);
+    if (this.isNew() && !target_roles.length && !splitLines(v.stacks).length) {
+      this.toast.show('Add a target role or a stack first');
+      return;
+    }
     this.saving.set(true);
     try {
-      await this.repo.save({
-        name: this.repo.profile()?.name ?? 'Default',
-        target_roles: splitLines(v.targetRoles),
+      const input: SearchProfileInput = {
+        name:
+          v.name.replace(/\s+/g, ' ').trim().slice(0, 60) ||
+          this.current()?.name ||
+          'Default',
+        target_roles,
         stacks: splitLines(v.stacks),
         remote_rules: {
           worldwide: v.worldwide,
@@ -1034,11 +1297,19 @@ export class SearchProfile {
           v.alertMinScore === null || String(v.alertMinScore) === ''
             ? null
             : Math.min(100, Math.max(0, Number(v.alertMinScore) || 0)),
-      });
+      };
+      if (this.isNew()) {
+        const made = await this.repo.create(input);
+        this.selected.set(made.id);
+        this.toast.show('Profile added. It is matched within the hour.');
+      } else {
+        await this.repo.save(input, this.current()?.id);
+        this.toast.show('Search profile saved');
+      }
       this.form.markAsPristine();
       this.savedAt.set(Date.now());
-      this.toast.show('Search profile saved');
     } catch (e) {
+      if (await this.plan.handled(e)) return;
       this.toast.show((e as Error).message || 'Could not save');
     } finally {
       this.saving.set(false);

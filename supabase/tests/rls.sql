@@ -2003,4 +2003,91 @@ do $$ begin
   delete from public.subscriptions;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Several search profiles (migration 0047). User 3 writes its own rows.
+-- ---------------------------------------------------------------------------
+delete from public.search_profiles where user_id = '33333333-3333-3333-3333-333333333333';
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$
+declare
+  u uuid := auth.uid();
+  main uuid; second uuid;
+begin
+  -- The first profile is the main one whatever was sent; the next ones are not.
+  insert into public.search_profiles (user_id, name, active) values (u, 'Frontend', false) returning id into main;
+  insert into public.search_profiles (user_id, name, active) values (u, 'Manager', true) returning id into second;
+  if not (select active from public.search_profiles where id = main) then raise exception 'FAIL: the first profile is not the main one'; end if;
+  if (select active from public.search_profiles where id = second) then raise exception 'FAIL: a second profile was made main'; end if;
+
+  -- The main mark cannot be moved by hand, in either direction.
+  update public.search_profiles set active = false where id = main;
+  update public.search_profiles set active = true, name = 'Engineering manager' where id = second;
+  if not (select active from public.search_profiles where id = main)
+     or (select active from public.search_profiles where id = second)
+     or (select name from public.search_profiles where id = second) <> 'Engineering manager' then
+    raise exception 'FAIL: the main mark moved, or another field did not save';
+  end if;
+
+  -- Billing off: the largest plan limit applies (5).
+  insert into public.search_profiles (user_id, name) values (u, 'Three'), (u, 'Four'), (u, 'Five');
+  begin
+    insert into public.search_profiles (user_id, name) values (u, 'Six');
+    raise exception 'FAIL: a sixth search profile was stored';
+  exception when raise_exception then
+    if sqlerrm not like 'Your plan allows 5 search profile%' then raise; end if;
+  end;
+  delete from public.search_profiles where name in ('Three', 'Four', 'Five');
+
+  -- Deleting the main profile promotes the oldest of the rest.
+  delete from public.search_profiles where id = main;
+  if (select count(*) from public.search_profiles where active) <> 1
+     or not (select active from public.search_profiles where id = second) then
+    raise exception 'FAIL: no main profile after the main one was deleted';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
+-- Billing on: Free holds one profile, Pro five. A role remembers which
+-- profile filed it and keeps its row when that profile goes.
+do $$
+declare
+  u uuid := '33333333-3333-3333-3333-333333333333';
+  sp uuid := (select id from public.search_profiles where user_id = u);
+  extra uuid; r uuid;
+begin
+  update public.settings set value = jsonb_set(value, '{enabled}', 'true') where key = 'billing';
+  begin
+    insert into public.search_profiles (user_id, name) values (u, 'Second');
+    raise exception 'FAIL: Free stored a second search profile';
+  exception when raise_exception then
+    if sqlerrm not like 'Your plan allows 1 search profile%' then raise; end if;
+  end;
+  insert into public.subscriptions (user_id, plan_id) values (u, 'pro');
+  insert into public.search_profiles (user_id, name) values (u, 'Second') returning id into extra;
+  insert into public.roles (user_id, company, title, url, search_profile_id)
+  values (u, 'Globex', 'Engineering Manager', 'https://example.com/profiles-test', extra) returning id into r;
+  delete from public.search_profiles where id = extra;
+  if (select search_profile_id from public.roles where id = r) is not null then
+    raise exception 'FAIL: a role still points at a deleted profile';
+  end if;
+  if not (select active from public.search_profiles where id = sp) then raise exception 'FAIL: deleting a further profile touched the main one'; end if;
+  delete from public.roles where id = r;
+  delete from public.subscriptions where user_id = u;
+  update public.settings set value = jsonb_set(value, '{enabled}', 'false') where key = 'billing';
+end $$;
+
+-- Deleting an account takes all its profiles with it (the promotion trigger
+-- must not get in the way).
+do $$
+declare u uuid := '99999999-9999-9999-9999-999999999999';
+begin
+  insert into auth.users (id, email, raw_user_meta_data) values (u, 'profiles@example.com', '{}');
+  insert into public.search_profiles (user_id, name) values (u, 'One'), (u, 'Two'), (u, 'Three');
+  delete from auth.users where id = u;
+  if exists (select 1 from public.search_profiles where user_id = u) then
+    raise exception 'FAIL: profiles outlived their account';
+  end if;
+end $$;
+
 \echo RLS tests passed

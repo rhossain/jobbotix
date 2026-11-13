@@ -15,6 +15,8 @@ import {
   NO_AI_ROUTE,
   normaliseAiRoute,
   normaliseEntitlements,
+  orderProfiles,
+  upgradeMessage,
   normaliseProAiAdmin,
   normaliseResume,
   OPEN_ENTITLEMENTS,
@@ -309,43 +311,73 @@ export class SupabaseRolesRepo extends RolesRepo {
 export class SupabaseSearchProfileRepo extends SearchProfileRepo {
   private readonly supabase = injectSupabase();
   private readonly auth = inject(Auth);
-  private readonly _profile = signal<SearchProfileRow | null>(null);
+  private readonly _profiles = signal<SearchProfileRow[]>([]);
 
-  readonly profile = computed(() => this._profile());
+  readonly profiles = computed(() => orderProfiles(this._profiles()));
+  readonly profile = computed(
+    () => this._profiles().find((p) => p.active) ?? null,
+  );
   readonly loaded = signal(false);
 
   async load() {
-    const { data } = await this.supabase
-      .from('search_profiles')
-      .select('*')
-      .eq('active', true)
-      .maybeSingle();
-    this._profile.set(data ?? null);
+    const { data } = await this.supabase.from('search_profiles').select('*');
+    this._profiles.set(data ?? []);
     this.loaded.set(true);
   }
 
-  async save(input: SearchProfileInput) {
-    const current = this._profile();
-    if (current) {
-      const { data, error } = await this.supabase
-        .from('search_profiles')
-        .update(input)
-        .eq('id', current.id)
-        .select('*')
-        .single();
-      if (error) throw error;
-      this._profile.set(data);
+  async save(input: SearchProfileInput, id?: string) {
+    const target = id ?? this.profile()?.id;
+    if (!target) {
+      await this.create(input);
       return;
     }
+    const { data, error } = await this.supabase
+      .from('search_profiles')
+      .update(input)
+      .eq('id', target)
+      .select('*')
+      .single();
+    if (error) throw error;
+    this._profiles.update((list) =>
+      list.map((p) => (p.id === data.id ? data : p)),
+    );
+  }
+
+  /** The account's first profile becomes its main one (the database decides). */
+  async create(input: SearchProfileInput) {
     const userId = this.auth.user()?.id;
     if (!userId) throw new Error('Not signed in');
     const { data, error } = await this.supabase
       .from('search_profiles')
-      .insert({ ...input, user_id: userId, active: true })
+      .insert({ ...input, user_id: userId })
       .select('*')
       .single();
+    if (error) {
+      // The database's own limit (migration 0047).
+      if (error.hint === 'search_profiles_limit')
+        throw new UpgradeRequiredError(
+          upgradeMessage('multiple_profiles'),
+          'multiple_profiles',
+        );
+      // The app is ahead of the server: one profile an account is still its rule.
+      if (error.code === '23505')
+        throw new Error(
+          'Several search profiles are not switched on yet on the server. Try again after the next update.',
+        );
+      throw error;
+    }
+    this._profiles.update((list) => [...list, data]);
+    return data;
+  }
+
+  async remove(id: string) {
+    const { error } = await this.supabase
+      .from('search_profiles')
+      .delete()
+      .eq('id', id);
     if (error) throw error;
-    this._profile.set(data);
+    // The database promotes another profile when the main one goes.
+    await this.load();
   }
 
   async createIngestKey(label: string) {
@@ -368,11 +400,21 @@ export class SupabaseSearchProfileRepo extends SearchProfileRepo {
     return data ?? [];
   }
 
-  async previewSearch(roles: string[], stacks: string[], minSeniority: string) {
+  async previewSearch(
+    roles: string[],
+    stacks: string[],
+    minSeniority: string,
+    profileId?: string,
+  ) {
     const { data, error } = await this.supabase.functions.invoke<
       Record<string, unknown>
     >('preview-search', {
-      body: { target_roles: roles, stacks, min_seniority: minSeniority },
+      body: {
+        target_roles: roles,
+        stacks,
+        min_seniority: minSeniority,
+        ...(profileId ? { profileId } : {}),
+      },
     });
     if (error) throw await functionError(error);
     if (!data || typeof data['pool'] !== 'number')

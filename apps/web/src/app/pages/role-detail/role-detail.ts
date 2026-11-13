@@ -693,6 +693,10 @@ type Tab =
                     {{ r.source || 'Unknown' }}
                   }
                 </dd>
+                @if (foundBy(); as name) {
+                  <dt class="text-ink-muted">Found by</dt>
+                  <dd class="m-0 text-right text-ink">{{ name }} profile</dd>
+                }
               </dl>
               @if (health().badges.length) {
                 <ul
@@ -837,6 +841,17 @@ export class RoleDetail {
   readonly answers = signal<ScreeningAnswerRow[]>([]);
   readonly seenOn = signal<PostingSeenOn[]>([]);
   private readonly profileRepo = inject(SearchProfileRepo);
+  /**
+   * The search profile that filed this role, named only when the account
+   * searches with several.
+   */
+  readonly foundBy = computed(() => {
+    const all = this.profileRepo.profiles();
+    const id = this.role()?.search_profile_id;
+    return all.length > 1 && id
+      ? (all.find((p) => p.id === id)?.name ?? '')
+      : '';
+  });
   /**
    * The pay line as a yearly figure (in the currency of the user's minimum,
    * else its own) when it is hourly, monthly or in another currency, and

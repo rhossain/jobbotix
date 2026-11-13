@@ -505,20 +505,49 @@ export class MemorySearchProfileRepo extends SearchProfileRepo {
   readonly profile = computed<SearchProfileRow | null>(
     () => this.roles.snapshot().profile,
   );
+  /** Further profiles made in the demo; gone on reload, like the rest. */
+  private readonly extras = signal<SearchProfileRow[]>([]);
+  readonly profiles = computed<SearchProfileRow[]>(() => {
+    const main = this.profile();
+    return [...(main ? [main] : []), ...this.extras()];
+  });
   readonly loaded = signal(true);
 
   async load() {
     /* nothing to fetch */
   }
 
-  async save(input: SearchProfileInput) {
+  async save(input: SearchProfileInput, id?: string) {
+    const updated_at = new Date().toISOString();
+    if (id && this.extras().some((p) => p.id === id)) {
+      this.extras.update((list) =>
+        list.map((p) => (p.id === id ? { ...p, ...input, updated_at } : p)),
+      );
+      return;
+    }
     this.roles.patch((s) => {
-      s.profile = {
-        ...s.profile,
-        ...input,
-        updated_at: new Date().toISOString(),
-      };
+      s.profile = { ...s.profile, ...input, updated_at };
     });
+  }
+
+  async create(input: SearchProfileInput) {
+    const main = this.roles.snapshot().profile;
+    const now = new Date().toISOString();
+    const row: SearchProfileRow = {
+      ...main,
+      ...input,
+      id: crypto.randomUUID(),
+      active: false,
+      last_matched_at: null,
+      created_at: now,
+      updated_at: now,
+    };
+    this.extras.update((list) => [...list, row]);
+    return row;
+  }
+
+  async remove(id: string) {
+    this.extras.update((list) => list.filter((p) => p.id !== id));
   }
 
   /** Demo postings, one or more for each kind of reason. */

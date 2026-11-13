@@ -1,8 +1,10 @@
 // POST /functions/v1/preview-search     (signed-in user)
 //   Authorization: Bearer <user JWT>
-//   { "target_roles"?: [...], "stacks"?: [...], "min_seniority"?: "mid", "days"?: 14 }
+//   { "target_roles"?: [...], "stacks"?: [...], "min_seniority"?: "mid", "days"?: 14,
+//     "profileId"?: "..." }
 //
-// What the caller's search would find: their saved search profile, with the
+// What the caller's search would find: one of their saved search profiles
+// (`profileId`; the main one when it is left out), with the
 // roles and stacks from the form laid over it (so it can be tried before
 // saving), replayed over the last two weeks of postings by the same match
 // and score rules the hourly run uses. Counts every step and names the
@@ -60,13 +62,20 @@ Deno.serve(
     );
 
     const admin = serviceClient();
+    const profileId =
+      typeof body['profileId'] === 'string' &&
+      /^[0-9a-f-]{36}$/i.test(body['profileId'])
+        ? body['profileId']
+        : null;
+    const saved = admin
+      .from('search_profiles')
+      .select(PROFILE_COLUMNS)
+      .eq('user_id', userData.user.id);
     const [{ data: sp }, { data: settings }] = await Promise.all([
-      admin
-        .from('search_profiles')
-        .select(PROFILE_COLUMNS)
-        .eq('user_id', userData.user.id)
-        .eq('active', true)
-        .maybeSingle(),
+      (profileId
+        ? saved.eq('id', profileId)
+        : saved.eq('active', true)
+      ).maybeSingle(),
       admin
         .from('settings')
         .select('key, value')

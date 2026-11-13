@@ -165,6 +165,11 @@ export type RoleRow = Timestamps & {
   prep: Json;
   posting_id: string | null;
   source_id: string | null;
+  /**
+   * The search profile that filed the role; null for a role added by hand,
+   * and once that profile is deleted. Absent on rows read before migration 0047.
+   */
+  search_profile_id?: string | null;
   remote_policy: RemotePolicy;
   hiring_countries: string[];
   /** CompanyResearch (company.ts); {} until researched. */
