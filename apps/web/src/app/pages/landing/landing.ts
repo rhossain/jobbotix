@@ -11,11 +11,13 @@ import {
   Validators,
 } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { PRICING, usd } from '@jobbotix/shared-types';
 import { Auth } from '../../core/auth';
 import { injectSupabase } from '../../core/supabase';
 import { environment } from '../../../environments/environment';
 import { longDate } from '../../shared/format';
 import { Button, Field, FieldControl, Icon, MatchRing } from '../../ui';
+import { LEGAL, PRO_ON_SALE } from './legal';
 
 /** Public front page: the positioning in one screen, and a way to ask for an invite. */
 @Component({
@@ -64,7 +66,10 @@ import { Button, Field, FieldControl, Icon, MatchRing } from '../../ui';
         class="jb-card relative overflow-hidden p-5 shadow-overlay md:p-6"
         aria-hidden="true"
       >
-        <p class="text-sm font-medium text-brand-ink">{{ today }}</p>
+        <p class="flex items-center justify-between gap-3">
+          <span class="text-sm font-medium text-brand-ink">{{ today }}</span>
+          <span class="jb-tag">Example</span>
+        </p>
         <p class="mt-1 text-xl font-semibold tracking-tight text-ink">
           Good morning
         </p>
@@ -121,6 +126,76 @@ import { Button, Field, FieldControl, Icon, MatchRing } from '../../ui';
       </ol>
     </section>
 
+    <!-- What it is, and is not -->
+    <section
+      class="border-t border-line py-12 lg:py-16"
+      aria-labelledby="what-heading"
+    >
+      <h2
+        id="what-heading"
+        class="max-w-xl text-2xl font-semibold tracking-tight text-ink md:text-3xl"
+      >
+        A private assistant for your own job search.
+      </h2>
+      <div class="mt-8 grid gap-4 md:grid-cols-2">
+        <div class="jb-card p-5">
+          <h3 class="font-semibold text-ink">What it is</h3>
+          <ul class="mt-3 flex flex-col gap-2.5 text-sm text-ink-muted">
+            @for (line of is; track line) {
+              <li class="flex items-start gap-2">
+                <jb-icon
+                  name="check"
+                  [size]="16"
+                  class="mt-0.5 shrink-0 text-good"
+                />
+                <span>{{ line }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+        <div class="jb-card p-5">
+          <h3 class="font-semibold text-ink">What it is not</h3>
+          <ul class="mt-3 flex flex-col gap-2.5 text-sm text-ink-muted">
+            @for (line of isNot; track line.lead) {
+              <li>
+                <span class="font-medium text-ink">{{ line.lead }}</span>
+                {{ line.rest }}
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- Price -->
+    <section
+      class="border-t border-line py-12 lg:py-16"
+      aria-labelledby="price-heading"
+    >
+      <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+        <div>
+          <h2
+            id="price-heading"
+            class="max-w-xl text-2xl font-semibold tracking-tight text-ink md:text-3xl"
+          >
+            Free to run your search. Pro when you want the AI included.
+          </h2>
+          <p class="mt-3 max-w-xl text-ink-muted">
+            The search, the scoring and the tracker are free, and AI works on a
+            key of your own. Pro is {{ monthly }} a month, or
+            {{ quarterly }} for three months, and adds AI credits so drafting
+            needs no key.
+            @if (!onSale) {
+              Pro is not on sale yet.
+            }
+          </p>
+        </div>
+        <div>
+          <a jbButton size="lg" routerLink="/pricing">See pricing</a>
+        </div>
+      </div>
+    </section>
+
     <!-- Join -->
     <section id="invite" class="border-t border-line py-12 lg:py-16">
       <div
@@ -147,8 +222,8 @@ import { Button, Field, FieldControl, Icon, MatchRing } from '../../ui';
               Invite-only for now
             </h2>
             <p class="mt-2 text-ink-muted">
-              Jobbotix runs on free tiers while it is small. Leave your email
-              and the kind of role you are after; invites go out in order.
+              Jobbotix is opening in small steps. Leave your email and the kind
+              of role you are after; invites go out in order.
             </p>
             <p class="mt-3 text-sm text-ink-muted">
               Have a code?
@@ -216,8 +291,12 @@ import { Button, Field, FieldControl, Icon, MatchRing } from '../../ui';
       class="flex flex-wrap gap-x-6 gap-y-2 border-t border-line pt-6 text-sm text-ink-muted"
     >
       <span>© {{ year }} Jobbotix</span>
+      <a routerLink="/pricing" class="hover:text-ink">Pricing</a>
+      <a routerLink="/terms" class="hover:text-ink">Terms</a>
+      <a routerLink="/refunds" class="hover:text-ink">Refunds</a>
       <a routerLink="/privacy" class="hover:text-ink">Privacy</a>
       <a routerLink="/login" class="hover:text-ink">Sign in</a>
+      <a [href]="'mailto:' + contact" class="hover:text-ink">{{ contact }}</a>
       <a
         href="https://github.com/rhossain/jobbotix"
         target="_blank"
@@ -233,6 +312,30 @@ export class Landing {
   private readonly auth = inject(Auth);
   readonly year = new Date().getFullYear();
   readonly today = longDate(new Date());
+  readonly contact = LEGAL.email;
+  readonly onSale = PRO_ON_SALE;
+  readonly monthly = usd(PRICING.pro.monthlyUsd);
+  readonly quarterly = usd(PRICING.pro.quarterlyUsd);
+  /** What Jobbotix is, said plainly for a visitor and for a reviewer. */
+  readonly is = [
+    'A web app for one job seeker. You are the only customer.',
+    'It gathers remote postings from public job boards and company career pages into a list only you can see, and links each one back to where it was published.',
+    'It scores them against your search profile, tracks your applications and interviews, and drafts resumes, letters and answers from your own resume for you to edit.',
+  ];
+  readonly isNot = [
+    {
+      lead: 'Not a job board.',
+      rest: 'Employers and recruiters cannot post, pay or advertise here, and no listings are sold.',
+    },
+    {
+      lead: 'Not an auto-applier.',
+      rest: 'It never submits an application or contacts an employer for you.',
+    },
+    {
+      lead: 'Not a promise of an interview or a job.',
+      rest: 'Scores and drafts are help; you decide what to send.',
+    },
+  ];
   /** The sample brief in the hero (fictional roles, as in demo mode). */
   readonly sample = [
     {
