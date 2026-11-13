@@ -7,6 +7,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import {
@@ -88,24 +89,63 @@ const splitLines = (s: string) =>
           <div class="flex flex-col gap-1 text-sm">
             <label for="sp-roles"
               >Target roles
-              <span class="text-ink-muted"
-                >(one per line, best first)</span
-              ></label
+              <span class="text-ink-muted">(best first)</span></label
             >
-            <textarea
+            @if (roleList().length) {
+              <ul class="flex flex-wrap gap-1.5" aria-label="Your target roles">
+                @for (r of roleList(); track r; let i = $index) {
+                  <li
+                    class="inline-flex items-center gap-0.5 rounded-full border border-line py-0.5 pl-3 pr-1 text-sm text-ink"
+                  >
+                    <span>{{ r }}</span>
+                    @if (i > 0) {
+                      <button
+                        type="button"
+                        jbButton="ghost"
+                        size="sm"
+                        iconOnly
+                        [attr.aria-label]="'Move ' + r + ' earlier'"
+                        [title]="'Move earlier'"
+                        (click)="moveRole(i)"
+                      >
+                        <jb-icon name="chevron-left" />
+                      </button>
+                    }
+                    <button
+                      type="button"
+                      jbButton="ghost"
+                      size="sm"
+                      iconOnly
+                      [attr.aria-label]="'Remove ' + r"
+                      [title]="'Remove'"
+                      (click)="removeRole(i)"
+                    >
+                      <jb-icon name="x" />
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+            <input
               id="sp-roles"
-              formControlName="targetRoles"
-              class="jb-input min-h-28"
-            ></textarea>
+              #roleInput
+              type="text"
+              class="jb-input"
+              autocomplete="off"
+              enterkeyhint="done"
+              placeholder="Add a job title, then press Enter"
+              (keydown.enter)="$event.preventDefault(); addTyped(roleInput)"
+              (keydown)="commaAdds($event, roleInput)"
+              (blur)="addTyped(roleInput)"
+              (paste)="pasteRoles($event, roleInput)"
+            />
             <div class="mt-1 flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 jbButton="ghost"
                 size="sm"
                 [busy]="suggesting()"
-                [disabled]="
-                  suggesting() || !form.controls.targetRoles.value.trim()
-                "
+                [disabled]="suggesting() || !roleList().length"
                 (click)="suggestTitles()"
               >
                 Suggest other job titles
@@ -115,9 +155,7 @@ const splitLines = (s: string) =>
                 jbButton="ghost"
                 size="sm"
                 [busy]="previewing()"
-                [disabled]="
-                  previewing() || !form.controls.targetRoles.value.trim()
-                "
+                [disabled]="previewing() || !roleList().length"
                 (click)="previewSearch()"
               >
                 Preview what this finds
@@ -642,6 +680,8 @@ export class SearchProfile {
   private readonly toast = inject(Toast);
 
   readonly saving = signal(false);
+  /** The target roles in order, kept in step with the form control. */
+  readonly roleList = signal<string[]>([]);
   readonly suggesting = signal(false);
   readonly previewing = signal(false);
   readonly preview = signal<SearchExplain | null>(null);
@@ -708,6 +748,66 @@ export class SearchProfile {
     } finally {
       this.suggesting.set(false);
     }
+  }
+
+  private setRoles(roles: string[]) {
+    const c = this.form.controls.targetRoles;
+    c.setValue(roles.join('\n'));
+    c.markAsDirty();
+  }
+
+  /** Adds what is typed in the box as one or more roles (commas and new lines split). */
+  addTyped(input: HTMLInputElement) {
+    const typed = input.value
+      .split(/[\n,]+/)
+      .map((t) => t.replace(/\s+/g, ' ').trim())
+      .filter(Boolean);
+    input.value = '';
+    if (!typed.length) return;
+    const roles = [...this.roleList()];
+    for (const t of typed)
+      if (!roles.some((r) => r.toLowerCase() === t.toLowerCase()))
+        roles.push(t.slice(0, 80));
+    this.setRoles(roles);
+  }
+
+  commaAdds(e: Event, input: HTMLInputElement) {
+    const k = e as KeyboardEvent;
+    if (k.key === ',') {
+      k.preventDefault();
+      this.addTyped(input);
+    } else if (
+      k.key === 'Backspace' &&
+      !input.value &&
+      this.roleList().length
+    ) {
+      // backspace in the empty box takes the last role back for editing
+      const roles = [...this.roleList()];
+      input.value = roles.pop() ?? '';
+      this.setRoles(roles);
+      k.preventDefault();
+    }
+  }
+
+  /** A pasted list (one per line or comma-separated) becomes several roles. */
+  pasteRoles(e: ClipboardEvent, input: HTMLInputElement) {
+    const text = e.clipboardData?.getData('text') ?? '';
+    if (!/[\n,]/.test(text)) return;
+    e.preventDefault();
+    input.value = `${input.value} ${text}`;
+    this.addTyped(input);
+  }
+
+  removeRole(i: number) {
+    this.setRoles(this.roleList().filter((_, n) => n !== i));
+  }
+
+  /** Swaps a role with the one before it: earlier means higher priority. */
+  moveRole(i: number) {
+    if (i < 1) return;
+    const roles = [...this.roleList()];
+    [roles[i - 1], roles[i]] = [roles[i], roles[i - 1]];
+    this.setRoles(roles);
   }
 
   hasRole(title: string) {
@@ -821,6 +921,9 @@ export class SearchProfile {
   }
 
   constructor() {
+    this.form.controls.targetRoles.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((v) => this.roleList.set(splitLines(v)));
     if (!this.resumes.loaded()) void this.resumes.load();
     void this.repo.load();
     effect(() => {
