@@ -160,7 +160,7 @@ Deno.test(
       title: 'QA Engineer',
       company: 'Acme',
       reason: 'Limited to United States',
-      where: 'Remote (US only) · region_locked',
+      where: 'Remote (US only) · remote, named places only',
       source: 'remoteok',
     });
   },

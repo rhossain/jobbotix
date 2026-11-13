@@ -254,7 +254,7 @@ const splitLines = (s: string) =>
                     @for (t of s.titles; track t) {
                       <button
                         type="button"
-                        class="rounded-full border border-line px-2.5 py-1 text-xs text-ink hover:bg-sunken disabled:opacity-50"
+                        class="rounded-full border border-line px-3 py-2 text-xs text-ink hover:bg-sunken disabled:opacity-50"
                         [disabled]="hasRole(t)"
                         [attr.aria-label]="'Add ' + t + ' to target roles'"
                         (click)="addRole(t)"

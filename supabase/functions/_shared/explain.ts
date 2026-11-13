@@ -55,6 +55,15 @@ export function reasonGroup(reason: string): string {
   return reason;
 }
 
+/** A posting's remote scope in plain words, for the examples. */
+const SCOPE: Record<string, string> = {
+  worldwide: 'remote, worldwide',
+  region_locked: 'remote, named places only',
+  hybrid: 'hybrid',
+  onsite: 'on-site',
+  unknown: 'remote scope not stated',
+};
+
 const GENERIC = new Set([
   'engineer',
   'manager',
@@ -165,7 +174,7 @@ export function createExplain(
               title: post.title,
               company: post.company,
               reason: r.reason,
-              where: [post.location, post.remote_policy]
+              where: [post.location, SCOPE[post.remote_policy] ?? '']
                 .filter(Boolean)
                 .join(' · ')
                 .slice(0, 120),
