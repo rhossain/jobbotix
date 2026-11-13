@@ -221,3 +221,13 @@ Deno.test('a board that answers nothing but errors fails the run', async () => {
   );
   assert(true);
 });
+
+Deno.test('Jobicy tags stay within its 3 to 20 characters', async () => {
+  const { jobicyTag } = await import('./boards.ts');
+  assertEquals(jobicyTag('qa'), 'qa engineer');
+  assertEquals(jobicyTag('go'), 'go developer');
+  assertEquals(jobicyTag('frontend'), 'frontend');
+  assertEquals(jobicyTag('product manager'), 'product manager');
+  assertEquals(jobicyTag('customer support specialist'), 'customer support');
+  assertEquals(jobicyTag('supercalifragilisticexpialidocious'), null);
+});

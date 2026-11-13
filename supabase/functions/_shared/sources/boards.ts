@@ -10,6 +10,7 @@
 //   remotive        GET https://remotive.com/api/remote-jobs   (all categories)
 //                   (asks for at most ~4 requests a day; the feed is 24 h delayed)
 
+import { termAsTitle } from '../role.ts';
 import { parseLocations } from '../countries.ts';
 import { fetcher, keepRecent, remoteFields } from './http.ts';
 import {
@@ -97,6 +98,20 @@ export function parseJobicyJob(j: Json): DraftPosting | null {
   });
 }
 
+/**
+ * Jobicy's tag must be 3 to 20 characters: "qa" is answered with an error,
+ * so a QA engineer's term was never searched here. A short term is sent as
+ * the job title it stands for ("qa engineer", which also finds more QA
+ * titles than "quality assurance" did when checked live); a long one is cut
+ * at a word.
+ */
+export function jobicyTag(term: string): string | null {
+  let t = term.trim();
+  if (t.length < 3) t = termAsTitle(t);
+  while (t.length > 20 && t.includes(' ')) t = t.slice(0, t.lastIndexOf(' '));
+  return t.length >= 3 && t.length <= 20 ? t : null;
+}
+
 export const jobicy: SourceAdapter = {
   id: 'jobicy',
   async run(ctx: AdapterContext) {
@@ -104,8 +119,10 @@ export const jobicy: SourceAdapter = {
     const out: (DraftPosting | null)[] = [];
     for (const q of ctx.queries) {
       if (f.left <= 0) break;
+      const tag = jobicyTag(q);
+      if (!tag) continue;
       const body = await f.json(
-        `https://jobicy.com/api/v2/remote-jobs?count=50&tag=${encodeURIComponent(q)}`,
+        `https://jobicy.com/api/v2/remote-jobs?count=50&tag=${encodeURIComponent(tag)}`,
       );
       out.push(...listOf(body, 'jobs').map(parseJobicyJob));
     }

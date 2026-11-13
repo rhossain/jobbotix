@@ -430,6 +430,17 @@ export function searchTerm(role: string): string | null {
   return p.words.join(' ');
 }
 
+/**
+ * A search term as a job title: "qa" -> "qa engineer", "ux" -> "ux designer".
+ * For boards whose search rejects very short terms (Jobicy needs 3 to 20
+ * characters, and a two-letter term is an error, not an empty answer).
+ */
+export function termAsTitle(term: string): string {
+  const family = FAMILIES.find((f) => f.search === term);
+  if (family) return family.names[0].toLowerCase();
+  return `${term} developer`;
+}
+
 /** Does any of these roles want this title? For sources that list every job a company has. */
 export function anyRoleWants(roles: string[], title: string): boolean {
   return bestRoleFit(roles, title) !== null;
