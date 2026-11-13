@@ -7,6 +7,8 @@ import {
 } from '@angular/core';
 import {
   FEATURE_LABELS,
+  PRICING,
+  can,
   planLine,
   type Entitlements,
   type Feature,
@@ -17,11 +19,20 @@ import { Toast } from '../../shared/toast';
 import { Icon } from '../../ui';
 
 /**
- * Features the app gates today. The plans table lists more (alerts, extra
- * templates, Word export) that are not built yet; the card names only what a
- * plan changes right now. Add a key here when its feature ships.
+ * Features the app gates today, in the order the card lists them. Add a key
+ * here when its feature ships (credit top-ups wait for checkout).
  */
-const LIVE_FEATURES: Feature[] = ['ai', 'company_research'];
+const LIVE_FEATURES: Feature[] = [
+  'ai',
+  'interview_prep',
+  'company_research',
+  'resume_review',
+  'multiple_profiles',
+  'instant_alerts',
+  'outcome_insights',
+  'extra_templates',
+  'docx_export',
+];
 
 export interface PlanCardView {
   line: string;
@@ -31,11 +42,16 @@ export interface PlanCardView {
   notIncluded: string[];
   /** Billing is off for this account, so the plan limits nothing yet. */
   open: boolean;
+  /**
+   * On Free, opened before some features moved to Pro: the account keeps
+   * them, and the card says why they are in its list.
+   */
+  early: boolean;
 }
 
 /** What the Plan card shows for an account; pure, so it is tested directly. */
 export function planCardView(e: Entitlements): PlanCardView {
-  const has = (f: Feature) => e.features.includes(f);
+  const has = (f: Feature) => can(e, f);
   return {
     line: planLine(e),
     paid: e.plan !== 'free',
@@ -45,6 +61,7 @@ export function planCardView(e: Entitlements): PlanCardView {
       ? LIVE_FEATURES.filter((f) => !has(f)).map((f) => FEATURE_LABELS[f])
       : [],
     open: !e.enforced,
+    early: e.enforced && e.early && e.plan === 'free',
   };
 }
 
@@ -126,6 +143,12 @@ export function planCardView(e: Entitlements): PlanCardView {
           </div>
         }
 
+        @if (view().early) {
+          <p class="text-xs text-ink-muted">
+            Your account was opened before {{ earlyBefore }}, so it keeps
+            interview prep, resume reviews and instant alerts on the Free plan.
+          </p>
+        }
         @if (view().open) {
           <p class="text-xs text-ink-muted">
             Plans are not enforced yet, so every feature is on for your account.
@@ -147,6 +170,7 @@ export class PlanCard {
     planCardView(this.plan.entitlements()),
   );
   readonly saving = signal(false);
+  protected readonly earlyBefore = PRICING.earlyBefore;
 
   async setOwnOnly(on: boolean) {
     this.saving.set(true);

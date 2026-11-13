@@ -193,7 +193,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   ai: 'AI drafting and scoring',
   company_research: 'Company research',
   interview_prep: 'Interview prep',
-  resume_review: 'More resume reviews',
+  resume_review: 'Unlimited resume reviews',
   multiple_profiles: 'Several search profiles',
   instant_alerts: 'Instant alerts',
   outcome_insights: 'Outcome insights',

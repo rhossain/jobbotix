@@ -14,6 +14,20 @@ export const PRICING = {
     /** AI credits included each month. */
     monthlyCredits: 500,
   },
+  /**
+   * What the plans limit by count. The plans table decides (migrations 0033
+   * and 0046); these say the same on the pricing page and in the Terms.
+   */
+  limits: {
+    free: { searchProfiles: 1, resumeReviews: 1 },
+    pro: { searchProfiles: 5 },
+  },
+  /**
+   * Accounts opened before this day keep, on Free, what was free for them
+   * when interview prep, resume reviews and instant alerts moved to Pro
+   * (settings.billing.early, migration 0046).
+   */
+  earlyBefore: '15 November 2026',
   /** For the first customers, for as long as they stay subscribed. */
   founding: { monthlyUsd: 10, quarterlyUsd: 27, seats: 50 },
   topUp: { credits: 200, usd: 5 },

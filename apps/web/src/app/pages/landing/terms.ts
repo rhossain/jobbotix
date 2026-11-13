@@ -94,6 +94,16 @@ import { LEGAL, LegalFact, ProSoonNote, seller } from './legal';
           checkout is the price you pay; taxes may be added where they apply.
         </li>
         <li>
+          The
+          <a routerLink="/pricing" class="underline">pricing page</a> lists what
+          each plan includes. Interview prep, company research, more than
+          {{ freeProfiles }}, instant alerts, outcome insights, the extra resume
+          templates and Word export are part of Pro, and the Free plan includes
+          {{ freeReviews }} of your resume in all, not each month. Accounts
+          opened before {{ earlyBefore }} keep interview prep, AI resume reviews
+          and instant alerts on the Free plan.
+        </li>
+        <li>
           Payments are handled by {{ seller }}, which sells Pro to you as the
           merchant of record: it takes the payment, adds any tax and sends the
           invoice. Jobbotix never sees your card number.
@@ -224,4 +234,13 @@ export class Terms {
   protected readonly topUp = usd(PRICING.topUp.usd);
   protected readonly topUpCredits = PRICING.topUp.credits;
   protected readonly graceDays = PRICING.graceDays;
+  protected readonly earlyBefore = PRICING.earlyBefore;
+  protected readonly freeProfiles =
+    PRICING.limits.free.searchProfiles === 1
+      ? 'one search profile'
+      : `${PRICING.limits.free.searchProfiles} search profiles`;
+  protected readonly freeReviews =
+    PRICING.limits.free.resumeReviews === 1
+      ? 'one AI review'
+      : `${PRICING.limits.free.resumeReviews} AI reviews`;
 }

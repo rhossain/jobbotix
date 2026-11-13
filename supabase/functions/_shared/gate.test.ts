@@ -132,7 +132,7 @@ Deno.test(
     assert(blocked instanceof Response);
     assertEquals(blocked.status, 402);
     assertEquals(await blocked.json(), {
-      error: 'More resume reviews are part of Jobbotix Pro.',
+      error: 'Unlimited resume reviews are part of Jobbotix Pro.',
       code: 'upgrade_required',
       feature: 'resume_review',
       plan: 'free',

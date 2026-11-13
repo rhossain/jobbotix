@@ -22,6 +22,10 @@ describe('pricing', () => {
     });
     expect(PRICING.topUp).toEqual({ credits: 200, usd: 5 });
     expect(PRICING.trialCredits).toBe(20);
+    expect(PRICING.limits).toEqual({
+      free: { searchProfiles: 1, resumeReviews: 1 },
+      pro: { searchProfiles: 5 },
+    });
   });
 
   it('prices every AI job once; scoring and reading a posting are free', () => {

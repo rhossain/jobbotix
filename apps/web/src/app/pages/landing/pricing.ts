@@ -34,7 +34,7 @@ export const COMPARE: CompareRow[] = [
   { what: 'Master resume with PDF export', free: true, pro: true },
   { what: 'Interview tracker and contacts', free: true, pro: true },
   {
-    what: 'AI scoring and drafting on your own key (Gemini and Groq have free tiers)',
+    what: 'AI scoring, cover letters, tailored resumes and screening answers on your own key (Gemini and Groq have free tiers)',
     free: true,
     pro: true,
   },
@@ -43,25 +43,42 @@ export const COMPARE: CompareRow[] = [
     free: `${PRICING.trialCredits} trial credits, once`,
     pro: `${PRICING.pro.monthlyCredits} credits every month`,
   },
+  { what: 'Interview prep sheet for a role', free: false, pro: true },
   { what: 'Company research with web search', free: false, pro: true },
+  {
+    what: 'AI review of your resume',
+    free:
+      PRICING.limits.free.resumeReviews === 1
+        ? 'One, to try it'
+        : `${PRICING.limits.free.resumeReviews}, to try it`,
+    pro: 'As often as you like',
+  },
+  {
+    what: 'Search profiles, each matched every hour',
+    free: `${PRICING.limits.free.searchProfiles}`,
+    pro: `Up to ${PRICING.limits.pro.searchProfiles}`,
+  },
+  {
+    what: 'Email about new roles',
+    free: 'Daily digest',
+    pro: 'Daily digest, and at once when a role scores high',
+  },
+  {
+    what: 'Insights',
+    free: 'Weekly counts, funnel and timing',
+    pro: 'Plus what is getting replies: by source, score, timing and cover letter',
+  },
   {
     what: 'Resume templates, all one column and readable by ATS',
     free: 'Classic',
     pro: `All ${RESUME_TEMPLATES.length}, one with a photo`,
   },
+  { what: 'Resume as a Word file (.docx)', free: false, pro: true },
   {
     what: 'Credit top-ups',
     free: false,
     pro: `${PRICING.topUp.credits} credits for ${usd(PRICING.topUp.usd)}`,
   },
-];
-
-/** In the plan for Pro and not built yet: named as coming, not sold. */
-export const PLANNED_FOR_PRO = [
-  'several search profiles',
-  'instant alerts',
-  'outcome insights',
-  'Word (.docx) export',
 ];
 
 /**
@@ -84,12 +101,13 @@ export const PLANNED_FOR_PRO = [
       <h1
         class="mt-4 max-w-2xl text-[clamp(2rem,5vw,3rem)] leading-[1.05] font-semibold tracking-[-0.03em]"
       >
-        Free to run your search. Pro when you want the AI included.
+        Free to run your search. Pro when you want more from it.
       </h1>
       <p class="mt-4 max-w-2xl text-lg text-ink-muted">
         The tracker, the job search and the scoring are free and stay free. Pro
-        adds AI credits, so letters, tailored resumes and company research work
-        without a key of your own.
+        adds interview prep, company research, several search profiles, instant
+        alerts and outcome insights, with AI credits so none of it needs a key
+        of your own.
       </p>
       <jb-pro-soon-note>
         These are the prices it opens at. Until then every account is free, and
@@ -209,7 +227,10 @@ export const PLANNED_FOR_PRO = [
             </tbody>
           </table>
         </div>
-        <p class="mt-3 text-sm text-ink-muted">Coming to Pro: {{ planned }}.</p>
+        <p class="mt-3 text-sm text-ink-muted">
+          Accounts opened before {{ earlyBefore }} keep interview prep, AI
+          resume reviews and instant alerts on the Free plan.
+        </p>
       </section>
 
       <!-- Credits -->
@@ -295,7 +316,7 @@ export class Pricing {
   protected readonly seats = PRICING.founding.seats;
   protected readonly credits = PRICING.pro.monthlyCredits;
   protected readonly compare = COMPARE;
-  protected readonly planned = PLANNED_FOR_PRO.join(', ');
+  protected readonly earlyBefore = PRICING.earlyBefore;
   protected readonly priced = CREDIT_PRICES.filter((p) => p.credits > 0);
 
   protected readonly freeLines = [
@@ -303,13 +324,17 @@ export class Pricing {
     'Every posting scored against your search profile',
     'Tracker, board, interviews, contacts and the daily digest',
     'Master resume with PDF export',
-    'AI on your own key, including the free tiers of Gemini and Groq',
+    'AI on your own key for scoring, letters, tailored resumes and answers; Gemini and Groq have free tiers',
+    `${PRICING.limits.free.searchProfiles === 1 ? 'One search profile' : `${PRICING.limits.free.searchProfiles} search profiles`} and ${PRICING.limits.free.resumeReviews === 1 ? 'one AI review' : `${PRICING.limits.free.resumeReviews} AI reviews`} of your resume`,
     `${PRICING.trialCredits} trial credits to try AI without a key${PRO_ON_SALE ? '' : ', when Pro opens'}`,
   ];
   protected readonly proLines = [
     'Everything in Free',
     `${PRICING.pro.monthlyCredits} AI credits every month, no key needed`,
-    'Company research with web search',
+    'Interview prep sheets and company research with web search',
+    `Up to ${PRICING.limits.pro.searchProfiles} search profiles, and an email at once when a role scores high`,
+    'Outcome insights: what is getting replies',
+    'AI resume reviews as often as you like, every resume template and Word export',
     `Top up when you need more: ${PRICING.topUp.credits} credits for ${usd(PRICING.topUp.usd)}`,
     'Your own key still works, and costs no credits',
   ];
@@ -317,7 +342,11 @@ export class Pricing {
   protected readonly questions = [
     {
       q: 'Do I need Pro to use AI?',
-      a: 'No. Connect your own key in Settings and AI scoring and drafting work on the Free plan. Gemini and Groq have free tiers that need no card. Pro is for when you would rather not manage a key, and for company research with web search.',
+      a: 'No. Connect your own key in Settings and AI scoring, cover letters, tailored resumes and screening answers work on the Free plan. Gemini and Groq have free tiers that need no card. Interview prep and company research are part of Pro whichever key runs them.',
+    },
+    {
+      q: 'I already have an account. Do I lose anything?',
+      a: `No. Accounts opened before ${PRICING.earlyBefore} keep interview prep, AI resume reviews and instant alerts on the Free plan. Several search profiles, outcome insights and Word export are new, and part of Pro for everyone.`,
     },
     {
       q: 'What happens when my credits run out?',

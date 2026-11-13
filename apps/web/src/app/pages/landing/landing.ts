@@ -178,13 +178,14 @@ import { LEGAL, PRO_ON_SALE } from './legal';
             id="price-heading"
             class="max-w-xl text-2xl font-semibold tracking-tight text-ink md:text-3xl"
           >
-            Free to run your search. Pro when you want the AI included.
+            Free to run your search. Pro when you want more from it.
           </h2>
           <p class="mt-3 max-w-xl text-ink-muted">
-            The search, the scoring and the tracker are free, and AI works on a
-            key of your own. Pro is {{ monthly }} a month, or
-            {{ quarterly }} for three months, and adds AI credits so drafting
-            needs no key.
+            The search, the scoring and the tracker are free, and AI drafting
+            works on a key of your own. Pro is {{ monthly }} a month, or
+            {{ quarterly }} for three months, and adds interview prep, company
+            research, several search profiles, instant alerts and AI credits so
+            none of it needs a key.
             @if (!onSale) {
               Pro is not on sale yet.
             }
