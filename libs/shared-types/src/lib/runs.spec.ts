@@ -83,6 +83,7 @@ describe('summariseRuns', () => {
           aiJudged: 12,
           aiRejected: 3,
           aiRescued: 1,
+          aiConfirmed: 4,
         }),
         ev('2026-11-07T04:50:00Z', {
           searched: 100,
@@ -102,7 +103,12 @@ describe('summariseRuns', () => {
       ],
       now,
     );
-    expect(r?.aiCheck).toEqual({ looked: 16, turnedDown: 3, broughtIn: 3 });
+    expect(r?.aiCheck).toEqual({
+      looked: 16,
+      turnedDown: 3,
+      confirmed: 6,
+      broughtIn: 3,
+    });
     expect(r?.aiTrouble).toEqual({
       runs: 1,
       reason: 'The provider is rate limiting',

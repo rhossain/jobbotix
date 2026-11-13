@@ -353,6 +353,8 @@ export interface SearchExplain {
     runs: number;
     looked: number;
     turnedDown: number;
+    /** Near misses it called the same job; the other rules still apply to them. */
+    confirmed: number;
     broughtIn: number;
     failedRuns: number;
     error: string;
@@ -433,6 +435,7 @@ export function adminSearchExplain(v: unknown): SearchExplain {
       runs: num(obj(o['ai_check'])['runs']),
       looked: num(obj(o['ai_check'])['looked']),
       turnedDown: num(obj(o['ai_check'])['turned_down']),
+      confirmed: num(obj(o['ai_check'])['confirmed']),
       broughtIn: num(obj(o['ai_check'])['brought_in']),
       failedRuns: num(obj(o['ai_check'])['failed_runs']),
       error: str(obj(o['ai_check'])['error']),

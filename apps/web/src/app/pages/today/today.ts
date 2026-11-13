@@ -88,7 +88,9 @@ interface Reminder {
           @if (r.aiCheck; as c) {
             The AI check read {{ c.looked }} uncertain
             {{ c.looked === 1 ? 'title' : 'titles' }}: it turned down
-            {{ c.turnedDown }} and brought in {{ c.broughtIn }}.
+            {{ c.turnedDown }} and recognised {{ c.confirmed }} more as your
+            kind of job, {{ c.broughtIn }} of which passed your other settings
+            and {{ c.broughtIn === 1 ? 'was' : 'were' }} added.
           }
           @if (r.aiTrouble; as t) {
             <span class="mt-1 block text-sm text-warn">

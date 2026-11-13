@@ -112,7 +112,13 @@ export interface RunSummary {
    * The AI check on titles the rules were unsure about: how many it looked
    * at, turned down and brought in. Present once a run used it.
    */
-  aiCheck?: { looked: number; turnedDown: number; broughtIn: number };
+  aiCheck?: {
+    looked: number;
+    turnedDown: number;
+    /** Near misses it called the same job; the other rules still apply. */
+    confirmed: number;
+    broughtIn: number;
+  };
   /** Runs whose AI step failed, with the first reason given. */
   aiTrouble?: { runs: number; reason: string };
 }

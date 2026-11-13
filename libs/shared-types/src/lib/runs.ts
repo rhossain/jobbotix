@@ -39,6 +39,7 @@ export function summariseRuns(
       aiJudged: Number(r.p['aiJudged'] ?? 0) || 0,
       aiRejected: Number(r.p['aiRejected'] ?? 0) || 0,
       aiRescued: Number(r.p['aiRescued'] ?? 0) || 0,
+      aiConfirmed: Number(r.p['aiConfirmed'] ?? 0) || 0,
       aiFailed: Number(r.p['aiFailed'] ?? 0) || 0,
       aiError: typeof r.p['aiError'] === 'string' ? r.p['aiError'] : '',
     }))
@@ -66,6 +67,10 @@ export function summariseRuns(
           aiCheck: {
             looked: use.reduce((n, r) => n + r.aiJudged, 0),
             turnedDown: use.reduce((n, r) => n + r.aiRejected, 0),
+            confirmed: use.reduce(
+              (n, r) => n + Math.max(r.aiConfirmed, r.aiRescued),
+              0,
+            ),
             broughtIn: use.reduce((n, r) => n + r.aiRescued, 0),
           },
         }

@@ -738,7 +738,7 @@ export class AdminUser {
       {
         label: 'AI check in their real runs',
         value: x.aiCheck.looked
-          ? `read ${x.aiCheck.looked}, turned down ${x.aiCheck.turnedDown}, brought in ${x.aiCheck.broughtIn}`
+          ? `read ${x.aiCheck.looked}, turned down ${x.aiCheck.turnedDown}, called ${x.aiCheck.confirmed} near misses the same job, ${x.aiCheck.broughtIn} of them filed`
           : 'has not read a title yet',
       },
       ...(x.aiCheck.failedRuns

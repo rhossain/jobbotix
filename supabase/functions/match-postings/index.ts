@@ -104,6 +104,8 @@ interface UserSummary {
   aiJudged: number;
   aiRejected: number;
   aiRescued: number;
+  /** Near misses the AI check called the same job, before the other rules. */
+  aiConfirmed: number;
   aiScored: number;
   /** Model calls that failed, and the first reason (never the key). */
   aiFailed: number;
@@ -192,6 +194,7 @@ async function matchForUser(
     aiJudged: 0,
     aiRejected: 0,
     aiRescued: 0,
+    aiConfirmed: 0,
     aiScored: 0,
     aiFailed: 0,
     errors: [],
@@ -422,6 +425,7 @@ async function matchForUser(
           const v = ai.value.get(uncertain.length + i);
           if (!v?.same || havePairs.has(pairKey(n.post.company, n.post.title)))
             return;
+          summary.aiConfirmed++;
           const again = matchPosting(profile, n.post, now, {
             assumeRelevant: true,
           });
@@ -679,6 +683,7 @@ async function matchForUser(
               aiJudged: summary.aiJudged,
               aiRejected: summary.aiRejected,
               aiRescued: summary.aiRescued,
+              aiConfirmed: summary.aiConfirmed,
             }
           : {}),
         ...(summary.alerted ? { alerted: summary.alerted } : {}),

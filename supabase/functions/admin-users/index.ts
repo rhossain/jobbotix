@@ -242,6 +242,7 @@ Deno.serve(
         runs: 0,
         looked: 0,
         turned_down: 0,
+        confirmed: 0,
         brought_in: 0,
         failed_runs: 0,
         error: '',
@@ -254,6 +255,7 @@ Deno.serve(
         ai.looked += n('aiJudged');
         ai.turned_down += n('aiRejected');
         ai.brought_in += n('aiRescued');
+        ai.confirmed += n('aiConfirmed');
         if (n('aiFailed') > 0) {
           ai.failed_runs++;
           if (!ai.error && typeof pl['aiError'] === 'string')
