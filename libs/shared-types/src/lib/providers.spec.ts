@@ -224,7 +224,7 @@ describe('modelOptions', () => {
     });
     // a saved model that is not a suggestion stays selectable
     // (a Claude model goes as its bare id, which older functions read too)
-    expect(groups[1].models.at(-1)).toEqual({
+    expect(groups[1].models.slice(-1)[0]).toEqual({
       id: 'claude-old-1',
       label: 'claude-old-1',
     });
@@ -239,7 +239,7 @@ describe('modelOptions', () => {
     for (const g of groups)
       for (const m of g.models)
         expect(parseModelChoice(m.id)?.provider).toBe(g.provider);
-    expect(groups[2].models.at(-1)?.id).toBe('anthropic:Custom.Model');
+    expect(groups[2].models.slice(-1)[0]?.id).toBe('anthropic:Custom.Model');
   });
 
   it('uses the live Claude list when the key could fetch one', () => {
