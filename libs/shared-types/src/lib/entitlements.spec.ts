@@ -9,6 +9,7 @@ import {
   limitOf,
   normaliseEntitlements,
   planLine,
+  reviewsLeft,
   upgradeMessage,
   upgradeRequired,
   type Entitlements,
@@ -106,6 +107,60 @@ describe('can and limitOf', () => {
     expect(limitOf(e, 'search_profiles')).toBeNull();
   });
 
+  it('billing off: a feature the database does not list yet still counts as on', () => {
+    // The app can be newer than the database it talks to.
+    const e = normaliseEntitlements({
+      ...free,
+      enforced: false,
+      features: ['ai', 'company_research'],
+      limits: {},
+    });
+    expect(can(e, 'interview_prep')).toBe(true);
+    expect(reviewsLeft(e)).toBeNull();
+  });
+
+  it('reads the use counts and whether the account is an early one', () => {
+    const e = normaliseEntitlements({
+      ...free,
+      limits: { search_profiles: 1, resume_reviews: 1, other: 4 },
+      used: { resume_reviews: 1, other: 9, bad: 'x' },
+      early: true,
+    });
+    expect(e.limits).toEqual({ search_profiles: 1, resume_reviews: 1 });
+    expect(e.used).toEqual({ resume_reviews: 1 });
+    expect(e.early).toBe(true);
+    const plain = normaliseEntitlements(free);
+    expect(plain.used).toEqual({});
+    expect(plain.early).toBe(false);
+  });
+
+  it('Free gets its allowance of resume reviews once; Pro and early accounts are not counted', () => {
+    const limited = { ...free, limits: { resume_reviews: 1 } };
+    expect(reviewsLeft(normaliseEntitlements(limited))).toBe(1);
+    expect(
+      reviewsLeft(
+        normaliseEntitlements({ ...limited, used: { resume_reviews: 1 } }),
+      ),
+    ).toBe(0);
+    expect(
+      reviewsLeft(
+        normaliseEntitlements({ ...limited, used: { resume_reviews: 5 } }),
+      ),
+    ).toBe(0);
+    // No allowance named: none are free.
+    expect(reviewsLeft(normaliseEntitlements(free))).toBe(0);
+    expect(
+      reviewsLeft(
+        normaliseEntitlements({
+          ...limited,
+          features: ['ai', 'resume_review'],
+          used: { resume_reviews: 40 },
+        }),
+      ),
+    ).toBeNull();
+    expect(reviewsLeft(null)).toBeNull();
+  });
+
   it('unknown entitlements count as open, so nothing is hidden before the answer arrives', () => {
     expect(can(null, 'company_research')).toBe(true);
     expect(can(undefined, 'docx_export')).toBe(true);
@@ -115,15 +170,15 @@ describe('can and limitOf', () => {
 });
 
 describe('AI jobs', () => {
-  it('only company research needs a Pro feature', () => {
+  it('company research and interview prep need a Pro feature; the rest need AI', () => {
     expect(featureForJob('research')).toBe('company_research');
+    expect(featureForJob('prep')).toBe('interview_prep');
     for (const job of [
       'extract',
       'score',
       'tailor',
       'letter',
       'answer',
-      'prep',
       'import',
       'thank_you',
       'message',

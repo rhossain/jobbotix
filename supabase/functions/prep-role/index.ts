@@ -7,6 +7,10 @@
 // ai_usage as 'prep'), local templates otherwise, with `aiNote` saying why
 // when a connection was tried and failed. The user's own notes and practised
 // ticks on the previous sheet are carried over.
+//
+// Interview prep is part of Pro (feature interview_prep): a plan without it
+// gets 402, whichever key would have been used. A sheet built earlier stays
+// on the role and the app still shows it.
 
 import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';

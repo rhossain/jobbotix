@@ -85,6 +85,39 @@ Deno.test(
   },
 );
 
+Deno.test(
+  'Free under enforced billing: interview prep answers 402, whichever key would run it',
+  async () => {
+    const gate = await requireAiJob(fake({ data: free }).admin, 'u', 'prep');
+    if (!(gate instanceof Response)) throw new Error('expected a Response');
+    assertEquals(gate.status, 402);
+    assertEquals(await gate.json(), {
+      error: 'Interview prep is part of Jobbotix Pro.',
+      code: 'upgrade_required',
+      feature: 'interview_prep',
+      plan: 'free',
+    });
+  },
+);
+
+Deno.test(
+  'an early Free account keeps interview prep, and Pro has it',
+  async () => {
+    const early = {
+      ...free,
+      early: true,
+      features: ['ai', 'instant_alerts', 'interview_prep', 'resume_review'],
+    };
+    for (const data of [
+      early,
+      { ...pro, features: [...pro.features, 'interview_prep'] },
+    ]) {
+      const gate = await requireAiJob(fake({ data }).admin, 'u', 'prep');
+      assertEquals(gate instanceof Response, false);
+    }
+  },
+);
+
 Deno.test('Pro may research', async () => {
   const gate = await requireFeature(
     fake({ data: pro }).admin,

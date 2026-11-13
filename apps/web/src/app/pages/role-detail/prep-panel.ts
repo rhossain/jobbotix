@@ -14,9 +14,11 @@ import {
   type RoleRow,
 } from '@jobbotix/shared-types';
 import { PrepRepo } from '../../core/data/repos';
+import { Plan } from '../../core/plan';
 import { RelativeDayPipe } from '../../shared/format';
 import { ModelPicker } from '../../shared/model-picker';
 import { Toast } from '../../shared/toast';
+import { UpgradeNote } from '../../shared/upgrade-note';
 import { Button, EmptyState, FieldControl, Icon } from '../../ui';
 
 /** The Prep tab: company notes, likely questions with linked stories, your notes. */
@@ -29,6 +31,7 @@ import { Button, EmptyState, FieldControl, Icon } from '../../ui';
     Icon,
     ModelPicker,
     RelativeDayPipe,
+    UpgradeNote,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'jb-prep block' },
@@ -66,16 +69,18 @@ import { Button, EmptyState, FieldControl, Icon } from '../../ui';
             </p>
           </div>
           <div class="flex flex-wrap items-center gap-2">
-            <jb-model-picker [(value)]="model" job="prep" />
-            <button
-              type="button"
-              jbButton
-              [busy]="busy()"
-              [disabled]="busy()"
-              (click)="generate()"
-            >
-              <jb-icon name="rotate-cw" /> Rebuild
-            </button>
+            @if (allowed()) {
+              <jb-model-picker [(value)]="model" job="prep" />
+              <button
+                type="button"
+                jbButton
+                [busy]="busy()"
+                [disabled]="busy()"
+                (click)="generate()"
+              >
+                <jb-icon name="rotate-cw" /> Rebuild
+              </button>
+            }
             <button
               type="button"
               jbButton="ghost"
@@ -88,6 +93,11 @@ import { Button, EmptyState, FieldControl, Icon } from '../../ui';
             </button>
           </div>
         </section>
+        @if (!allowed()) {
+          <!-- A sheet built earlier stays readable and editable; only a new
+               one needs Pro. -->
+          <jb-upgrade-note feature="interview_prep" class="print:hidden" />
+        }
 
         <section class="jb-card p-5 md:p-6">
           <h3 class="flex items-center gap-2 font-semibold text-ink">
@@ -192,16 +202,20 @@ import { Button, EmptyState, FieldControl, Icon } from '../../ui';
           Build one from your resume and the posting: what to know about the
           company, what they will ask, and which of your stories answer it.
           <div actions class="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              jbButton="primary"
-              [busy]="busy()"
-              [disabled]="busy()"
-              (click)="generate()"
-            >
-              <jb-icon name="sparkles" /> Build prep sheet
-            </button>
-            <jb-model-picker [(value)]="model" job="prep" />
+            @if (allowed()) {
+              <button
+                type="button"
+                jbButton="primary"
+                [busy]="busy()"
+                [disabled]="busy()"
+                (click)="generate()"
+              >
+                <jb-icon name="sparkles" /> Build prep sheet
+              </button>
+              <jb-model-picker [(value)]="model" job="prep" />
+            } @else {
+              <jb-upgrade-note feature="interview_prep" />
+            }
           </div>
         </jb-empty-state>
       }
@@ -256,6 +270,9 @@ import { Button, EmptyState, FieldControl, Icon } from '../../ui';
 export class PrepPanel {
   private readonly repo = inject(PrepRepo);
   private readonly toast = inject(Toast);
+  private readonly plan = inject(Plan);
+  /** False when the account's plan does not cover interview prep. */
+  readonly allowed = computed(() => this.plan.can('interview_prep'));
   readonly role = input.required<RoleRow>();
   readonly sheet = signal<PrepSheet>(normalisePrep(null));
   readonly model = signal('');
@@ -281,6 +298,7 @@ export class PrepPanel {
       );
       this.toast.show('Prep sheet ready');
     } catch (e) {
+      if (await this.plan.handled(e)) return;
       this.toast.show((e as Error).message || 'Could not build the sheet');
     } finally {
       this.busy.set(false);

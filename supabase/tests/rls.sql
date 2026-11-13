@@ -1891,4 +1891,116 @@ do $$ begin
   delete from public.company_research_cache;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- Plan gates (migration 0046): interview prep and repeat resume reviews are
+-- Pro, Free gets one review, early accounts keep what was free for them.
+-- User 3 is on Free here; user 4 is on Pro.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  u uuid := '33333333-3333-3333-3333-333333333333';
+  pro uuid := '44444444-4444-4444-4444-444444444444';
+  e jsonb;
+begin
+  delete from public.subscriptions where user_id in (u, pro);
+  insert into public.subscriptions (user_id, plan_id) values (pro, 'pro');
+  if not (select features @> array['interview_prep', 'resume_review', 'instant_alerts'] from public.plans where id = 'pro') then
+    raise exception 'FAIL: Pro lacks the new features';
+  end if;
+  if (select features from public.plans where id = 'free') <> array['ai'] then
+    raise exception 'FAIL: Free gained a Pro feature';
+  end if;
+  if (select limits from public.plans where id = 'free') <> '{"search_profiles": 1, "resume_reviews": 1}'::jsonb then
+    raise exception 'FAIL: Free limits are %', (select limits from public.plans where id = 'free');
+  end if;
+  if (select value -> 'early' ->> 'before' from public.settings where key = 'billing') is null then
+    raise exception 'FAIL: no early date in the billing setting';
+  end if;
+
+  -- Billing off: the new features are on like the rest, and uses are counted.
+  e := public.entitlements_for(u);
+  if not (e -> 'features') ?& array['interview_prep', 'resume_review'] then
+    raise exception 'FAIL: new features are gated while billing is off';
+  end if;
+  if e -> 'used' <> '{}'::jsonb then raise exception 'FAIL: uses before any use: %', e -> 'used'; end if;
+  if public.count_feature_use(u, 'resume_reviews') <> 1 or public.count_feature_use(u, 'resume_reviews') <> 2 then
+    raise exception 'FAIL: uses are not counted one by one';
+  end if;
+  if (public.entitlements_for(u) -> 'used' ->> 'resume_reviews')::int <> 2 then
+    raise exception 'FAIL: entitlements do not report the uses';
+  end if;
+  if public.entitlements_for(pro) -> 'used' <> '{}'::jsonb then
+    raise exception 'FAIL: one account''s uses show on another';
+  end if;
+
+  -- Billing on, account opened after the early date: Free has none of them.
+  update public.settings
+     set value = value || '{"enabled": true, "early": {"before": "2026-11-15T00:00:00Z", "features": ["interview_prep", "resume_review", "instant_alerts"]}}'::jsonb
+   where key = 'billing';
+  update public.profiles set created_at = '2026-12-01T00:00:00Z' where id in (u, pro);
+  e := public.entitlements_for(u);
+  if (e ->> 'early')::boolean then raise exception 'FAIL: a later account counts as early'; end if;
+  if e -> 'features' <> '["ai"]'::jsonb then raise exception 'FAIL: Free features with billing on: %', e -> 'features'; end if;
+  if (e -> 'limits' ->> 'resume_reviews')::int <> 1 then raise exception 'FAIL: Free has no review allowance'; end if;
+  e := public.entitlements_for(pro);
+  if not (e -> 'features') ?& array['interview_prep', 'resume_review', 'instant_alerts', 'company_research'] then
+    raise exception 'FAIL: Pro features with billing on: %', e -> 'features';
+  end if;
+  if e -> 'limits' ? 'resume_reviews' then raise exception 'FAIL: Pro reviews are limited'; end if;
+
+  -- The same Free account, opened before the early date, keeps the three.
+  update public.profiles set created_at = '2026-11-14T23:59:00Z' where id = u;
+  e := public.entitlements_for(u);
+  if not (e ->> 'early')::boolean then raise exception 'FAIL: an early account is not recognised'; end if;
+  if e -> 'features' <> '["ai", "instant_alerts", "interview_prep", "resume_review"]'::jsonb then
+    raise exception 'FAIL: early Free features: %', e -> 'features';
+  end if;
+  if (e -> 'features') ? 'company_research' then raise exception 'FAIL: an early account got a feature that was never free'; end if;
+
+  -- Without an early rule nobody is early.
+  update public.settings set value = value - 'early' where key = 'billing';
+  if (public.entitlements_for(u) ->> 'early')::boolean or (public.entitlements_for(u) -> 'features') ? 'interview_prep' then
+    raise exception 'FAIL: early without a rule';
+  end if;
+end $$;
+
+-- A user reads their own counts and nobody else's, cannot write them, cannot
+-- count a use themselves, and cannot move the date their account was opened.
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  if (select count(*) from public.feature_uses) <> 1 then raise exception 'FAIL: a user cannot read their own uses'; end if;
+  update public.feature_uses set uses = 0;
+  delete from public.feature_uses;
+  begin
+    insert into public.feature_uses (user_id, key, uses) values (auth.uid(), 'resume_reviews', 0);
+    raise exception 'FAIL: a user wrote a use count';
+  exception when insufficient_privilege or unique_violation then null;
+  end;
+  begin
+    perform public.count_feature_use(auth.uid(), 'resume_reviews');
+    raise exception 'FAIL: a user counted a use';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.profiles set created_at = '2020-01-01T00:00:00Z' where id = auth.uid();
+    raise exception 'FAIL: a user moved the date their account was opened';
+  exception when insufficient_privilege then null;
+  end;
+  update public.profiles set name = 'C' where id = auth.uid();  -- other fields still save
+end $$;
+set request.jwt.claim.sub = '44444444-4444-4444-4444-444444444444';
+do $$ begin
+  if exists (select 1 from public.feature_uses) then raise exception 'FAIL: a user reads another account''s uses'; end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+do $$ begin
+  if (select uses from public.feature_uses where user_id = '33333333-3333-3333-3333-333333333333') <> 2 then
+    raise exception 'FAIL: a user changed their use count';
+  end if;
+  update public.settings set value = jsonb_set(value, '{enabled}', 'false') where key = 'billing';
+  delete from public.feature_uses;
+  delete from public.subscriptions;
+end $$;
+
 \echo RLS tests passed

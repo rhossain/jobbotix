@@ -10,6 +10,8 @@
 export const FEATURES = [
   'ai',
   'company_research',
+  'interview_prep',
+  'resume_review',
   'multiple_profiles',
   'instant_alerts',
   'outcome_insights',
@@ -20,7 +22,16 @@ export const FEATURES = [
 export type Feature = (typeof FEATURES)[number];
 
 /** Numeric limits a plan can set (plans.limits). */
-export type LimitKey = 'search_profiles';
+export const LIMIT_KEYS = ['search_profiles', 'resume_reviews'] as const;
+export type LimitKey = (typeof LIMIT_KEYS)[number];
+
+/**
+ * Things an account is counted using (feature_uses, migration 0046). A count
+ * is set against the limit of the same name: a Free account gets
+ * limits.resume_reviews AI reviews of its resume, once, not each month.
+ */
+export const USE_KEYS = ['resume_reviews'] as const;
+export type UseKey = (typeof USE_KEYS)[number];
 
 export type SubscriptionStatus =
   'none' | 'trialing' | 'active' | 'past_due' | 'canceled';
@@ -39,6 +50,13 @@ export interface Entitlements {
   cancelAtPeriodEnd: boolean;
   features: Feature[];
   limits: Partial<Record<LimitKey, number>>;
+  /** How often the account has used what a limit counts. */
+  used: Partial<Record<UseKey, number>>;
+  /**
+   * The account was opened before some features moved to Pro and keeps them
+   * on Free (settings.billing.early).
+   */
+  early: boolean;
   /** Credits the plan grants each month. */
   monthlyCredits: number;
   /** AI credits left. */
@@ -62,6 +80,8 @@ export const OPEN_ENTITLEMENTS: Entitlements = {
   cancelAtPeriodEnd: false,
   features: [...FEATURES],
   limits: {},
+  used: {},
+  early: false,
   monthlyCredits: 0,
   credits: 0,
   suspended: false,
@@ -80,6 +100,21 @@ const int = (v: unknown): number => {
   return Number.isFinite(n) ? Math.trunc(n) : 0;
 };
 
+/** The whole numbers stored under `keys` in a jsonb object; the rest is dropped. */
+function counts<K extends string>(
+  raw: unknown,
+  keys: readonly K[],
+): Partial<Record<K, number>> {
+  const out: Partial<Record<K, number>> = {};
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
+  for (const k of keys) {
+    const n = (raw as Record<string, unknown>)[k];
+    if (typeof n === 'number' && Number.isFinite(n))
+      out[k] = Math.max(0, Math.trunc(n));
+  }
+  return out;
+}
+
 /** Reads the jsonb entitlements() returns; anything malformed falls back to open. */
 export function normaliseEntitlements(v: unknown): Entitlements {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return OPEN_ENTITLEMENTS;
@@ -87,13 +122,8 @@ export function normaliseEntitlements(v: unknown): Entitlements {
   if (typeof o['plan'] !== 'string' || !Array.isArray(o['features']))
     return OPEN_ENTITLEMENTS;
   const known = new Set<string>(FEATURES);
-  const limits: Partial<Record<LimitKey, number>> = {};
-  const rawLimits = o['limits'];
-  if (rawLimits && typeof rawLimits === 'object' && !Array.isArray(rawLimits)) {
-    const n = (rawLimits as Record<string, unknown>)['search_profiles'];
-    if (typeof n === 'number' && Number.isFinite(n))
-      limits.search_profiles = Math.max(0, Math.trunc(n));
-  }
+  const limits = counts(o['limits'], LIMIT_KEYS);
+  const used = counts(o['used'], USE_KEYS);
   const status = STATUSES.includes(o['status'] as SubscriptionStatus)
     ? (o['status'] as SubscriptionStatus)
     : 'none';
@@ -114,15 +144,22 @@ export function normaliseEntitlements(v: unknown): Entitlements {
       (f): f is Feature => typeof f === 'string' && known.has(f),
     ),
     limits,
+    used,
+    early: o['early'] === true,
     monthlyCredits: Math.max(0, int(o['monthly_credits'])),
     credits: Math.max(0, int(o['credits'])),
     suspended: o['suspended'] === true,
   };
 }
 
-/** May this account use the feature? Unknown entitlements count as open. */
+/**
+ * May this account use the feature? Unknown entitlements count as open, and
+ * so does an account billing is not enforced for: its feature list can come
+ * from a database that does not know a newer feature yet.
+ */
 export function can(e: Entitlements | null | undefined, feature: Feature) {
-  return (e ?? OPEN_ENTITLEMENTS).features.includes(feature);
+  const ent = e ?? OPEN_ENTITLEMENTS;
+  return !ent.enforced || ent.features.includes(feature);
 }
 
 /** The plan's limit for `key`, or null when nothing limits it. */
@@ -134,6 +171,20 @@ export function limitOf(
   return typeof v === 'number' ? v : null;
 }
 
+/**
+ * How many AI resume reviews the account has left: null when nothing limits
+ * them (Pro, an early account, billing off), else what remains of the plan's
+ * allowance, which is given once and does not come back each month.
+ */
+export function reviewsLeft(e: Entitlements | null | undefined): number | null {
+  if (can(e, 'resume_review')) return null;
+  const limit = limitOf(e, 'resume_reviews') ?? 0;
+  return Math.max(
+    0,
+    limit - ((e ?? OPEN_ENTITLEMENTS).used.resume_reviews ?? 0),
+  );
+}
+
 export const isPaidPlan = (e: Entitlements | null | undefined) =>
   !!e && e.plan !== 'free';
 
@@ -141,6 +192,8 @@ export const isPaidPlan = (e: Entitlements | null | undefined) =>
 export const FEATURE_LABELS: Record<Feature, string> = {
   ai: 'AI drafting and scoring',
   company_research: 'Company research',
+  interview_prep: 'Interview prep',
+  resume_review: 'More resume reviews',
   multiple_profiles: 'Several search profiles',
   instant_alerts: 'Instant alerts',
   outcome_insights: 'Outcome insights',
@@ -150,6 +203,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
 };
 
 const PLURAL = new Set<Feature>([
+  'resume_review',
   'multiple_profiles',
   'instant_alerts',
   'outcome_insights',
@@ -176,9 +230,14 @@ export type GatedAiJob =
   | 'thank_you'
   | 'message';
 
-/** The feature an AI job needs. Company research is the one Pro-only job. */
+/**
+ * The feature an AI job needs. Company research and interview prep are the
+ * Pro-only jobs; the rest need only AI itself.
+ */
 export function featureForJob(job: GatedAiJob): Feature {
-  return job === 'research' ? 'company_research' : 'ai';
+  if (job === 'research') return 'company_research';
+  if (job === 'prep') return 'interview_prep';
+  return 'ai';
 }
 
 /** What a function returns (HTTP 402) when the plan does not cover a call. */
