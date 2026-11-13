@@ -8,10 +8,15 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import type { ResumeSections, VariantChange } from '@jobbotix/shared-types';
+import {
+  reviewsLeft,
+  type ResumeSections,
+  type VariantChange,
+} from '@jobbotix/shared-types';
 import { ResumesRepo, SettingsRepo } from '../../core/data/repos';
 import { Plan } from '../../core/plan';
 import { ModelPicker } from '../../shared/model-picker';
+import { UpgradeNote } from '../../shared/upgrade-note';
 import { Icon } from '../../ui';
 
 /** The text a change points at, or null when the resume has no such field. */
@@ -62,7 +67,7 @@ export function stillFitting(
  */
 @Component({
   selector: 'jb-resume-review',
-  imports: [Icon, ModelPicker, RouterLink],
+  imports: [Icon, ModelPicker, RouterLink, UpgradeNote],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="jb-card flex flex-col gap-4 p-5 md:p-6">
@@ -87,7 +92,11 @@ export function stillFitting(
         </button>
       </div>
 
-      @if (hasKey()) {
+      @if (left() === 0) {
+        <!-- The plan's reviews are used up. A review on screen stays, and its
+             changes can still be accepted and applied. -->
+        <jb-upgrade-note feature="resume_review" />
+      } @else if (hasKey()) {
         <div class="flex flex-wrap items-center gap-2">
           <button
             type="button"
@@ -111,6 +120,12 @@ export function stillFitting(
           </button>
           <jb-model-picker [(value)]="model" [quiet]="true" job="tailor" />
         </div>
+        @if (left(); as n) {
+          <p class="text-xs text-ink-muted">
+            Your plan includes {{ n }} {{ n === 1 ? 'review' : 'reviews' }} in
+            all, not each month. Pro reviews as often as you like.
+          </p>
+        }
       } @else {
         <p class="text-sm text-ink-muted">
           A review needs a model.
@@ -260,6 +275,11 @@ export class ResumeReviewPanel {
       this.settings.connections().length > 0 ||
       (this.plan.route().enabled && !this.plan.route().ownOnly),
   );
+  /**
+   * AI reviews the plan still allows: null when it does not count them, 0
+   * when they are used up.
+   */
+  readonly left = computed(() => reviewsLeft(this.plan.entitlements()));
   readonly model = signal('');
   readonly busy = signal(false);
   readonly error = signal('');
@@ -289,7 +309,7 @@ export class ResumeReviewPanel {
   }
 
   async review() {
-    if (this.busy() || !this.hasKey()) return;
+    if (this.busy() || !this.hasKey() || this.left() === 0) return;
     const sections = this.sections();
     this.busy.set(true);
     this.error.set('');
@@ -301,7 +321,10 @@ export class ResumeReviewPanel {
       this.reviewed = sections;
       this.reviewedBy.set(res.model ?? '');
       this.changes.set(res.changes);
+      // The review was counted: read the plan again so the allowance shows.
+      if (this.left() !== null) void this.plan.refresh();
     } catch (e) {
+      if (await this.plan.handled(e)) return;
       this.error.set(
         (e as Error).message || 'Could not review the resume; try again.',
       );

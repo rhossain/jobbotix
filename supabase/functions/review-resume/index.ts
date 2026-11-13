@@ -10,6 +10,11 @@
 // the contact details. Metered in ai_usage as a tailoring job, which is what
 // it costs.
 //
+// The Free plan includes one review, given once and not each month; Pro and
+// accounts opened before reviews were limited are not counted. A review that
+// answered is counted in feature_uses, a failed one is not, and once the
+// allowance is used up the answer is 402 with an upgrade hint.
+//
 // Without a connection or credits it answers 422; 429 or 502 when every
 // connection is rate limited or fails. There is no local stand-in: a review
 // needs a model.
@@ -18,7 +23,7 @@ import { runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
-import { requireAiJob } from '../_shared/gate.ts';
+import { countUse, requireAiJob, reviewBlocked } from '../_shared/gate.ts';
 import { normaliseResume } from '../_shared/resume.ts';
 import { resumeContext } from '../_shared/resume-context.ts';
 import {
@@ -69,6 +74,8 @@ Deno.serve(
     const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'tailor');
     if (gate instanceof Response) return gate;
+    const used = reviewBlocked(gate);
+    if (used) return used;
     const ai = await runAi(
       admin,
       userId,
@@ -84,6 +91,7 @@ Deno.serve(
         parse: (reply) => parseReviewReply(reply, sections),
       },
     );
+    if (ai.ok) await countUse(admin, userId, 'resume_reviews');
     if (ai.ok)
       return json(200, {
         changes: ai.value.map((c) => ({

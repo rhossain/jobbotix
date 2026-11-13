@@ -1,9 +1,11 @@
 import { deepStrictEqual as assertEquals, ok as assert } from 'node:assert';
 import { OPEN_ENTITLEMENTS } from './entitlements.ts';
 import {
+  countUse,
   loadEntitlements,
   requireAiJob,
   requireFeature,
+  reviewBlocked,
   type RpcClient,
 } from './gate.ts';
 
@@ -117,6 +119,60 @@ Deno.test(
     }
   },
 );
+
+Deno.test(
+  'resume review: Free gets its one review, then 402; Pro, early accounts and billing off are not counted',
+  async () => {
+    const e = (data: unknown) => loadEntitlements(fake({ data }).admin, 'u');
+    const limited = { ...free, limits: { resume_reviews: 1 } };
+    assertEquals(reviewBlocked(await e(limited)), null);
+    const blocked = reviewBlocked(
+      await e({ ...limited, used: { resume_reviews: 1 } }),
+    );
+    assert(blocked instanceof Response);
+    assertEquals(blocked.status, 402);
+    assertEquals(await blocked.json(), {
+      error: 'More resume reviews are part of Jobbotix Pro.',
+      code: 'upgrade_required',
+      feature: 'resume_review',
+      plan: 'free',
+    });
+    for (const data of [
+      {
+        ...pro,
+        features: [...pro.features, 'resume_review'],
+        used: { resume_reviews: 30 },
+      },
+      {
+        ...limited,
+        early: true,
+        features: ['ai', 'resume_review'],
+        used: { resume_reviews: 30 },
+      },
+      { ...open, used: { resume_reviews: 30 } },
+    ])
+      assertEquals(reviewBlocked(await e(data)), null);
+    const suspended = reviewBlocked(await e({ ...limited, suspended: true }));
+    assertEquals(suspended?.status, 403);
+  },
+);
+
+Deno.test('countUse counts for that user and never throws', async () => {
+  const { admin, calls } = fake({ data: 2 });
+  await countUse(admin, 'user-1', 'resume_reviews');
+  assertEquals(calls, [
+    {
+      fn: 'count_feature_use',
+      args: { p_user: 'user-1', p_key: 'resume_reviews' },
+    },
+  ]);
+  await countUse(
+    fake({ error: { message: 'no' } }).admin,
+    'u',
+    'resume_reviews',
+  );
+  await countUse(fake({ throws: true }).admin, 'u', 'resume_reviews');
+});
 
 Deno.test('Pro may research', async () => {
   const gate = await requireFeature(

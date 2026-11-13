@@ -13,11 +13,13 @@ import {
   featureForJob,
   normaliseEntitlements,
   OPEN_ENTITLEMENTS,
+  reviewsLeft,
   SUSPENDED,
   upgradeRequired,
   type Entitlements,
   type Feature,
   type GatedAiJob,
+  type UseKey,
 } from './entitlements.ts';
 
 /** The slice of the Supabase client the gate uses; lets tests pass a fake. */
@@ -76,6 +78,41 @@ export async function requireFeature(
 ): Promise<Entitlements | Response> {
   const e = await loadEntitlements(admin, userId);
   return blockedResponse(e, feature) ?? e;
+}
+
+/**
+ * For an AI review of the resume: the 402 once the plan's allowance of
+ * reviews is used up (Free gets one, Pro and early accounts are not
+ * counted); null while a review may go ahead.
+ */
+export function reviewBlocked(e: Entitlements): Response | null {
+  if (e.suspended) return reply(403, SUSPENDED);
+  return reviewsLeft(e) === 0
+    ? reply(402, upgradeRequired(e, 'resume_review'))
+    : null;
+}
+
+/**
+ * Counts one use of something a plan limits by count (feature_uses). A
+ * failure is logged and not passed on: the user already has what they asked
+ * for, and losing one count is better than failing their call.
+ */
+export async function countUse(
+  admin: RpcClient,
+  userId: string,
+  key: UseKey,
+): Promise<void> {
+  try {
+    const { error } = await admin.rpc('count_feature_use', {
+      p_user: userId,
+      p_key: key,
+    });
+    if (error) console.warn(`count_feature_use failed: ${error.message}`);
+  } catch (e) {
+    console.warn(
+      `count_feature_use failed: ${e instanceof Error ? e.message : e}`,
+    );
+  }
 }
 
 /** requireFeature for the feature an AI job needs. */

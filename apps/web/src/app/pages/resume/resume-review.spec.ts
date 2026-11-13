@@ -1,7 +1,9 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
+  OPEN_ENTITLEMENTS,
   emptyResume,
+  type Entitlements,
   type ResumeSections,
   type VariantChange,
 } from '@jobbotix/shared-types';
@@ -47,7 +49,11 @@ const change = (over: Partial<VariantChange>): VariantChange => ({
 function panel(opts: {
   connections?: number;
   answer?: () => Promise<VariantChange[]>;
+  /** The account's plan; open (nothing counted) when left out. */
+  entitlements?: Entitlements;
 }) {
+  const entitlements = signal(opts.entitlements ?? OPEN_ENTITLEMENTS);
+  let refreshed = 0;
   const asked: { sections: ResumeSections; model?: string }[] = [];
   TestBed.configureTestingModule({
     providers: [
@@ -82,7 +88,14 @@ function panel(opts: {
       },
       {
         provide: Plan,
-        useValue: { route: signal({ enabled: false, ownOnly: false }) },
+        useValue: {
+          route: signal({ enabled: false, ownOnly: false }),
+          entitlements,
+          refresh: async () => {
+            refreshed++;
+          },
+          handled: async () => false,
+        },
       },
     ],
   });
@@ -93,7 +106,13 @@ function panel(opts: {
     sections.set(next);
     fixture.componentRef.setInput('sections', next);
   };
-  return { p: fixture.componentInstance, asked, set };
+  return {
+    p: fixture.componentInstance,
+    asked,
+    set,
+    entitlements,
+    refreshed: () => refreshed,
+  };
 }
 
 describe('textAt, reviewLabel, stillFitting', () => {
@@ -189,6 +208,35 @@ describe('ResumeReviewPanel', () => {
     const { p, asked } = panel({ connections: 0 });
     await p.review();
     expect(asked).toEqual([]);
+  });
+
+  it('a plan that counts reviews allows its one, then asks nothing more of a model', async () => {
+    const free: Entitlements = {
+      ...OPEN_ENTITLEMENTS,
+      enforced: true,
+      features: ['ai'],
+      limits: { resume_reviews: 1 },
+    };
+    const { p, asked, entitlements, refreshed } = panel({ entitlements: free });
+    expect(p.left()).toBe(1);
+    await p.review();
+    expect(asked).toHaveLength(1);
+    expect(refreshed()).toBe(1); // the plan is read again to show the count
+    entitlements.set({ ...free, used: { resume_reviews: 1 } });
+    expect(p.left()).toBe(0);
+    await p.review();
+    expect(asked).toHaveLength(1);
+    // The review on screen is still there to accept and apply.
+    expect(p.changes()).toHaveLength(2);
+  });
+
+  it('does not count reviews on Pro or while billing is off', async () => {
+    const { p, asked, refreshed } = panel({});
+    expect(p.left()).toBeNull();
+    await p.review();
+    await p.review();
+    expect(asked).toHaveLength(2);
+    expect(refreshed()).toBe(0);
   });
 });
 
