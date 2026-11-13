@@ -38,6 +38,7 @@ const SIGNED_IN: PageCase[] = [
   { name: 'Insights', url: '/insights' },
   { name: 'AI usage', url: '/usage' },
   { name: 'Sources', url: '/sources' },
+  { name: 'Passed over', url: '/passed-over' },
   { name: 'Search profile', url: '/search' },
   { name: 'Master resume', url: '/resume' },
   { name: 'Settings', url: '/settings' },

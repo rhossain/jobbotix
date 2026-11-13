@@ -1,5 +1,6 @@
 import type { Signal } from '@angular/core';
 import type {
+  ExcludedRoleRow,
   AdminMoney,
   AdminUserDetail,
   RoleRecheck,
@@ -138,7 +139,17 @@ export abstract class SearchProfileRepo {
     roles: string[],
     stacks: string[],
   ): Promise<{ suggestions: TitleSuggestion[]; aiNote?: string }>;
+  /**
+   * Postings the search looked at in the last 60 days and did not add, each
+   * with the reason, newest first.
+   */
+  abstract passedOver(): Promise<PassedOver[]>;
 }
+
+export type PassedOver = Pick<
+  ExcludedRoleRow,
+  'id' | 'company' | 'title' | 'url' | 'reason' | 'found_at'
+>;
 
 export abstract class SavedViewsRepo {
   abstract readonly views: Signal<SavedViewRow[]>;

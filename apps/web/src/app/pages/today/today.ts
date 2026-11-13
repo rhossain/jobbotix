@@ -81,7 +81,10 @@ interface Reminder {
         @if (run(); as r) {
           {{ runPhrase() }} reviewed {{ r.searched }} listings and added
           <b class="font-semibold text-ink">{{ r.added }}</b>
-          worth a look; {{ r.excluded }} were excluded{{ passedOver() }}.
+          worth a look;
+          <a class="text-brand-ink underline" routerLink="/passed-over"
+            >{{ r.excluded }} were excluded</a
+          >{{ passedOver() }}.
         } @else {
           Nothing has been searched yet. Jobbotix checks job boards several
           times a day; new roles appear here within the hour.

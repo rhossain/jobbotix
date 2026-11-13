@@ -165,7 +165,11 @@ const splitLines = (s: string) =>
               Employers name the same job in different ways. The preview uses
               the last 14 days of listings and saves nothing. With an AI
               provider connected in Settings, titles the rules are unsure about
-              are also checked by AI each hour.
+              are also checked by AI each hour. Postings the search already
+              ruled out are listed under
+              <a routerLink="/passed-over" class="text-brand-ink underline"
+                >Passed over</a
+              >.
             </p>
             @if (previewError()) {
               <p class="text-xs text-bad" role="alert">{{ previewError() }}</p>

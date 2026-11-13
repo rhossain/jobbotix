@@ -356,6 +356,18 @@ export class SupabaseSearchProfileRepo extends SearchProfileRepo {
     return data ?? '';
   }
 
+  async passedOver() {
+    const since = new Date(Date.now() - 60 * 86_400_000).toISOString();
+    const { data, error } = await this.supabase
+      .from('excluded_roles')
+      .select('id, company, title, url, reason, found_at')
+      .gte('found_at', since)
+      .order('found_at', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    return data ?? [];
+  }
+
   async previewSearch(roles: string[], stacks: string[], minSeniority: string) {
     const { data, error } = await this.supabase.functions.invoke<
       Record<string, unknown>

@@ -56,6 +56,13 @@ export const appRoutes: Route[] = [
     title: 'Role · Jobbotix',
   },
   {
+    path: 'passed-over',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/passed-over/passed-over').then((m) => m.PassedOverPage),
+    title: 'Passed over · Jobbotix',
+  },
+  {
     path: 'people',
     canActivate: [authGuard],
     loadComponent: () =>

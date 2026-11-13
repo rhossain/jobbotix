@@ -521,6 +521,69 @@ export class MemorySearchProfileRepo extends SearchProfileRepo {
     });
   }
 
+  /** Demo postings, one or more for each kind of reason. */
+  async passedOver() {
+    const ago = (h: number) =>
+      new Date(Date.now() - h * 3_600_000).toISOString();
+    const rows: [string, string, string, number][] = [
+      [
+        'Halden Labs',
+        'Senior Frontend Engineer',
+        'Low match (score 26): no Angular in the posting',
+        3,
+      ],
+      [
+        'Corvid Health',
+        'Frontend Engineer, Design Systems',
+        'Low match (score 22): few of your signals',
+        9,
+      ],
+      [
+        'Tessera',
+        'Frontend Infrastructure Engineer',
+        'A different job from your target roles (checked by AI)',
+        9,
+      ],
+      ['Brightwell', 'Senior Frontend Engineer', 'Limited to United States', 3],
+      ['Nordlys', 'Angular Developer', 'Limited to Germany, Poland', 15],
+      [
+        'Kestrel Pay',
+        'Staff Frontend Engineer',
+        'Limited to United Kingdom',
+        27,
+      ],
+      ['Atlas Freight', 'Frontend Engineer', 'Hybrid role', 27],
+      ['Pine & Co', 'Frontend Developer', 'Junior or mid-level role', 33],
+      [
+        'Lumen Works',
+        'Senior UI Engineer',
+        'Pay below your minimum (about $38,000 a year)',
+        51,
+      ],
+      [
+        'Marlow',
+        'Frontend Engineer',
+        'Contract role; profile wants full-time',
+        75,
+      ],
+      ['Rheinwerk', 'Senior Frontend Engineer', 'Requires German', 99],
+      [
+        'Castellan',
+        'Senior Angular Engineer',
+        'Requires local work authorisation',
+        123,
+      ],
+    ];
+    return rows.map(([company, title, reason, h], i) => ({
+      id: `x-${i}`,
+      company,
+      title,
+      url: `https://example.com/jobs/${i}`,
+      reason,
+      found_at: ago(h),
+    }));
+  }
+
   /** Demo figures in the shape of a real preview. */
   async previewSearch(roles: string[]) {
     return adminSearchExplain({
