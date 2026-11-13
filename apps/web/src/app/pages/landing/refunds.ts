@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { DraftNote, LEGAL, LegalFact } from './legal';
+import { LEGAL, LegalFact, ProSoonNote, sellerName } from './legal';
 
 /**
  * The numbers the refund policy turns on, in one place so the policy and any
@@ -20,13 +20,14 @@ export const REFUND_RULES = {
 } as const;
 
 /**
- * Refund Policy. A draft: the route exists in development builds only until
- * the effective date in legal.ts is set and billing goes live (subscription
- * TODO, section 7). The rules above were settled on 12 Nov 2026.
+ * Refund Policy. Published on 13 November 2026, before Pro is on sale, so a
+ * payment company can review the site. The rules above were settled on
+ * 12 Nov 2026; what the page promises after a refund and during a bank
+ * dispute is built with billing (subscription TODO, section 7).
  */
 @Component({
   selector: 'jb-refunds',
-  imports: [DraftNote, LegalFact, RouterLink],
+  imports: [LegalFact, ProSoonNote, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article class="mx-auto max-w-2xl py-6 text-base leading-relaxed text-ink">
@@ -39,10 +40,10 @@ export const REFUND_RULES = {
       <p class="mt-1 text-sm text-ink-muted">
         When you get your money back, and how to ask.
       </p>
-      <jb-draft-note>
-        Have a lawyer read it before publishing. The date at the foot is set on
-        the day it goes live.
-      </jb-draft-note>
+      <jb-pro-soon-note>
+        Nothing can be bought yet, so there is nothing to refund. This is the
+        policy that applies from the day Pro opens.
+      </jb-pro-soon-note>
 
       <h2 class="mt-10 text-xl font-semibold">The short version</h2>
       <ul class="mt-2 list-disc space-y-1 pl-5">
@@ -139,9 +140,8 @@ export const REFUND_RULES = {
         <jb-legal-fact [value]="legal.email" what="contact email" /> from the
         email address on your account and say which payment. You get an answer
         within {{ r.answerWorkingDays }} working days. Refunds go back through
-        {{ legal.paymentProvider }}, which handles Jobbotix's payments, to the
-        card or method you paid with; your bank can take 5 to 10 working days to
-        show it.
+        {{ sellerName }} to the card or method you paid with; your bank can take
+        5 to 10 working days to show it.
       </p>
 
       <p class="mt-8 text-sm text-ink-muted">
@@ -153,5 +153,9 @@ export const REFUND_RULES = {
 })
 export class Refunds {
   protected readonly legal = LEGAL;
+  protected readonly sellerName =
+    sellerName() === 'a payment company'
+      ? 'the payment company that took the payment'
+      : sellerName();
   protected readonly r = REFUND_RULES;
 }

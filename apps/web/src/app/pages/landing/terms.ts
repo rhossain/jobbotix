@@ -1,16 +1,16 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { PRICING, usd } from '@jobbotix/shared-types';
-import { DraftNote, LEGAL, LegalFact } from './legal';
+import { LEGAL, LegalFact, ProSoonNote, seller } from './legal';
 
 /**
- * Terms of Service. A draft: the route exists in development builds only
- * until the effective date in legal.ts is set, someone qualified has read it,
- * and billing goes live (subscription TODO, section 7).
+ * Terms of Service. Published on 13 November 2026, before Pro is on sale, so
+ * a payment company can review the site. Someone qualified should still read
+ * it before billing goes live (subscription TODO, section 7).
  */
 @Component({
   selector: 'jb-terms',
-  imports: [DraftNote, LegalFact, RouterLink],
+  imports: [LegalFact, ProSoonNote, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article class="mx-auto max-w-2xl py-6 text-base leading-relaxed text-ink">
@@ -23,10 +23,10 @@ import { DraftNote, LEGAL, LegalFact } from './legal';
       <p class="mt-1 text-sm text-ink-muted">
         The agreement between you and Jobbotix, in plain words.
       </p>
-      <jb-draft-note>
-        Have a lawyer read it before publishing. The date at the foot is set on
-        the day it goes live.
-      </jb-draft-note>
+      <jb-pro-soon-note>
+        The parts about Pro, payment and credits describe how it will work when
+        it opens. Until then every account is on the Free plan.
+      </jb-pro-soon-note>
 
       <h2 class="mt-10 text-xl font-semibold">Who you are dealing with</h2>
       <p class="mt-2">
@@ -94,9 +94,9 @@ import { DraftNote, LEGAL, LegalFact } from './legal';
           checkout is the price you pay; taxes may be added where they apply.
         </li>
         <li>
-          Payments are handled by {{ legal.paymentProvider }}, which sells Pro
-          to you as the merchant of record: it takes the payment, adds any tax
-          and sends the invoice. Jobbotix never sees your card number.
+          Payments are handled by {{ seller }}, which sells Pro to you as the
+          merchant of record: it takes the payment, adds any tax and sends the
+          invoice. Jobbotix never sees your card number.
         </li>
         <li>
           Pro renews at the end of each period until you cancel. You can cancel
@@ -217,6 +217,7 @@ import { DraftNote, LEGAL, LegalFact } from './legal';
 })
 export class Terms {
   protected readonly legal = LEGAL;
+  protected readonly seller = seller();
   protected readonly monthly = usd(PRICING.pro.monthlyUsd);
   protected readonly quarterly = usd(PRICING.pro.quarterlyUsd);
   protected readonly credits = PRICING.pro.monthlyCredits;

@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
   CREDIT_PRICES,
@@ -7,9 +12,10 @@ import {
   quarterlySaving,
   usd,
 } from '@jobbotix/shared-types';
+import { Auth } from '../../core/auth';
 import { RESUME_TEMPLATES } from '../../shared/resume-templates';
 import { Button, Icon } from '../../ui';
-import { DraftNote, LEGAL } from './legal';
+import { LEGAL, PRO_ON_SALE, ProSoonNote, seller } from './legal';
 import { REFUND_RULES } from './refunds';
 
 interface CompareRow {
@@ -37,11 +43,7 @@ export const COMPARE: CompareRow[] = [
     free: `${PRICING.trialCredits} trial credits, once`,
     pro: `${PRICING.pro.monthlyCredits} credits every month`,
   },
-  {
-    what: 'Company research with web search',
-    free: 'One try on trial credits',
-    pro: true,
-  },
+  { what: 'Company research with web search', free: false, pro: true },
   {
     what: 'Resume templates, all one column and readable by ATS',
     free: 'Classic',
@@ -54,7 +56,7 @@ export const COMPARE: CompareRow[] = [
   },
 ];
 
-/** In the plan for Pro and not built yet: named on the draft, not sold. */
+/** In the plan for Pro and not built yet: named as coming, not sold. */
 export const PLANNED_FOR_PRO = [
   'several search profiles',
   'instant alerts',
@@ -63,12 +65,14 @@ export const PLANNED_FOR_PRO = [
 ];
 
 /**
- * Pricing. A draft: the route exists in development builds only until
- * checkout exists (subscription TODO, section 7).
+ * Pricing. Published on 13 November 2026, before checkout exists, so the
+ * prices are public and a payment company can review the site. While
+ * PRO_ON_SALE is false the page says Pro is not on sale and the Pro button is
+ * off (subscription TODO, section 7).
  */
 @Component({
   selector: 'jb-pricing',
-  imports: [Button, DraftNote, Icon, RouterLink],
+  imports: [Button, Icon, ProSoonNote, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="mx-auto max-w-4xl py-6 text-ink">
@@ -87,7 +91,10 @@ export const PLANNED_FOR_PRO = [
         adds AI credits, so letters, tailored resumes and company research work
         without a key of your own.
       </p>
-      <jb-draft-note> Checkout is not connected yet. </jb-draft-note>
+      <jb-pro-soon-note>
+        These are the prices it opens at. Until then every account is free, and
+        AI works on a key of your own.
+      </jb-pro-soon-note>
 
       <!-- Plans -->
       <div class="mt-8 grid grid-cols-1 gap-5 md:grid-cols-2">
@@ -109,7 +116,11 @@ export const PLANNED_FOR_PRO = [
             }
           </ul>
           <div class="mt-auto pt-2">
-            <a jbButton routerLink="/signup">Create your account</a>
+            @if (open()) {
+              <a jbButton routerLink="/signup">Create your account</a>
+            } @else {
+              <a jbButton routerLink="/" fragment="invite">Request an invite</a>
+            }
           </div>
         </section>
 
@@ -146,11 +157,15 @@ export const PLANNED_FOR_PRO = [
             months for the first {{ seats }} customers, for as long as they stay
             subscribed.
           </p>
-          <div class="mt-auto pt-2">
-            <button type="button" jbButton="primary" disabled>Get Pro</button>
-            <span class="ml-2 text-xs text-ink-muted"
-              >Checkout opens with billing.</span
-            >
+          <div class="mt-auto flex flex-wrap items-center gap-2 pt-2">
+            <button type="button" jbButton="primary" disabled>
+              {{ onSale ? 'Get Pro' : 'Opening soon' }}
+            </button>
+            @if (!onSale) {
+              <span class="text-xs text-ink-muted"
+                >Pro cannot be bought yet.</span
+              >
+            }
           </div>
         </section>
       </div>
@@ -250,13 +265,28 @@ export const PLANNED_FOR_PRO = [
           The details are in the
           <a routerLink="/terms" class="underline">terms</a>, the
           <a routerLink="/refunds" class="underline">refund policy</a> and the
-          <a routerLink="/privacy" class="underline">privacy page</a>.
+          <a routerLink="/privacy" class="underline">privacy page</a>. Questions
+          go to <a [href]="'mailto:' + email" class="underline">{{ email }}</a
+          >.
         </p>
       </section>
     </div>
   `,
 })
 export class Pricing {
+  private readonly auth = inject(Auth);
+  protected readonly onSale = PRO_ON_SALE;
+  protected readonly email = LEGAL.email;
+  /** Whether anyone can sign up, or an invite is needed (as on the front page). */
+  protected readonly open = signal(false);
+
+  constructor() {
+    void this.auth
+      .signupIsOpen()
+      .then((o) => this.open.set(o))
+      .catch(() => undefined);
+  }
+
   protected readonly monthly = usd(PRICING.pro.monthlyUsd);
   protected readonly quarterly = usd(PRICING.pro.quarterlyUsd);
   protected readonly saving = quarterlySaving();
@@ -274,7 +304,7 @@ export class Pricing {
     'Tracker, board, interviews, contacts and the daily digest',
     'Master resume with PDF export',
     'AI on your own key, including the free tiers of Gemini and Groq',
-    `${PRICING.trialCredits} trial credits to try AI without a key`,
+    `${PRICING.trialCredits} trial credits to try AI without a key${PRO_ON_SALE ? '' : ', when Pro opens'}`,
   ];
   protected readonly proLines = [
     'Everything in Free',
@@ -303,7 +333,7 @@ export class Pricing {
     },
     {
       q: 'Who takes the payment?',
-      a: `${LEGAL.paymentProvider}, the payment company Jobbotix sells through. It takes the payment, adds any tax and sends the invoice. Jobbotix never sees your card number.`,
+      a: `${seller().replace(/^a /, 'A ')}, which Jobbotix sells through. It takes the payment, adds any tax and sends the invoice. Jobbotix never sees your card number.`,
     },
   ];
 

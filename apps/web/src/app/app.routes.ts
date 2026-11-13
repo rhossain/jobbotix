@@ -30,6 +30,23 @@ export const appRoutes: Route[] = [
     title: 'Privacy · Jobbotix',
   },
   {
+    path: 'pricing',
+    loadComponent: () =>
+      import('./pages/landing/pricing').then((m) => m.Pricing),
+    title: 'Pricing · Jobbotix',
+  },
+  {
+    path: 'terms',
+    loadComponent: () => import('./pages/landing/terms').then((m) => m.Terms),
+    title: 'Terms · Jobbotix',
+  },
+  {
+    path: 'refunds',
+    loadComponent: () =>
+      import('./pages/landing/refunds').then((m) => m.Refunds),
+    title: 'Refunds · Jobbotix',
+  },
+  {
     path: 'today',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/today/today').then((m) => m.Today),
@@ -183,29 +200,10 @@ export const appRoutes: Route[] = [
       import('./pages/admin/invites').then((m) => m.AdminInvites),
     title: 'Invite codes · Jobbotix',
   },
-  // Development builds only: the UI-kit gallery, and the pages that are
-  // written but not published yet (they go live with billing).
+  // Development builds only: the UI-kit gallery.
   ...(environment.production
     ? []
     : [
-        {
-          path: 'pricing',
-          loadComponent: () =>
-            import('./pages/landing/pricing').then((m) => m.Pricing),
-          title: 'Pricing (draft) · Jobbotix',
-        },
-        {
-          path: 'terms',
-          loadComponent: () =>
-            import('./pages/landing/terms').then((m) => m.Terms),
-          title: 'Terms (draft) · Jobbotix',
-        },
-        {
-          path: 'refunds',
-          loadComponent: () =>
-            import('./pages/landing/refunds').then((m) => m.Refunds),
-          title: 'Refunds (draft) · Jobbotix',
-        },
         {
           path: '_ui',
           loadComponent: () =>
