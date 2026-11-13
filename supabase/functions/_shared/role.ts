@@ -45,7 +45,7 @@ const PHRASES: [RegExp, string][] = [
   [/\bhuman resources?\b/g, 'hr'],
   [/\bvice president\b/g, 'vp'],
   [/\btechnical\b/g, 'tech'],
-  [/\b(developers?|programmers?|coders?|devs?|swe|engineers)\b/g, 'engineer'],
+  [/\b(developers?|programmers?|devs?|swe|engineers)\b/g, 'engineer'],
   [/\badministrators?\b/g, 'admin'],
   [/\brepresentatives?\b|\breps\b/g, 'rep'],
   [/\bsystems\b/g, 'system'],

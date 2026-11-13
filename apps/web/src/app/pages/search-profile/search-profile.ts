@@ -163,7 +163,9 @@ const splitLines = (s: string) =>
             </div>
             <p class="text-xs text-ink-muted">
               Employers name the same job in different ways. The preview uses
-              the last 14 days of listings and saves nothing.
+              the last 14 days of listings and saves nothing. With an AI
+              provider connected in Settings, titles the rules are unsure about
+              are also checked by AI each hour.
             </p>
             @if (previewError()) {
               <p class="text-xs text-bad" role="alert">{{ previewError() }}</p>

@@ -5,6 +5,7 @@
 // job, what excluded the rest, and which sources carried the matches.
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
+import { nearMiss } from './judge.ts';
 import { matchPosting, type MatchPosting, type MatchProfile } from './match.ts';
 import { stackTerm } from './queries.ts';
 import { bestRoleFit, type Grade, parseRole, searchTerm } from './role.ts';
@@ -22,6 +23,8 @@ export interface SearchExplain {
   warnings: string[];
   pool: number;
   not_relevant: number;
+  /** Of those, titles close enough that the AI check looks at them when the account has AI. */
+  near_miss: number;
   too_old: number;
   needs_country: number;
   excluded: { reason: string; count: number }[];
@@ -119,6 +122,7 @@ export function createExplain(
     warnings: profileWarnings(profile),
     pool: 0,
     not_relevant: 0,
+    near_miss: 0,
     too_old: 0,
     needs_country: 0,
     excluded: [],
@@ -150,8 +154,10 @@ export function createExplain(
         for (const id of from) src(id).pool++;
         const r = matchPosting(profile, post, now);
         if (r.kind === 'irrelevant') {
-          if (r.why.startsWith('no target role')) res.not_relevant++;
-          else res.too_old++;
+          if (r.why.startsWith('no target role')) {
+            res.not_relevant++;
+            if (nearMiss(profile.target_roles, post.title)) res.near_miss++;
+          } else res.too_old++;
           continue;
         }
         if (r.kind === 'needs_country') {

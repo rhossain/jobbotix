@@ -175,6 +175,8 @@ export function heuristicScore(
   p: MatchProfile,
   post: MatchPosting,
   w: Weights,
+  /** The target role the AI check called this posting the same job as, when the rules found none. */
+  judged?: { role: string; index: number },
 ): ScoredPosting {
   const title = normaliseTitle(post.title);
   const head = `${title} | ${post.tags.join(' | ').toLowerCase()}`;
@@ -202,6 +204,15 @@ export function heuristicScore(
         ? `Title matches ${fit.role}`
         : `Close to ${fit.role}`,
     );
+  } else if (judged) {
+    // worth what another name for the job is worth
+    const points = Math.round(
+      w.title_match *
+        GRADE_SHARE.variant *
+        Math.max(0.7, 1 - 0.1 * judged.index),
+    );
+    if (points) breakdown.title_match = points;
+    reasons.push(`Same job as ${judged.role} (checked by AI)`);
   }
 
   // Stack

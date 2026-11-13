@@ -178,11 +178,13 @@ export function matchPosting(
   p: MatchProfile,
   post: MatchPosting,
   now = new Date(),
+  /** assumeRelevant: the AI check already called it the same job (judge.ts); the other rules still apply. */
+  opts: { assumeRelevant?: boolean } = {},
 ): MatchResult {
   const excl = p.exclusions ?? {};
 
   // 1. Their kind of job at all?
-  if (!relevance(p, post)) {
+  if (!opts.assumeRelevant && !relevance(p, post)) {
     return { kind: 'irrelevant', why: 'no target role or stack in title' };
   }
 

@@ -11,6 +11,8 @@
 // and files the best as new roles (score, reasons, gaps, a link to the pool).
 // One "run" event per user summarises it for Today and the digest.
 
+import { judgePrompt, nearMiss, parseJudgeReply } from '../_shared/judge.ts';
+import type { Grade } from '../_shared/role.ts';
 import { FAST_MODEL } from '../_shared/models.ts';
 import { loadConnections, runAi } from '../_shared/ai.ts';
 import { platformKey } from '../_shared/credits.ts';
@@ -22,6 +24,7 @@ import {
   matchPosting,
   type MatchPosting,
   type MatchProfile,
+  roleFit,
 } from '../_shared/match.ts';
 import {
   heuristicScore,
@@ -47,6 +50,8 @@ interface Sourcing {
   ai_min_heuristic_score: number;
   triage_model: string;
   lookback_days: number;
+  /** Titles the AI check looks at per user per run (uncertain matches and near misses); 0 turns it off. */
+  ai_judged_per_user_per_run: number;
   /** How far back the pool is matched: for a new or just-changed profile, and after a long pause. */
   first_match_days: number;
 }
@@ -59,6 +64,7 @@ const DEFAULT_SOURCING: Sourcing = {
   triage_model: FAST_MODEL,
   lookback_days: 3,
   first_match_days: 30,
+  ai_judged_per_user_per_run: 30,
 };
 
 type PostingWithSources = MatchPosting & {
@@ -94,6 +100,10 @@ interface UserSummary {
   notRelevant: number;
   /** Their kind of job, but scored under the filing threshold. */
   lowMatch: number;
+  /** Titles the AI check looked at, turned down, and brought in. */
+  aiJudged: number;
+  aiRejected: number;
+  aiRescued: number;
   aiScored: number;
   /** Model calls that failed, and the first reason (never the key). */
   aiFailed: number;
@@ -179,6 +189,9 @@ async function matchForUser(
     needsCountry: 0,
     notRelevant: 0,
     lowMatch: 0,
+    aiJudged: 0,
+    aiRejected: 0,
+    aiRescued: 0,
     aiScored: 0,
     aiFailed: 0,
     errors: [],
@@ -257,6 +270,14 @@ async function matchForUser(
     scored: ScoredPosting;
     method: 'heuristic' | 'ai';
     heuristic: number;
+    /** How the rules recognised it: a title grade, a stack alone, or the AI check. */
+    grade: Grade | 'stack' | 'judged';
+  }[] = [];
+  /** Rejected by the rules, but close enough for the AI check to look at. */
+  const nearMisses: {
+    post: PostingWithSources;
+    link: string;
+    source: string;
   }[] = [];
   const excludedRows: {
     user_id: string;
@@ -282,7 +303,14 @@ async function matchForUser(
 
     const r = matchPosting(profile, post, now);
     if (r.kind === 'irrelevant') {
-      if (r.why.startsWith('no target role')) summary.notRelevant++;
+      if (r.why.startsWith('no target role')) {
+        summary.notRelevant++;
+        if (
+          nearMisses.length < 60 &&
+          nearMiss(profile.target_roles, post.title)
+        )
+          nearMisses.push({ post, link, source: first?.source_id ?? '' });
+      }
       continue;
     }
     if (r.kind === 'needs_country') {
@@ -310,8 +338,133 @@ async function matchForUser(
       scored,
       method: 'heuristic',
       heuristic: scored.score,
+      grade: roleFit(profile, post)?.grade ?? 'stack',
     });
     havePairs.add(pairKey(post.company, post.title)); // one role per company+title per run
+  }
+
+  // Model help only for accounts whose plan covers AI (everyone while billing
+  // is off); the rules above are never gated. (An account without a key can
+  // still be served on credits, where the Pro route exists; runAi finds out.)
+  const connections =
+    candidates.length || nearMisses.length
+      ? await loadConnections(admin, p.user_id)
+      : [];
+  const aiAllowed =
+    (candidates.length > 0 || nearMisses.length > 0) &&
+    (connections.length > 0 || !!platformKey()) &&
+    can(await loadEntitlements(admin, p.user_id), 'ai');
+
+  // The AI check: one call for the titles the rules are unsure about. An
+  // uncertain match it turns down goes to the excluded list with the reason;
+  // a near miss it confirms goes through the remaining rules like any other.
+  if (aiAllowed && cfg.ai_judged_per_user_per_run > 0) {
+    const half = Math.max(1, Math.floor(cfg.ai_judged_per_user_per_run / 2));
+    const uncertain = candidates
+      .filter((c) => c.grade !== 'exact' && c.grade !== 'variant')
+      .sort((a, b) => b.heuristic - a.heuristic)
+      .slice(0, half);
+    const near = nearMisses.slice(
+      0,
+      cfg.ai_judged_per_user_per_run - uncertain.length,
+    );
+    const items = [...uncertain.map((c) => c.post), ...near.map((n) => n.post)];
+    if (items.length) {
+      const ai = await runAi(
+        admin,
+        p.user_id,
+        {
+          prompt: judgePrompt(
+            profile.target_roles,
+            items.map((post) => ({
+              title: post.title,
+              company: post.company,
+              about: post.description.replace(/\s+/g, ' ').slice(0, 160),
+            })),
+          ),
+          maxTokens: 900,
+          timeoutMs: 30_000,
+        },
+        {
+          job: 'score',
+          fast: true,
+          anthropicFastModel: cfg.triage_model,
+          parse: (reply) =>
+            parseJudgeReply(reply, items.length, profile.target_roles.length),
+          connections,
+        },
+      );
+      if (ai.ok) {
+        summary.aiJudged = items.length;
+        const turnedDown = new Set<PostingWithSources>();
+        uncertain.forEach((c, i) => {
+          if (ai.value.get(i)?.same !== false) return; // no verdict: the rules stand
+          turnedDown.add(c.post);
+          summary.aiRejected++;
+          if (
+            !excludedUrls.has(normaliseUrl(c.link)) &&
+            excludedRows.length < 60
+          ) {
+            excludedRows.push({
+              user_id: p.user_id,
+              company: c.post.company,
+              title: c.post.title,
+              url: c.link,
+              reason: 'A different job from your target roles (checked by AI)',
+            });
+            excludedUrls.add(normaliseUrl(c.link));
+          }
+        });
+        if (turnedDown.size)
+          for (let i = candidates.length - 1; i >= 0; i--)
+            if (turnedDown.has(candidates[i].post)) candidates.splice(i, 1);
+        near.forEach((n, i) => {
+          const v = ai.value.get(uncertain.length + i);
+          if (!v?.same || havePairs.has(pairKey(n.post.company, n.post.title)))
+            return;
+          const again = matchPosting(profile, n.post, now, {
+            assumeRelevant: true,
+          });
+          if (again.kind === 'needs_country') summary.needsCountry++;
+          if (again.kind === 'excluded') {
+            if (
+              !excludedUrls.has(normaliseUrl(n.link)) &&
+              excludedRows.length < 60
+            ) {
+              excludedRows.push({
+                user_id: p.user_id,
+                company: n.post.company,
+                title: n.post.title,
+                url: n.link,
+                reason: again.reason,
+              });
+              excludedUrls.add(normaliseUrl(n.link));
+            }
+          }
+          if (again.kind !== 'match') return;
+          const role = profile.target_roles[v.role] ?? profile.target_roles[0];
+          const scored = heuristicScore(profile, n.post, weights, {
+            role,
+            index: v.role,
+          });
+          candidates.push({
+            post: n.post,
+            link: n.link,
+            source: n.source,
+            scored,
+            method: 'heuristic',
+            heuristic: scored.score,
+            grade: 'judged',
+          });
+          havePairs.add(pairKey(n.post.company, n.post.title));
+          summary.aiRescued++;
+        });
+      } else if (ai.reason !== 'no_connection' && ai.reason !== 'no_credits') {
+        // the rules stand for this run; the next one asks again
+        summary.aiFailed++;
+        summary.aiError ??= ai.message;
+      }
+    }
   }
 
   // Strongest first; the model re-scores the top ones when the user has an
@@ -323,15 +476,7 @@ async function matchForUser(
           .filter((c) => c.scored.score >= cfg.ai_min_heuristic_score)
           .slice(0, cfg.ai_scored_per_user_per_run)
       : [];
-  // Model scoring only for accounts whose plan covers AI (everyone while
-  // billing is off); the rule-based score above is never gated.
-  const connections = top.length ? await loadConnections(admin, p.user_id) : [];
-  // (An account without a key can still be scored on credits, where the Pro
-  // route exists; runAi finds out.)
-  const mayUseAi =
-    top.length > 0 &&
-    (connections.length > 0 || !!platformKey()) &&
-    can(await loadEntitlements(admin, p.user_id), 'ai');
+  const mayUseAi = top.length > 0 && aiAllowed;
   if (mayUseAi) {
     // Free tiers allow only a few calls a minute, so one at a time there;
     // three at once when every connection is Anthropic.
@@ -529,6 +674,13 @@ async function matchForUser(
         needsCountry: summary.needsCountry,
         notRelevant: summary.notRelevant,
         lowMatch: summary.lowMatch,
+        ...(summary.aiJudged
+          ? {
+              aiJudged: summary.aiJudged,
+              aiRejected: summary.aiRejected,
+              aiRescued: summary.aiRescued,
+            }
+          : {}),
         ...(summary.alerted ? { alerted: summary.alerted } : {}),
       },
     });

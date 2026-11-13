@@ -731,6 +731,10 @@ export class AdminUser {
     return [
       { label: `Postings, last ${x.days} days`, value: String(x.pool) },
       { label: 'Another kind of job', value: String(x.notRelevant) },
+      {
+        label: 'Of those, near misses for the AI check',
+        value: String(x.nearMiss),
+      },
       { label: 'Too old or expired', value: String(x.tooOld) },
       { label: 'Ruled out by their settings', value: String(ruledOut) },
       { label: 'No country set to compare', value: String(x.needsCountry) },

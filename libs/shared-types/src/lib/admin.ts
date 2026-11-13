@@ -342,6 +342,8 @@ export interface SearchExplain {
   pool: number;
   /** Another kind of job: no target role or stack in the title. */
   notRelevant: number;
+  /** Of those, titles close enough that the AI check looks at them when the account has AI. */
+  nearMiss: number;
   tooOld: number;
   /** Limited to a region, and the profile has no country to compare. */
   needsCountry: number;
@@ -413,6 +415,7 @@ export function adminSearchExplain(v: unknown): SearchExplain {
     warnings: strs(o['warnings']),
     pool: num(o['pool']),
     notRelevant: num(o['not_relevant']),
+    nearMiss: num(o['near_miss']),
     tooOld: num(o['too_old']),
     needsCountry: num(o['needs_country']),
     excluded: arr(o['excluded']).map((e) => ({
