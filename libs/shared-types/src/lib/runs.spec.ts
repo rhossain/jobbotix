@@ -73,4 +73,45 @@ describe('summariseRuns', () => {
     expect(r?.lowMatch).toBe(8);
     expect(r?.searched).toBe(510);
   });
+  it('reports what the AI check did, and runs where the AI step failed', () => {
+    const r = summariseRuns(
+      [
+        ev('2026-11-07T05:50:00Z', {
+          searched: 400,
+          added: 5,
+          excluded: 30,
+          aiJudged: 12,
+          aiRejected: 3,
+          aiRescued: 1,
+        }),
+        ev('2026-11-07T04:50:00Z', {
+          searched: 100,
+          added: 1,
+          excluded: 4,
+          aiJudged: 4,
+          aiRejected: 0,
+          aiRescued: 2,
+        }),
+        ev('2026-11-07T03:50:00Z', {
+          searched: 10,
+          added: 0,
+          excluded: 1,
+          aiFailed: 1,
+          aiError: 'The provider is rate limiting',
+        }),
+      ],
+      now,
+    );
+    expect(r?.aiCheck).toEqual({ looked: 16, turnedDown: 3, broughtIn: 3 });
+    expect(r?.aiTrouble).toEqual({
+      runs: 1,
+      reason: 'The provider is rate limiting',
+    });
+    const plain = summariseRuns(
+      [ev('2026-11-07T05:50:00Z', { searched: 5, added: 0, excluded: 0 })],
+      now,
+    );
+    expect(plain?.aiCheck).toBeUndefined();
+    expect(plain?.aiTrouble).toBeUndefined();
+  });
 });

@@ -36,6 +36,11 @@ export function summariseRuns(
       notRelevant:
         typeof r.p['notRelevant'] === 'number' ? r.p['notRelevant'] : null,
       lowMatch: typeof r.p['lowMatch'] === 'number' ? r.p['lowMatch'] : null,
+      aiJudged: Number(r.p['aiJudged'] ?? 0) || 0,
+      aiRejected: Number(r.p['aiRejected'] ?? 0) || 0,
+      aiRescued: Number(r.p['aiRescued'] ?? 0) || 0,
+      aiFailed: Number(r.p['aiFailed'] ?? 0) || 0,
+      aiError: typeof r.p['aiError'] === 'string' ? r.p['aiError'] : '',
     }))
     .sort((a, b) => b.at.localeCompare(a.at));
   if (!runs.length) return null;
@@ -55,6 +60,23 @@ export function summariseRuns(
       : {}),
     ...(use.some((r) => r.lowMatch !== null)
       ? { lowMatch: use.reduce((n, r) => n + (r.lowMatch ?? 0), 0) }
+      : {}),
+    ...(use.some((r) => r.aiJudged > 0)
+      ? {
+          aiCheck: {
+            looked: use.reduce((n, r) => n + r.aiJudged, 0),
+            turnedDown: use.reduce((n, r) => n + r.aiRejected, 0),
+            broughtIn: use.reduce((n, r) => n + r.aiRescued, 0),
+          },
+        }
+      : {}),
+    ...(use.some((r) => r.aiFailed > 0)
+      ? {
+          aiTrouble: {
+            runs: use.filter((r) => r.aiFailed > 0).length,
+            reason: use.find((r) => r.aiFailed > 0 && r.aiError)?.aiError ?? '',
+          },
+        }
       : {}),
   };
 }

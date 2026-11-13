@@ -85,6 +85,19 @@ interface Reminder {
           <a class="text-brand-ink underline" routerLink="/passed-over"
             >{{ r.excluded }} were excluded</a
           >{{ passedOver() }}.
+          @if (r.aiCheck; as c) {
+            The AI check read {{ c.looked }} uncertain
+            {{ c.looked === 1 ? 'title' : 'titles' }}: it turned down
+            {{ c.turnedDown }} and brought in {{ c.broughtIn }}.
+          }
+          @if (r.aiTrouble; as t) {
+            <span class="mt-1 block text-sm text-warn">
+              The AI step did not finish in {{ t.runs }}
+              {{ t.runs === 1 ? 'run' : 'runs' }}, so the rules decided alone{{
+                t.reason ? ': ' + t.reason : ''
+              }}.
+            </span>
+          }
         } @else {
           Nothing has been searched yet. Jobbotix checks job boards several
           times a day; new roles appear here within the hour.
