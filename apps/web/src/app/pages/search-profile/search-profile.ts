@@ -55,7 +55,7 @@ const splitLines = (s: string) =>
   template: `
     <jb-page-header
       title="Search profile"
-      lead="What Jobbotix looks for. New postings from every source are matched against this profile each hour; saving a change re-checks the last three days."
+      lead="What Jobbotix looks for. New postings from every source are matched against this profile each hour; saving a change re-checks the last 30 days over the next few hours."
     />
     <section class="mt-8 flex flex-col gap-6">
       @if (!repo.loaded()) {
