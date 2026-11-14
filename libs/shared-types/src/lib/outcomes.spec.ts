@@ -24,6 +24,7 @@ const move = (
 ): RoleEventRow =>
   ({
     id: `e${++n}`,
+    user_id: 'u1',
     role_id: roleId,
     kind: 'status_change',
     payload: { to },
