@@ -516,6 +516,30 @@ do $$ begin
   end if;
 end $$;
 
+-- Poll tiers: a poll records how many roles it kept and which host answered;
+-- a failed poll keeps what was known.
+do $$
+declare v_id uuid := (select id from public.companies where ats_slug = 'delta');
+begin
+  perform public.record_company_polls(jsonb_build_array(jsonb_build_object(
+    'id', v_id, 'open_roles', 9, 'kept', 3, 'region', 'eu')));
+  if (select (kept_roles, ats_region) from public.companies where id = v_id) <> (3, 'eu'::text)
+     or (select last_kept_at from public.companies where id = v_id) is null then
+    raise exception 'FAIL: a poll should record kept roles and the board region';
+  end if;
+  perform public.record_company_polls(jsonb_build_array(jsonb_build_object(
+    'id', v_id, 'error', '500 from the board')));
+  if (select (kept_roles, ats_region, open_roles) from public.companies where id = v_id) <> (3, 'eu'::text, 9) then
+    raise exception 'FAIL: a failed poll should keep the last known counts';
+  end if;
+  perform public.record_company_polls(jsonb_build_array(jsonb_build_object(
+    'id', v_id, 'open_roles', 4, 'kept', 0)));
+  if (select kept_roles from public.companies where id = v_id) <> 0
+     or (select last_kept_at from public.companies where id = v_id) is null then
+    raise exception 'FAIL: a poll that keeps nothing should reset the count, not the date';
+  end if;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- Posting health: listings, boards, and "gone" only from a clean careers poll
 -- a day after the listing was last seen; each user sees only their own roles.

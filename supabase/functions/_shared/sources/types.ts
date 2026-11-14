@@ -70,6 +70,8 @@ export interface CompanyTarget {
   kind: 'greenhouse' | 'lever' | 'ashby' | 'workable';
   slug: string;
   name: string;
+  /** 'eu' when the board is known to live on the system's European host. */
+  region?: '' | 'eu';
 }
 
 /** One polled company's outcome, written back to the companies table. */
@@ -77,6 +79,10 @@ export interface CompanyResult {
   id: string;
   error?: string;
   open_roles?: number;
+  /** Roles this poll kept for the pool; decides how often the company is polled. */
+  kept?: number;
+  /** Set when the poll learned which host the board lives on. */
+  region?: 'eu';
   name?: string;
 }
 

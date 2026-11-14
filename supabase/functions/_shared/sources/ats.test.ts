@@ -202,6 +202,8 @@ Deno.test(
     assertEquals(calls, [
       'https://boards-api.greenhouse.io/v1/boards/acme/jobs?content=true',
       'https://api.lever.co/v0/postings/gone?mode=json',
+      // a Lever board missing from the main host is tried on the European one
+      'https://api.eu.lever.co/v0/postings/gone?mode=json',
       'https://apply.workable.com/api/v1/widget/accounts/delta',
     ]);
     assertEquals(
@@ -209,12 +211,64 @@ Deno.test(
       ['Senior Angular Developer'],
     );
     assertEquals(r.companies, [
-      { id: 'c1', open_roles: 2 },
+      { id: 'c1', open_roles: 2, kept: 1 },
       {
         id: 'c2',
         error: '404 from https://api.lever.co/v0/postings/gone?mode=json',
       },
-      { id: 'c3', open_roles: 0, name: 'Delta Labs' },
+      { id: 'c3', open_roles: 0, kept: 0, name: 'Delta Labs' },
+    ]);
+  },
+);
+
+Deno.test(
+  'a European Lever board is found on the EU host and remembered',
+  async () => {
+    const job = {
+      id: 'j1',
+      text: 'Frontend Engineer',
+      hostedUrl: 'https://jobs.eu.lever.co/berlinco/j1',
+      categories: { location: 'Berlin' },
+    };
+    const serve = (calls: string[]) => (u: string | URL | Request) => {
+      const url = String(u);
+      calls.push(url);
+      return Promise.resolve(
+        url.includes('api.eu.lever.co')
+          ? new Response(JSON.stringify([job]))
+          : new Response('not found', { status: 404 }),
+      );
+    };
+    const first: string[] = [];
+    const r = await ats.run(
+      ctx(serve(first) as typeof fetch, [
+        { id: 'c1', kind: 'lever', slug: 'berlinco', name: 'Berlin Co' },
+      ]),
+    );
+    assertEquals(first, [
+      'https://api.lever.co/v0/postings/berlinco?mode=json',
+      'https://api.eu.lever.co/v0/postings/berlinco?mode=json',
+    ]);
+    assertEquals(r.companies, [
+      { id: 'c1', open_roles: 1, kept: 1, region: 'eu' },
+    ]);
+    assertEquals(r.postings.length, 1);
+
+    // once known, only the European host is called
+    const second: string[] = [];
+    await ats.run(
+      ctx(serve(second) as typeof fetch, [
+        {
+          id: 'c1',
+          kind: 'lever',
+          slug: 'berlinco',
+          name: 'Berlin Co',
+          region: 'eu',
+        },
+      ]),
+    );
+    assertEquals(second, [
+      'https://api.eu.lever.co/v0/postings/berlinco?mode=json',
     ]);
   },
 );

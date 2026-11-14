@@ -4,6 +4,8 @@
 //
 //   greenhouse  GET https://boards-api.greenhouse.io/v1/boards/<slug>/jobs?content=true
 //   lever       GET https://api.lever.co/v0/postings/<slug>?mode=json
+//               (European customers: api.eu.lever.co; tried when the first
+//               host has no such board, then remembered per company)
 //   ashby       GET https://api.ashbyhq.com/posting-api/job-board/<slug>?includeCompensation=true
 //   workable    GET https://apply.workable.com/api/v1/widget/accounts/<slug>
 //
@@ -207,6 +209,9 @@ export function parseWorkable(j: Json, company: string): DraftPosting | null {
   });
 }
 
+const LEVER_EU = (s: string) =>
+  `https://api.eu.lever.co/v0/postings/${encodeURIComponent(s)}?mode=json`;
+
 const FEED: Record<CompanyTarget['kind'], (slug: string) => string> = {
   greenhouse: (s) =>
     `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(s)}/jobs?content=true`,
@@ -248,7 +253,23 @@ export const ats: SourceAdapter = {
     for (const c of ctx.companies ?? []) {
       if (f.left <= 0) break;
       const before = f.warnings.length;
-      const body = await f.json(FEED[c.kind](c.slug));
+      let region: 'eu' | undefined;
+      let body: unknown | null;
+      if (c.kind === 'lever' && c.region === 'eu') {
+        body = await f.json(LEVER_EU(c.slug));
+      } else {
+        body = await f.json(FEED[c.kind](c.slug));
+        // A Lever board missing from the main host may be a European one.
+        if (
+          body === null &&
+          c.kind === 'lever' &&
+          f.left > 0 &&
+          (f.warnings.at(before) ?? '').startsWith('404 ')
+        ) {
+          body = await f.json(LEVER_EU(c.slug));
+          if (body !== null) region = 'eu';
+        }
+      }
       if (body === null) {
         companies.push({
           id: c.id,
@@ -258,13 +279,19 @@ export const ats: SourceAdapter = {
       }
       const { jobs, name } = unpack(c.kind, body);
       const company = name || c.name || c.slug;
+      let kept = 0;
       for (const j of jobs) {
         const d = PARSE[c.kind](j, company);
-        if (d && wanted(d.title, ctx.queries, ctx.roles)) postings.push(d);
+        if (d && wanted(d.title, ctx.queries, ctx.roles)) {
+          postings.push(d);
+          kept++;
+        }
       }
       companies.push({
         id: c.id,
         open_roles: jobs.length,
+        kept,
+        ...(region ? { region } : {}),
         ...(name ? { name } : {}),
       });
     }

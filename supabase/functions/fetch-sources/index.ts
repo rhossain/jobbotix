@@ -231,33 +231,45 @@ Deno.serve(async (req) => {
   return json(200, { queries, freshTerms, runs });
 });
 
+/** How often a company outside the followed set is polled. */
+const PRODUCTIVE_EVERY_H = 20; // gave a kept role lately: about daily
+const OTHERS_EVERY_H = 7 * 24; // everyone else: weekly
+const PRODUCTIVE_WINDOW_DAYS = 30;
+
 /**
- * Companies to poll this run: every followed company first (oldest poll
- * first), then, unless followedOnly, companies discovered in the pool, up to
- * one request each within the source's budget.
+ * Companies to poll this run, one request each within the source's budget:
+ * every followed company first (oldest poll first); then, unless
+ * followedOnly, companies that gave a kept role in the last month and were
+ * not polled in the last 20 hours; then any other company not polled for a
+ * week, never-polled ones first.
  */
 async function companyTargets(
   admin: ReturnType<typeof serviceClient>,
   budget: number,
   followedOnly: boolean,
 ): Promise<CompanyTarget[]> {
-  const cols = 'id, ats_kind, ats_slug, name';
+  const cols = 'id, ats_kind, ats_slug, name, ats_region';
   const toTarget = (c: {
     id: string;
     ats_kind: CompanyTarget['kind'];
     ats_slug: string;
     name: string;
+    ats_region: string | null;
   }): CompanyTarget => ({
     id: c.id,
     kind: c.ats_kind,
     slug: c.ats_slug,
     name: c.name,
+    ...(c.ats_region === 'eu' ? { region: 'eu' as const } : {}),
   });
+  const ago = (hours: number) =>
+    new Date(Date.now() - hours * 3_600_000).toISOString();
   const { data: follows } = await admin
     .from('company_follows')
     .select('company_id')
     .limit(5000);
   const followed = [...new Set((follows ?? []).map((f) => f.company_id))];
+  const notFollowed = `(${followed.join(',')})`;
   const out: CompanyTarget[] = [];
   if (followed.length) {
     const { data } = await admin
@@ -268,13 +280,30 @@ async function companyTargets(
       .limit(budget);
     out.push(...(data ?? []).map(toTarget));
   }
-  if (!followedOnly && out.length < budget) {
+  if (followedOnly) return out;
+
+  const productiveSince = ago(PRODUCTIVE_WINDOW_DAYS * 24);
+  if (out.length < budget) {
     let q = admin
       .from('companies')
       .select(cols)
+      .gte('last_kept_at', productiveSince)
+      .or(`last_polled_at.is.null,last_polled_at.lt.${ago(PRODUCTIVE_EVERY_H)}`)
       .order('last_polled_at', { ascending: true, nullsFirst: true })
       .limit(budget - out.length);
-    if (followed.length) q = q.not('id', 'in', `(${followed.join(',')})`);
+    if (followed.length) q = q.not('id', 'in', notFollowed);
+    const { data } = await q;
+    out.push(...(data ?? []).map(toTarget));
+  }
+  if (out.length < budget) {
+    let q = admin
+      .from('companies')
+      .select(cols)
+      .or(`last_kept_at.is.null,last_kept_at.lt.${productiveSince}`)
+      .or(`last_polled_at.is.null,last_polled_at.lt.${ago(OTHERS_EVERY_H)}`)
+      .order('last_polled_at', { ascending: true, nullsFirst: true })
+      .limit(budget - out.length);
+    if (followed.length) q = q.not('id', 'in', notFollowed);
     const { data } = await q;
     out.push(...(data ?? []).map(toTarget));
   }
