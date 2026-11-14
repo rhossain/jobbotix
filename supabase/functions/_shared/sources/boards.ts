@@ -223,13 +223,16 @@ export const workingnomads: SourceAdapter = {
 };
 
 // ---------------------------------------------------------------------------
-// Arbeitnow (Europe, mostly Germany): remote-flagged jobs only. A remote job
-// there is nearly always open to residents of its country or the EU, so an
-// unreadable location ("Berlin") becomes "Europe", not worldwide.
+// Arbeitnow (Europe, mostly Germany). A remote job there is nearly always
+// open to residents of its country or the EU, so an unreadable location
+// ("Berlin") becomes "Europe", not worldwide. Jobs not flagged remote are
+// kept as on-site (or hybrid, when the title or place says so) work in their
+// country, for users who allow on-site work there; the board gives a city
+// far more often than a country, and a city this code cannot place is taken
+// to be in Germany, which is what the board mostly lists.
 // ---------------------------------------------------------------------------
 
 export function parseArbeitnowJob(j: Json): DraftPosting | null {
-  if (j.remote !== true) return null;
   const url = text(j.url, 1000);
   const company = text(j.company_name, 200);
   const title = text(j.title, 200);
@@ -237,17 +240,39 @@ export function parseArbeitnowJob(j: Json): DraftPosting | null {
   const where = text(j.location, 200);
   const loc = parseLocations(where ? [where] : []);
   const located = loc.countries.length || loc.regions.length;
+  const country = loc.countries[0] ?? 'DE';
+  const place: Pick<
+    DraftPosting,
+    | 'location'
+    | 'remote_policy'
+    | 'hiring_countries'
+    | 'hiring_regions'
+    | 'source_country'
+  > =
+    j.remote === true
+      ? {
+          location: where ? `Remote: ${where}` : 'Remote, Europe',
+          remote_policy: 'region_locked',
+          hiring_countries: loc.countries,
+          hiring_regions: located ? loc.regions : ['europe'],
+          source_country: loc.countries[0] ?? null,
+        }
+      : {
+          location: where || 'Germany',
+          remote_policy: /\bhybrid\b/i.test(`${title} ${where}`)
+            ? 'hybrid'
+            : 'onsite',
+          hiring_countries: [country],
+          hiring_regions: [],
+          source_country: country,
+        };
   return draft({
     external_id: text(j.slug, 300) || url,
     source_url: url,
     url,
     company,
     title,
-    location: where ? `Remote: ${where}` : 'Remote, Europe',
-    remote_policy: 'region_locked',
-    hiring_countries: loc.countries,
-    hiring_regions: located ? loc.regions : ['europe'],
-    source_country: loc.countries[0] ?? null,
+    ...place,
     employment_type: employmentType(strings(j.job_types).join(' ')),
     tags: textList(strings(j.tags), 20),
     description: descriptionText(text(j.description, 200_000)),

@@ -144,7 +144,7 @@ Deno.test('Working Nomads adapter makes one request', async () => {
 });
 
 Deno.test(
-  'Arbeitnow: remote only; a city means Europe; pages stop at old posts',
+  'Arbeitnow: remote city means Europe; on-site kept for its country; pages stop at old posts',
   async () => {
     const base = {
       slug: 'frontend-dev-berlin-1',
@@ -158,7 +158,26 @@ Deno.test(
       location: 'Berlin',
       created_at: 1793800000,
     };
-    assertEquals(parseArbeitnowJob({ ...base, remote: false }), null);
+    const office = parseArbeitnowJob({ ...base, remote: false })!;
+    assertEquals(
+      [
+        office.remote_policy,
+        office.hiring_countries,
+        office.source_country,
+        office.location,
+      ],
+      ['onsite', ['DE'], 'DE', 'Berlin'],
+    );
+    const abroad = parseArbeitnowJob({
+      ...base,
+      remote: false,
+      title: 'Frontend Developer (Hybrid)',
+      location: 'Vienna, Austria',
+    })!;
+    assertEquals(
+      [abroad.remote_policy, abroad.hiring_countries, abroad.source_country],
+      ['hybrid', ['AT'], 'AT'],
+    );
     const d = parseArbeitnowJob(base)!;
     assertEquals(
       [d.remote_policy, d.hiring_countries, d.hiring_regions],
