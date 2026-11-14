@@ -516,6 +516,13 @@ do $$ begin
   end if;
 end $$;
 
+-- The seeded company list is in place and waiting for its first poll.
+do $$ begin
+  if (select count(*) from public.companies where last_polled_at is null) < 840 then
+    raise exception 'FAIL: the seeded company boards are missing';
+  end if;
+end $$;
+
 -- Poll tiers: a poll records how many roles it kept and which host answered;
 -- a failed poll keeps what was known.
 do $$
