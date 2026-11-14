@@ -6,6 +6,7 @@ import { ats } from './ats.ts';
 import {
   arbeitnow,
   fourdayweek,
+  getonboard,
   jobicy,
   remoteok,
   remotive,
@@ -30,6 +31,7 @@ export const ADAPTERS: Record<string, SourceAdapter> = Object.fromEntries(
     remotive,
     weworkremotely,
     fourdayweek,
+    getonboard,
     realworkfromanywhere,
     remotefirstjobs,
     hn,

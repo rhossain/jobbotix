@@ -9,6 +9,9 @@
 //   arbeitnow       GET https://www.arbeitnow.com/api/job-board-api?page=<n>   (Europe; remote flag)
 //   remotive        GET https://remotive.com/api/remote-jobs   (all categories)
 //                   (asks for at most ~4 requests a day; the feed is 24 h delayed)
+//   getonboard      GET https://www.getonbrd.com/api/v0/categories/<id>/jobs?per_page=100&expand=["company"]
+//                   (Get on Board: Latin American and remote jobs, many in Spanish;
+//                   a few of its 18 categories each run, all of them within a day)
 //   fourdayweek     GET https://4dayweek.io/api/v2/jobs         (4 Day Week: remote, hybrid and
 //                   on-site jobs at companies with a shorter week; one page a run)
 
@@ -395,5 +398,127 @@ export const fourdayweek: SourceAdapter = {
       '4 Day Week',
       keepRecent(listOf(body, 'data').map(parseFourDayWeekJob), ctx.since),
     );
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Get on Board (getonbrd.com): jobs are listed per category, in JSON:API
+// shape. remote_modality says how the job is done; countries are names.
+// Salaries are US dollars a month, so they go in the text only: the number
+// fields are read as yearly elsewhere.
+// ---------------------------------------------------------------------------
+
+export const GETONBOARD_CATEGORIES = [
+  'programming',
+  'sysadmin-devops-qa',
+  'data-science-analytics',
+  'machine-learning-ai',
+  'mobile-developer',
+  'design-ux',
+  'cybersecurity',
+  'customer-support',
+  'digital-marketing',
+  'sales',
+  'operations-management',
+  'hr',
+  'technical-support',
+  'innovation-agile',
+  'advertising-media',
+  'education-coaching',
+  'hardware-electronics',
+  'other',
+];
+
+/** The categories this run reads: a window that moves on every six hours. */
+export function getOnBoardCategories(now: Date, budget: number): string[] {
+  const n = Math.min(Math.max(0, budget), GETONBOARD_CATEGORIES.length);
+  const start =
+    (Math.floor(now.getTime() / (6 * 3_600_000)) * n) %
+    GETONBOARD_CATEGORIES.length;
+  return Array.from(
+    { length: n },
+    (_, i) => GETONBOARD_CATEGORIES[(start + i) % GETONBOARD_CATEGORIES.length],
+  );
+}
+
+export function parseGetOnBoardJob(j: Json): DraftPosting | null {
+  const a = (j.attributes ?? {}) as Json;
+  const url = text(((j.links ?? {}) as Json).public_url, 1000);
+  const co = ((((a.company ?? {}) as Json).data ?? {}) as Json).attributes as
+    Json | undefined;
+  const company = text(co?.name, 200);
+  const title = text(a.title, 200);
+  if (!isHttp(url) || !company || !title) return null;
+  const countries = strings(a.countries);
+  const how = text(a.remote_modality, 30).toLowerCase();
+  let where: Pick<
+    DraftPosting,
+    'location' | 'remote_policy' | 'hiring_countries' | 'hiring_regions'
+  >;
+  if (
+    how === 'hybrid' ||
+    (how !== 'fully_remote' && how !== 'remote_local' && a.remote !== true)
+  ) {
+    const loc = parseLocations(countries);
+    where = {
+      location: countries.join(', ').slice(0, 300),
+      remote_policy: how === 'hybrid' ? 'hybrid' : 'onsite',
+      hiring_countries: loc.countries,
+      hiring_regions: loc.regions,
+    };
+  } else {
+    where = remoteFields(countries, parseLocations);
+  }
+  const min = num(a.min_salary);
+  const max = num(a.max_salary);
+  const pay =
+    min && max && max > min
+      ? `USD ${min.toLocaleString('en-US')}–${max.toLocaleString('en-US')} a month`
+      : min || max
+        ? `USD ${(min || max)!.toLocaleString('en-US')} a month`
+        : '';
+  const section = (heading: unknown, body: unknown) =>
+    text(body, 100_000)
+      ? `${text(heading, 100) ? `<h3>${text(heading, 100)}</h3>` : ''}${text(body, 100_000)}`
+      : '';
+  const logo = text(co?.logo, 1000);
+  return draft({
+    external_id: text(j.id, 300) || url,
+    source_url: url,
+    url,
+    company,
+    title,
+    ...where,
+    salary_text: pay,
+    tags: textList([text(a.category_name, 60)].filter(Boolean)),
+    description: descriptionText(
+      [
+        section('', a.projects),
+        section(a.functions_headline, a.functions),
+        section(a.description_headline, a.description),
+        section(a.desirable_headline, a.desirable),
+        section(a.benefits_headline, a.benefits),
+      ]
+        .filter(Boolean)
+        .join('\n')
+        .slice(0, 200_000),
+    ),
+    company_logo: isHttp(logo) ? logo : '',
+    posted_at: toIso(a.published_at),
+  });
+}
+
+export const getonboard: SourceAdapter = {
+  id: 'getonboard',
+  async run(ctx: AdapterContext) {
+    const f = fetcher(ctx);
+    const out: (DraftPosting | null)[] = [];
+    for (const id of getOnBoardCategories(new Date(), ctx.maxRequests)) {
+      const body = await f.json(
+        `https://www.getonbrd.com/api/v0/categories/${id}/jobs?per_page=100&expand=${encodeURIComponent('["company"]')}`,
+      );
+      out.push(...listOf(body, 'data').map(parseGetOnBoardJob));
+    }
+    return done(f, 'Get on Board', keepRecent(out, ctx.since));
   },
 };

@@ -132,6 +132,30 @@ const FIXTURES: Record<string, (url: string) => Response> = {
   <guid>https://weworkremotely.com/remote-jobs/carewell-registered-nurse</guid>
   <link>https://weworkremotely.com/remote-jobs/carewell-registered-nurse</link>
 </item></channel></rss>`),
+  getonboard: () =>
+    json({
+      data: [
+        {
+          id: 'registered-nurse-carewell',
+          type: 'job',
+          attributes: {
+            title: TITLE,
+            description: '<p>Telehealth nursing.</p>',
+            remote: true,
+            remote_modality: 'fully_remote',
+            countries: ['Chile'],
+            category_name: 'Other',
+            published_at: epoch,
+            company: { data: { attributes: { name: 'Carewell' } } },
+          },
+          links: {
+            public_url:
+              'https://www.getonbrd.com/jobs/registered-nurse-carewell',
+          },
+        },
+      ],
+      meta: { page: 1, per_page: 100, total_pages: 1 },
+    }),
   fourdayweek: () =>
     json({
       data: [

@@ -5,9 +5,12 @@ import {
 } from 'node:assert';
 import {
   arbeitnow,
+  getOnBoardCategories,
+  GETONBOARD_CATEGORIES,
   jobicy,
   parseArbeitnowJob,
   parseFourDayWeekJob,
+  parseGetOnBoardJob,
   parseJobicyJob,
   parseRemoteOkJob,
   parseRemotiveJob,
@@ -299,4 +302,100 @@ Deno.test('4 Day Week: remote within its countries, worldwide, hybrid', () => {
     ['hybrid', ['US'], 'United States'],
   );
   assertEquals(parseFourDayWeekJob({ ...FOUR_DAY_JOB, company: {} }), null);
+});
+
+// data[0] of getonbrd.com/api/v0/categories/programming/jobs?expand=["company"]
+// as returned on 2026-11-15 (shortened).
+const GETONBOARD_JOB = {
+  id: 'semi-senior-full-stack-java-developer-qa-ai-bilingue-23people-santiago',
+  type: 'job',
+  attributes: {
+    title: 'Semi Senior Full-Stack Java Developer (QA & AI) Bilingüe',
+    description_headline: 'Skills excluyentes',
+    description:
+      '<ul><li>Experiencia comprobable con Java y Spring Boot.</li></ul>',
+    projects: '<div>Equifax es mucho más que una empresa de informes.</div>',
+    functions_headline: 'Funciones del cargo',
+    functions: '<p>Se integrará al equipo "Credit Health".</p>',
+    benefits_headline: 'Beneficios',
+    benefits: '<ul><li><strong>Seguro complementario</strong></li></ul>',
+    desirable_headline: 'Skills deseables',
+    desirable: '<ul><li>Playwright o Selenium.</li></ul>',
+    remote: false,
+    remote_modality: 'hybrid',
+    remote_zone: null,
+    countries: ['Chile'],
+    category_name: 'Programming',
+    min_salary: 2800,
+    max_salary: 3000,
+    published_at: 1794573989,
+    company: {
+      data: {
+        id: '23people-cl',
+        type: 'company',
+        attributes: {
+          name: '23people',
+          country: 'CL',
+          logo: 'https://getonbrd-prod.s3.amazonaws.com/uploads/users/logo/4457/logo.png',
+        },
+      },
+    },
+  },
+  links: {
+    public_url:
+      'https://www.getonbrd.com/jobs/semi-senior-full-stack-java-developer-qa-ai-bilingue-23people-santiago',
+  },
+};
+
+Deno.test(
+  'Get on Board: hybrid in its country, monthly pay as text only',
+  () => {
+    const d = parseGetOnBoardJob(GETONBOARD_JOB)!;
+    assertEquals(
+      [d.company, d.remote_policy, d.hiring_countries, d.location],
+      ['23people', 'hybrid', ['CL'], 'Chile'],
+    );
+    assertEquals(
+      [d.salary_text, d.salary_min, d.salary_max],
+      ['USD 2,800–3,000 a month', null, null],
+    );
+    assertEquals(d.url, GETONBOARD_JOB.links.public_url);
+    assertEquals(d.posted_at, new Date(1794573989 * 1000).toISOString());
+    assert(
+      d.description.includes('Funciones del cargo') &&
+        d.description.includes('Spring Boot') &&
+        !d.description.includes('<'),
+    );
+    const remote = parseGetOnBoardJob({
+      ...GETONBOARD_JOB,
+      attributes: {
+        ...GETONBOARD_JOB.attributes,
+        remote: true,
+        remote_modality: 'fully_remote',
+      },
+    })!;
+    assertEquals(
+      [remote.remote_policy, remote.hiring_countries],
+      ['region_locked', ['CL']],
+    );
+    assertEquals(
+      parseGetOnBoardJob({
+        ...GETONBOARD_JOB,
+        attributes: { ...GETONBOARD_JOB.attributes, company: {} },
+      }),
+      null,
+    );
+  },
+);
+
+Deno.test('Get on Board reads every category within four runs of six', () => {
+  const seen = new Set<string>();
+  for (let run = 0; run < 4; run++)
+    for (const c of getOnBoardCategories(
+      new Date(Date.UTC(2026, 10, 15, run * 6)),
+      6,
+    ))
+      seen.add(c);
+  assertEquals(seen.size, GETONBOARD_CATEGORIES.length);
+  assertEquals(getOnBoardCategories(new Date(), 0), []);
 });
