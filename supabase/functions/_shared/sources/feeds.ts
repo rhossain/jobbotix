@@ -1,7 +1,13 @@
-// Two sources that are not JSON job feeds:
+// Sources that are not JSON job feeds:
 //
 //   weworkremotely  RSS, the all-jobs feed (every category).
 //                   Item titles read "Company: Job title"; <region> says where.
+//   realworkfromanywhere  RSS, the all-jobs feed. Every job on the board can
+//                   be done from any country. Titles read "Job title at
+//                   Company"; <author> is the company.
+//   remotefirstjobs RSS, one feed per skill or category. Titles read "Job
+//                   title at Company"; the feed does not say where the job
+//                   is open, so that stays unknown until the text is read.
 //   hn              Hacker News "Ask HN: Who is hiring?" (monthly), through the
 //                   free Algolia HN API. Each top-level comment is one company's
 //                   post, by convention headed "Company | Role | Location |
@@ -102,6 +108,130 @@ export const weworkremotely: SourceAdapter = {
         if (xml) out.push(...rssItems(xml).map(parseWwrItem));
       }
     f.assertSomeSucceeded('We Work Remotely');
+    return {
+      postings: keepRecent(out, ctx.since),
+      requests: f.requests,
+      warnings: f.warnings.slice(0, 10),
+    };
+  },
+};
+
+// ---------------------------------------------------------------------------
+// "Job title at Company" feeds: Real Work From Anywhere, Remote First Jobs
+// ---------------------------------------------------------------------------
+
+/** Splits "Senior Engineer at Raft"; a known company name wins over the last " at ". */
+export function titleAtCompany(
+  heading: string,
+  known = '',
+): { title: string; company: string } | null {
+  const h = heading.replace(/\s+/g, ' ').trim();
+  const name = known.replace(/\s+/g, ' ').trim();
+  if (name && h.toLowerCase().endsWith(` at ${name.toLowerCase()}`))
+    return { title: h.slice(0, -(name.length + 4)).trim(), company: name };
+  const cut = h.lastIndexOf(' at ');
+  if (cut <= 0) return name && h ? { title: h, company: name } : null;
+  const title = h.slice(0, cut).trim();
+  const company = name || h.slice(cut + 4).trim();
+  return title && company ? { title, company } : null;
+}
+
+export function parseRwfaItem(it: Record<string, string>): DraftPosting | null {
+  const link = text(it.link ?? it.guid, 1000);
+  const named = titleAtCompany(text(it.title, 400), text(it.author, 200));
+  if (!isHttp(link) || !named) return null;
+  return draft({
+    external_id: text(it.guid, 1000) || link,
+    source_url: link,
+    url: link,
+    company: named.company.slice(0, 200),
+    title: named.title.slice(0, 200),
+    // the board lists only jobs open to any country
+    location: 'Remote, worldwide',
+    remote_policy: 'worldwide',
+    employment_type: employmentType(named.title),
+    description: descriptionText(it.description ?? ''),
+    posted_at: toIso(it.pubdate),
+  });
+}
+
+export const realworkfromanywhere: SourceAdapter = {
+  id: 'realworkfromanywhere',
+  async run(ctx: AdapterContext) {
+    const f = fetcher(ctx, 1000);
+    const xml = await f.text('https://www.realworkfromanywhere.com/rss.xml');
+    const out = xml ? rssItems(xml).map(parseRwfaItem) : [];
+    f.assertSomeSucceeded('Real Work From Anywhere');
+    return {
+      postings: keepRecent(out, ctx.since),
+      requests: f.requests,
+      warnings: f.warnings.slice(0, 10),
+    };
+  },
+};
+
+export function parseRfjItem(it: Record<string, string>): DraftPosting | null {
+  const link = text(it.link, 1000);
+  const named = titleAtCompany(text(it.title, 400));
+  if (!isHttp(link) || !named) return null;
+  return draft({
+    external_id: link,
+    source_url: link,
+    url: link,
+    company: named.company.slice(0, 200),
+    title: named.title.slice(0, 200),
+    ...remoteFields([], parseLocations),
+    employment_type: employmentType(named.title),
+    description: descriptionText(it.description ?? ''),
+    posted_at: toIso(it.pubdate),
+  });
+}
+
+// The feeds the board lists at remotefirstjobs.com/rss. "full-time" is the
+// broad one, read every run; the rest are read when a search term names them.
+const RFJ_BROAD = 'full-time';
+const RFJ_FEEDS = [
+  'python',
+  'react',
+  'golang',
+  'ai',
+  'writing',
+  'data-science',
+  'devops',
+  'cybersecurity',
+  'customer-service',
+  'design',
+  'marketing',
+  'sales',
+  'data',
+  'qa',
+  'product',
+];
+
+/** Feeds worth reading for these search terms, the broad one first. */
+export function rfjFeeds(queries: string[], budget: number): string[] {
+  const wanted = RFJ_FEEDS.filter((slug) => {
+    const words = slug.replace(/-/g, ' ');
+    return queries.some((q) => {
+      const term = q.toLowerCase().trim();
+      return term === words || term.split(' ').includes(words);
+    });
+  });
+  return [RFJ_BROAD, ...wanted].slice(0, Math.max(0, budget));
+}
+
+export const remotefirstjobs: SourceAdapter = {
+  id: 'remotefirstjobs',
+  async run(ctx: AdapterContext) {
+    const f = fetcher(ctx, 1000);
+    const out: (DraftPosting | null)[] = [];
+    for (const slug of rfjFeeds(ctx.queries, ctx.maxRequests)) {
+      const xml = await f.text(
+        `https://remotefirstjobs.com/rss/jobs/${slug}.rss`,
+      );
+      if (xml) out.push(...rssItems(xml).map(parseRfjItem));
+    }
+    f.assertSomeSucceeded('Remote First Jobs');
     return {
       postings: keepRecent(out, ctx.since),
       requests: f.requests,

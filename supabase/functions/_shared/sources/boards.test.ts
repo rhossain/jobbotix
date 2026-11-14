@@ -7,6 +7,7 @@ import {
   arbeitnow,
   jobicy,
   parseArbeitnowJob,
+  parseFourDayWeekJob,
   parseJobicyJob,
   parseRemoteOkJob,
   parseRemotiveJob,
@@ -230,4 +231,72 @@ Deno.test('Jobicy tags stay within its 3 to 20 characters', async () => {
   assertEquals(jobicyTag('product manager'), 'product manager');
   assertEquals(jobicyTag('customer support specialist'), 'customer support');
   assertEquals(jobicyTag('supercalifragilisticexpialidocious'), null);
+});
+
+// data[0] of 4dayweek.io/api/v2/jobs as returned on 2026-11-14 (shortened).
+const FOUR_DAY_JOB = {
+  id: '01a1a07c-74a0-75fc-8f90-691f1fc55518',
+  slug: 'education-program-specialist-education-at-ohio-state-university-a63723e0',
+  title: 'Education Program Specialist - Education',
+  description: 'Screen reader users may encounter difficulty with this site.',
+  url: 'https://4dayweek.io/job/education-program-specialist-education-at-ohio-state-university-a63723e0',
+  category: 'other',
+  role: 'Education Program Specialist',
+  level: 'mid',
+  contract_type: 'permanent',
+  schedule_type: 'compressed_week',
+  work_arrangement: 'remote',
+  locations: [
+    {
+      country: 'United States',
+      continent: 'North America',
+      work_arrangement: 'remote',
+      is_primary: true,
+    },
+  ],
+  skills: [{ name: 'Program Planning', slug: 'program-planning' }],
+  tools: [{ name: 'MS Office', slug: 'ms-office' }],
+  posted_at: '2026-11-03T08:17:53Z',
+  company: {
+    slug: 'ohio-state-university',
+    name: 'Ohio State University',
+    logo_url:
+      'https://media.4dayweek.io/files/1779376705137_77966fab4b0d75f8.png',
+    country: 'United States',
+    hires_worldwide: false,
+  },
+};
+
+Deno.test('4 Day Week: remote within its countries, worldwide, hybrid', () => {
+  const d = parseFourDayWeekJob(FOUR_DAY_JOB)!;
+  assertEquals(
+    [d.company, d.title, d.remote_policy, d.hiring_countries, d.seniority],
+    [
+      'Ohio State University',
+      'Education Program Specialist - Education',
+      'region_locked',
+      ['US'],
+      'mid',
+    ],
+  );
+  assertEquals([d.url, d.source_url], [FOUR_DAY_JOB.url, FOUR_DAY_JOB.url]);
+  assertEquals(d.posted_at, '2026-11-03T08:17:53.000Z');
+  assertEquals(d.tags, ['other', 'Program Planning', 'MS Office']);
+  assert(d.company_logo.startsWith('https://media.4dayweek.io/'));
+
+  const anywhere = parseFourDayWeekJob({
+    ...FOUR_DAY_JOB,
+    company: { ...FOUR_DAY_JOB.company, hires_worldwide: true },
+  })!;
+  assertEquals(anywhere.remote_policy, 'worldwide');
+
+  const hybrid = parseFourDayWeekJob({
+    ...FOUR_DAY_JOB,
+    work_arrangement: 'hybrid',
+  })!;
+  assertEquals(
+    [hybrid.remote_policy, hybrid.hiring_countries, hybrid.location],
+    ['hybrid', ['US'], 'United States'],
+  );
+  assertEquals(parseFourDayWeekJob({ ...FOUR_DAY_JOB, company: {} }), null);
 });

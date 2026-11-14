@@ -5,12 +5,18 @@ import { adzuna, jooble, reed } from './aggregators.ts';
 import { ats } from './ats.ts';
 import {
   arbeitnow,
+  fourdayweek,
   jobicy,
   remoteok,
   remotive,
   workingnomads,
 } from './boards.ts';
-import { hn, weworkremotely } from './feeds.ts';
+import {
+  hn,
+  realworkfromanywhere,
+  remotefirstjobs,
+  weworkremotely,
+} from './feeds.ts';
 import { himalayas } from './himalayas.ts';
 import type { SourceAdapter } from './types.ts';
 
@@ -23,6 +29,9 @@ export const ADAPTERS: Record<string, SourceAdapter> = Object.fromEntries(
     arbeitnow,
     remotive,
     weworkremotely,
+    fourdayweek,
+    realworkfromanywhere,
+    remotefirstjobs,
     hn,
     adzuna,
     jooble,

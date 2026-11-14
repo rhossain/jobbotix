@@ -132,6 +132,40 @@ const FIXTURES: Record<string, (url: string) => Response> = {
   <guid>https://weworkremotely.com/remote-jobs/carewell-registered-nurse</guid>
   <link>https://weworkremotely.com/remote-jobs/carewell-registered-nurse</link>
 </item></channel></rss>`),
+  fourdayweek: () =>
+    json({
+      data: [
+        {
+          id: 'n1',
+          title: TITLE,
+          description: 'Telehealth nursing.',
+          url: 'https://4dayweek.io/job/registered-nurse-at-carewell',
+          category: 'other',
+          contract_type: 'permanent',
+          work_arrangement: 'remote',
+          locations: [{ country: 'United Kingdom' }],
+          posted_at: iso,
+          company: { name: 'Carewell', hires_worldwide: false },
+        },
+      ],
+    }),
+  realworkfromanywhere: () =>
+    new Response(`<rss><channel><item>
+  <title><![CDATA[${TITLE} at Carewell]]></title>
+  <description><![CDATA[<p>Telehealth nursing.</p>]]></description>
+  <link>https://www.realworkfromanywhere.com/jobs/registered-nurse-carewell-1</link>
+  <guid>https://www.realworkfromanywhere.com/jobs/registered-nurse-carewell-1</guid>
+  <pubDate>${posted.toUTCString()}</pubDate>
+  <author><![CDATA[Carewell]]></author>
+</item></channel></rss>`),
+  remotefirstjobs: () =>
+    new Response(`<rss><channel><item>
+  <title>${TITLE} at Carewell</title>
+  <link>https://remotefirstjobs.com/companies/carewell/jobs/registered-nurse-1</link>
+  <description>&lt;p&gt;Telehealth nursing.&lt;/p&gt;</description>
+  <guid isPermaLink="true">registered-nurse-1</guid>
+  <pubDate>${posted.toUTCString()}</pubDate>
+</item></channel></rss>`),
   hn: (url) =>
     url.includes('/search_by_date')
       ? json({

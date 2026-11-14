@@ -3,8 +3,13 @@ import {
   decodeEntities,
   hn,
   parseHnComment,
+  parseRfjItem,
+  parseRwfaItem,
+  remotefirstjobs,
+  rfjFeeds,
   parseWwrItem,
   rssItems,
+  titleAtCompany,
   weworkremotely,
 } from './feeds.ts';
 import type { AdapterContext } from './types.ts';
@@ -253,3 +258,107 @@ Deno.test('HN: remote country lists, "anywhere", and US cities', () => {
     ['onsite', ['US'], 'US'],
   );
 });
+
+// First <item> of realworkfromanywhere.com/rss.xml on 2026-11-14 (shortened).
+const RWFA = `<rss><channel><item>
+  <title><![CDATA[Junior Market Specialist / Analyst (Remote) at Hillside Piers Ltd]]></title>
+  <description><![CDATA[<p>Hillside Piers Ltd is an international company focused on digital assets.</p>]]></description>
+  <link>https://www.realworkfromanywhere.com/jobs/junior-market-specialist-analyst-remote-hillside-piers-ltd-368</link>
+  <guid>https://www.realworkfromanywhere.com/jobs/junior-market-specialist-analyst-remote-hillside-piers-ltd-368</guid>
+  <pubDate>Wed, 11 Nov 2026 08:13:20 GMT</pubDate>
+  <author><![CDATA[Hillside Piers Ltd]]></author>
+  <enclosure url="https://img.realworkfromanywhere.com/HILLSIDE_LOGO.png" type="image/jpeg" length="0" />
+</item></channel></rss>`;
+
+// First <item> of remotefirstjobs.com/rss/jobs/react.rss on 2026-11-14 (shortened).
+const RFJ = `<rss xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><item>
+  <title>Senior Engineer at Raft</title>
+  <link>https://remotefirstjobs.com/companies/raft/jobs/senior-engineer-882759</link>
+  <description>&lt;p&gt;&lt;strong&gt;This is a U.S. based position.&lt;/strong&gt;&lt;/p&gt;</description>
+  <guid isPermaLink="true">senior-engineer-882759</guid>
+  <pubDate>Sat, 14 Nov 2026 02:10:12 +0000</pubDate>
+</item></channel></rss>`;
+
+Deno.test('titleAtCompany splits on the company, not the first " at "', () => {
+  assertEquals(titleAtCompany('Senior Engineer at Raft'), {
+    title: 'Senior Engineer',
+    company: 'Raft',
+  });
+  assertEquals(
+    titleAtCompany('Engineer at Large at Look at Me', 'Look at Me'),
+    {
+      title: 'Engineer at Large',
+      company: 'Look at Me',
+    },
+  );
+  assertEquals(titleAtCompany('Designer', 'Acme'), {
+    title: 'Designer',
+    company: 'Acme',
+  });
+  assertEquals(titleAtCompany('Designer'), null);
+});
+
+Deno.test('Real Work From Anywhere: worldwide, company from <author>', () => {
+  const d = parseRwfaItem(rssItems(RWFA)[0])!;
+  assertEquals(
+    [d.company, d.title, d.remote_policy, d.location],
+    [
+      'Hillside Piers Ltd',
+      'Junior Market Specialist / Analyst (Remote)',
+      'worldwide',
+      'Remote, worldwide',
+    ],
+  );
+  assertEquals(
+    d.url,
+    'https://www.realworkfromanywhere.com/jobs/junior-market-specialist-analyst-remote-hillside-piers-ltd-368',
+  );
+  assertEquals(d.posted_at, '2026-11-11T08:13:20.000Z');
+  assert(
+    d.description.startsWith('Hillside Piers Ltd is') &&
+      !d.description.includes('<'),
+  );
+});
+
+Deno.test(
+  'Remote First Jobs: escaped HTML, where it is open stays unknown',
+  () => {
+    const d = parseRfjItem(rssItems(RFJ)[0])!;
+    assertEquals(
+      [d.company, d.title, d.remote_policy, d.external_id],
+      [
+        'Raft',
+        'Senior Engineer',
+        'unknown',
+        'https://remotefirstjobs.com/companies/raft/jobs/senior-engineer-882759',
+      ],
+    );
+    assertEquals(d.posted_at, '2026-11-14T02:10:12.000Z');
+    assertEquals(d.description, 'This is a U.S. based position.');
+  },
+);
+
+Deno.test(
+  'Remote First Jobs reads the broad feed, then feeds a term names',
+  async () => {
+    assertEquals(
+      rfjFeeds(['angular', 'react', 'data science', 'senior qa'], 6),
+      ['full-time', 'react', 'data-science', 'data', 'qa'],
+    );
+    assertEquals(rfjFeeds(['react'], 1), ['full-time']);
+    const calls: string[] = [];
+    const r = await remotefirstjobs.run({
+      ...ctx((u) => {
+        calls.push(String(u));
+        return Promise.resolve(new Response(RFJ));
+      }),
+      queries: ['react'],
+      maxRequests: 3,
+    });
+    assertEquals(calls, [
+      'https://remotefirstjobs.com/rss/jobs/full-time.rss',
+      'https://remotefirstjobs.com/rss/jobs/react.rss',
+    ]);
+    assertEquals(r.postings.length, 1); // the same job in both feeds is kept once
+  },
+);

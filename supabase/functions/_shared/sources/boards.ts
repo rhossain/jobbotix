@@ -9,6 +9,8 @@
 //   arbeitnow       GET https://www.arbeitnow.com/api/job-board-api?page=<n>   (Europe; remote flag)
 //   remotive        GET https://remotive.com/api/remote-jobs   (all categories)
 //                   (asks for at most ~4 requests a day; the feed is 24 h delayed)
+//   fourdayweek     GET https://4dayweek.io/api/v2/jobs         (4 Day Week: remote, hybrid and
+//                   on-site jobs at companies with a shorter week; one page a run)
 
 import { termAsTitle } from '../role.ts';
 import { parseLocations } from '../countries.ts';
@@ -319,6 +321,79 @@ export const remotive: SourceAdapter = {
       f,
       'Remotive',
       keepRecent(listOf(body, 'jobs').map(parseRemotiveJob), since),
+    );
+  },
+};
+
+// ---------------------------------------------------------------------------
+// 4 Day Week (4dayweek.io): every job says how it is done (remote, hybrid,
+// on-site) and lists the countries it is open in; the company says whether
+// it hires worldwide. The board's own page is the link.
+// ---------------------------------------------------------------------------
+
+export function parseFourDayWeekJob(j: Json): DraftPosting | null {
+  const url = text(j.url, 1000);
+  const co = (j.company ?? {}) as Json;
+  const company = text(co.name, 200);
+  const title = text(j.title, 200);
+  if (!isHttp(url) || !company || !title) return null;
+  const places = Array.isArray(j.locations) ? (j.locations as Json[]) : [];
+  const countries = [
+    ...new Set(places.map((l) => text(l.country, 100)).filter(Boolean)),
+  ];
+  const how = text(j.work_arrangement, 20).toLowerCase();
+  let where: Pick<
+    DraftPosting,
+    'location' | 'remote_policy' | 'hiring_countries' | 'hiring_regions'
+  >;
+  if (how === 'remote') {
+    where = remoteFields(
+      co.hires_worldwide === true ? ['Worldwide'] : countries,
+      parseLocations,
+    );
+  } else {
+    const loc = parseLocations(countries);
+    where = {
+      location: countries.join(', ').slice(0, 300),
+      remote_policy:
+        how === 'hybrid' ? 'hybrid' : how === 'onsite' ? 'onsite' : 'unknown',
+      hiring_countries: loc.countries,
+      hiring_regions: loc.regions,
+    };
+  }
+  const named = (v: unknown) =>
+    Array.isArray(v) ? (v as Json[]).map((x) => text(x.name, 60)) : [];
+  const logo = text(co.logo_url, 1000);
+  return draft({
+    external_id: text(j.id, 100) || url,
+    source_url: url,
+    url,
+    company,
+    title,
+    ...where,
+    employment_type: employmentType(j.contract_type),
+    seniority: text(j.level, 40),
+    tags: textList(
+      [text(j.category, 60), ...named(j.skills), ...named(j.tools)].filter(
+        Boolean,
+      ),
+      20,
+    ),
+    description: descriptionText(text(j.description, 200_000)),
+    company_logo: isHttp(logo) ? logo : '',
+    posted_at: toIso(j.posted_at),
+  });
+}
+
+export const fourdayweek: SourceAdapter = {
+  id: 'fourdayweek',
+  async run(ctx: AdapterContext) {
+    const f = fetcher(ctx);
+    const body = await f.json('https://4dayweek.io/api/v2/jobs');
+    return done(
+      f,
+      '4 Day Week',
+      keepRecent(listOf(body, 'data').map(parseFourDayWeekJob), ctx.since),
     );
   },
 };
