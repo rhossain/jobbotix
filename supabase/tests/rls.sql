@@ -516,6 +516,19 @@ do $$ begin
   end if;
 end $$;
 
+-- Recruitee and Personio companies register from pool postings like the
+-- first four systems; systems Jobbotix cannot poll still do not.
+do $$ begin
+  insert into public.postings (dedupe_key, company, title, url, ats_kind, ats_slug)
+  values ('rp-1', 'Epsilon', 'Designer', 'https://epsilon.recruitee.com/o/designer', 'recruitee', 'epsilon'),
+         ('rp-2', 'Zeta', 'Engineer', 'https://zeta.jobs.personio.de/job/1', 'personio', 'zeta'),
+         ('rp-3', 'Eta', 'Engineer', 'https://eta.wd5.myworkdayjobs.com/x', 'workday', 'eta');
+  if (select count(*) from public.companies where ats_slug in ('epsilon', 'zeta')) <> 2
+     or exists (select 1 from public.companies where ats_slug = 'eta') then
+    raise exception 'FAIL: Recruitee and Personio companies should register, Workday should not';
+  end if;
+end $$;
+
 -- The seeded company list is in place and waiting for its first poll.
 do $$ begin
   if (select count(*) from public.companies where last_polled_at is null) < 840 then

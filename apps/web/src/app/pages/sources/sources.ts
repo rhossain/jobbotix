@@ -59,7 +59,8 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
       <p class="mt-1 text-ink-muted">
         Jobbotix checks their careers pages every hour, so their roles reach you
         before the boards pick them up. Follow from a role page, or paste a
-        careers link from Greenhouse, Lever, Ashby or Workable.
+        careers link from Greenhouse, Lever, Ashby, Workable, Recruitee or
+        Personio.
       </p>
       <form
         class="mt-3 flex flex-col gap-2 sm:flex-row"
@@ -289,7 +290,7 @@ export class SourcesPage {
     const found = careersSystem(this.link());
     if (!found) {
       this.linkError.set(
-        'That link is not a Greenhouse, Lever, Ashby or Workable careers page.',
+        'That link is not a Greenhouse, Lever, Ashby, Workable, Recruitee or Personio careers page.',
       );
       return;
     }

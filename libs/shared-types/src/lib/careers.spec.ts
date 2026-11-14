@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { careersSystem } from './careers';
 
 describe('careersSystem', () => {
-  it('reads the four systems from careers and job links', () => {
+  it('reads the six systems from careers and job links', () => {
     expect(careersSystem('https://boards.greenhouse.io/Acme/jobs/1')).toEqual({
       kind: 'greenhouse',
       slug: 'acme',
@@ -22,6 +22,18 @@ describe('careersSystem', () => {
     expect(careersSystem('https://apply.workable.com/delta/')).toEqual({
       kind: 'workable',
       slug: 'delta',
+    });
+    expect(careersSystem('https://Epsilon.recruitee.com/o/designer')).toEqual({
+      kind: 'recruitee',
+      slug: 'epsilon',
+    });
+    expect(careersSystem('https://zeta.jobs.personio.de/job/123')).toEqual({
+      kind: 'personio',
+      slug: 'zeta',
+    });
+    expect(careersSystem('https://zeta.jobs.personio.com')).toEqual({
+      kind: 'personio',
+      slug: 'zeta',
     });
   });
 

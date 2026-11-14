@@ -4,6 +4,8 @@ import {
   parseAshby,
   parseGreenhouse,
   parseLever,
+  parsePersonio,
+  parseRecruitee,
   parseWorkable,
   wanted,
 } from './ats.ts';
@@ -277,3 +279,177 @@ Deno.test('the adapter does nothing without companies', async () => {
   const r = await ats.run(ctx(() => Promise.reject(new Error('no')), []));
   assertEquals([r.requests, r.postings.length], [0, 0]);
 });
+
+// Field names and values as bunq.recruitee.com/api/offers/ returned them on
+// 2026-11-14 (shortened).
+const RECRUITEE_OFFER = {
+  id: 2823928,
+  status: 'published',
+  title: 'Security Engineer',
+  company_name: 'bunq',
+  careers_url: 'https://careers.bunq.com/o/security-engineer-3',
+  careers_apply_url: 'https://careers.bunq.com/o/security-engineer-3/c/new',
+  location: 'Amsterdam, Noord-Holland, Netherlands',
+  locations: [
+    {
+      id: 39979,
+      city: 'Amsterdam',
+      country: 'Netherlands',
+      country_code: 'NL',
+    },
+  ],
+  remote: false,
+  hybrid: true,
+  on_site: false,
+  employment_type_code: 'fulltime_permanent',
+  department: 'Technology',
+  tags: ['E2', 'E3'],
+  salary: { min: null, max: null, period: null, currency: null },
+  description: '<p style="text-align:start;">At bunq, we make life easy.</p>',
+  requirements: '<ul><li><p>Hands-on as a security engineer</p></li></ul>',
+  published_at: '2026-11-11 13:21:40 UTC',
+  created_at: '2026-11-11 13:06:54 UTC',
+};
+
+Deno.test('Recruitee: hybrid office, both text fields, UTC date', () => {
+  const d = parseRecruitee(RECRUITEE_OFFER, 'fallback')!;
+  assertEquals(
+    [d.company, d.title, d.external_id, d.remote_policy, d.hiring_countries],
+    ['bunq', 'Security Engineer', 'recruitee-2823928', 'hybrid', ['NL']],
+  );
+  assertEquals(d.source_url, 'https://careers.bunq.com/o/security-engineer-3');
+  assertEquals(d.url, 'https://careers.bunq.com/o/security-engineer-3/c/new');
+  assertEquals(d.posted_at, '2026-11-11T13:21:40.000Z');
+  assert(
+    d.description.includes('make life easy') &&
+      d.description.includes('Hands-on') &&
+      !d.description.includes('<'),
+  );
+  assertEquals(d.tags.slice(0, 2), ['Technology', 'E2']);
+  assertEquals(
+    parseRecruitee(
+      { ...RECRUITEE_OFFER, remote: true, hybrid: false, locations: [] },
+      'x',
+    )!.remote_policy !== 'onsite',
+    true,
+  );
+  assertEquals(
+    parseRecruitee({ ...RECRUITEE_OFFER, status: 'draft' }, 'x'),
+    null,
+  );
+});
+
+// First <position> of thermondo.jobs.personio.de/xml?language=en on
+// 2026-11-14, plus a second one with description sections in the documented shape.
+const PERSONIO_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<workzag-jobs>
+  <position>
+    <id>2692963</id>
+    <subcompany>Thermondo GmbH</subcompany>
+    <office>Neumünster</office>
+    <department>Installation</department>
+    <recruitingCategory>Installation</recruitingCategory>
+    <name>Anlagenmechaniker SHK  (m/w/d) - Mobiles Arbeiten</name>
+    <jobDescriptions></jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <seniority>experienced</seniority>
+    <schedule>full-time</schedule>
+    <yearsOfExperience>1-2</yearsOfExperience>
+    <keywords>Anlagenmechaniker SHK,Heizungsbauer</keywords>
+    <occupation>hvac</occupation>
+    <createdAt>2026-06-30T16:55:43+00:00</createdAt>
+  </position>
+  <position>
+    <id>31</id>
+    <office>Berlin</office>
+    <name>Senior Frontend Engineer</name>
+    <jobDescriptions>
+      <jobDescription>
+        <name>Your tasks</name>
+        <value><![CDATA[<p>Build our <b>Angular</b> app.</p>]]></value>
+      </jobDescription>
+    </jobDescriptions>
+    <employmentType>permanent</employmentType>
+    <schedule>part-time</schedule>
+    <createdAt>2026-11-01T09:00:00+00:00</createdAt>
+  </position>
+</workzag-jobs>`;
+
+Deno.test('Personio: positions from XML, job page built from the id', () => {
+  const [a, b] = parsePersonio(
+    PERSONIO_XML,
+    'thermondo',
+    'https://thermondo.jobs.personio.de',
+  );
+  assertEquals(
+    [a.company, a.title, a.url, a.external_id, a.seniority],
+    [
+      'Thermondo GmbH',
+      'Anlagenmechaniker SHK (m/w/d) - Mobiles Arbeiten',
+      'https://thermondo.jobs.personio.de/job/2692963',
+      'personio-2692963',
+      'experienced',
+    ],
+  );
+  assert(a.remote_policy !== 'onsite'); // "Mobiles Arbeiten" in the title
+  assertEquals(a.posted_at, '2026-06-30T16:55:43.000Z');
+  assertEquals(
+    [b.company, b.title, b.remote_policy, b.employment_type],
+    ['thermondo', 'Senior Frontend Engineer', 'onsite', 'part_time'],
+  );
+  assert(
+    b.description.includes('Your tasks') &&
+      b.description.includes('Build our Angular app') &&
+      !b.description.includes('<'),
+  );
+});
+
+Deno.test(
+  'the adapter reads Recruitee and Personio boards, the .com Personio host second',
+  async () => {
+    const calls: string[] = [];
+    const r = await ats.run(
+      ctx(
+        ((u: string | URL | Request) => {
+          const url = String(u);
+          calls.push(url);
+          if (url.includes('recruitee'))
+            return Promise.resolve(
+              new Response(
+                JSON.stringify({
+                  offers: [
+                    { ...RECRUITEE_OFFER, title: 'Frontend Engineer' },
+                    { ...RECRUITEE_OFFER, id: 2, title: 'AML Manager' },
+                  ],
+                }),
+              ),
+            );
+          if (url.includes('personio.com'))
+            return Promise.resolve(new Response(PERSONIO_XML));
+          return Promise.resolve(new Response('nope', { status: 404 }));
+        }) as typeof fetch,
+        [
+          { id: 'r1', kind: 'recruitee', slug: 'bunq', name: '' },
+          { id: 'p1', kind: 'personio', slug: 'thermondo', name: 'Thermondo' },
+        ],
+      ),
+    );
+    assertEquals(calls, [
+      'https://bunq.recruitee.com/api/offers/',
+      'https://thermondo.jobs.personio.de/xml?language=en',
+      'https://thermondo.jobs.personio.com/xml?language=en',
+    ]);
+    assertEquals(
+      r.postings.map((p) => p.title),
+      ['Frontend Engineer', 'Senior Frontend Engineer'],
+    );
+    assertEquals(
+      r.postings[1].url,
+      'https://thermondo.jobs.personio.com/job/31',
+    );
+    assertEquals(r.companies, [
+      { id: 'r1', open_roles: 2, kept: 1 },
+      { id: 'p1', open_roles: 2, kept: 1 },
+    ]);
+  },
+);

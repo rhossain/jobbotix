@@ -67,7 +67,8 @@ export interface AdapterContext {
 
 export interface CompanyTarget {
   id: string;
-  kind: 'greenhouse' | 'lever' | 'ashby' | 'workable';
+  kind:
+    'greenhouse' | 'lever' | 'ashby' | 'workable' | 'recruitee' | 'personio';
   slug: string;
   name: string;
   /** 'eu' when the board is known to live on the system's European host. */

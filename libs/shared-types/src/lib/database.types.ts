@@ -235,7 +235,8 @@ export type PostingRow = {
   last_seen_at: string;
 };
 
-export type AtsKind = 'greenhouse' | 'lever' | 'ashby' | 'workable';
+export type AtsKind =
+  'greenhouse' | 'lever' | 'ashby' | 'workable' | 'recruitee' | 'personio';
 
 export type CompanyRow = {
   id: string;

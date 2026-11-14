@@ -1,4 +1,4 @@
-// Company careers: the public job-board feeds of four applicant-tracking
+// Company careers: the public job-board feeds of six applicant-tracking
 // systems, polled per company (AdapterContext.companies, chosen by
 // fetch-sources: followed companies first, then discovered ones).
 //
@@ -8,6 +8,9 @@
 //               host has no such board, then remembered per company)
 //   ashby       GET https://api.ashbyhq.com/posting-api/job-board/<slug>?includeCompensation=true
 //   workable    GET https://apply.workable.com/api/v1/widget/accounts/<slug>
+//   recruitee   GET https://<slug>.recruitee.com/api/offers/
+//   personio    GET https://<slug>.jobs.personio.de/xml?language=en   (XML;
+//               some companies live on jobs.personio.com, tried second)
 //
 // A big company lists hundreds of roles; only titles that look like the
 // users' kind of work (their search terms, or common product-engineering
@@ -16,11 +19,14 @@
 import { parseLocations } from '../countries.ts';
 import { fetcher, remoteFields } from './http.ts';
 import {
+  decodeEntities,
   descriptionText,
   draft,
   employmentType,
   isHttp,
   normaliseTitle,
+  num,
+  salaryText,
   text,
   textList,
   toIso,
@@ -209,10 +215,158 @@ export function parseWorkable(j: Json, company: string): DraftPosting | null {
   });
 }
 
+// Recruitee says where a job is done with three flags and a list of offices.
+export function parseRecruitee(j: Json, company: string): DraftPosting | null {
+  const url = text(j.careers_url, 1000);
+  const title = text(j.title, 200);
+  if (!isHttp(url) || !title) return null;
+  if (j.status && j.status !== 'published') return null;
+  const offices = Array.isArray(j.locations) ? (j.locations as Json[]) : [];
+  const locations = offices
+    .map((l) =>
+      [text(l.city, 100), text(l.country, 100)].filter(Boolean).join(', '),
+    )
+    .filter(Boolean);
+  if (!locations.length && j.location) locations.push(text(j.location, 200));
+  const sal = (j.salary ?? {}) as Json;
+  const min = num(sal.min);
+  const max = num(sal.max);
+  const currency = min || max ? text(sal.currency, 3).toUpperCase() : '';
+  return draft({
+    external_id: `recruitee-${j.id ?? url}`,
+    source_url: url,
+    url: isHttp(text(j.careers_apply_url, 1000))
+      ? text(j.careers_apply_url, 1000)
+      : url,
+    company: text(j.company_name, 200) || company,
+    title,
+    ...where(
+      locations,
+      j.remote === true ? true : null,
+      j.hybrid === true ? 'hybrid' : '',
+    ),
+    employment_type: employmentType(j.employment_type_code),
+    salary_min: min,
+    salary_max: max,
+    salary_currency: currency,
+    salary_text: salaryText(min, max, currency),
+    tags: textList([j.department, ...strings(j.tags)].filter(Boolean)),
+    description: descriptionText(
+      `${text(j.description, 200_000)}\n${text(j.requirements, 100_000)}`,
+    ),
+    posted_at: toIso(recruiteeDate(j.published_at ?? j.created_at)),
+  });
+}
+
+const strings = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((x) => typeof x === 'string') : [];
+
+/** "2026-11-11 13:21:40 UTC" to ISO, which every date parser reads. */
+const recruiteeDate = (v: unknown): unknown =>
+  typeof v === 'string'
+    ? v.replace(/^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}) UTC$/, '$1T$2Z')
+    : v;
+
+// Personio's feed is XML: one <position> per job, flat fields, and the text
+// in <jobDescriptions><jobDescription><name/><value/>. The job's page is not
+// in the feed; it is always <board>/job/<id>.
+const xmlField = (block: string, tag: string): string => {
+  const m = block.match(
+    new RegExp(`<${tag}\\b[^>]*>([\\s\\S]*?)</${tag}>`, 'i'),
+  );
+  if (!m) return '';
+  const raw = m[1].trim();
+  const cdata = raw.match(/^<!\[CDATA\[([\s\S]*?)\]\]>$/);
+  return cdata ? cdata[1].trim() : decodeEntities(raw);
+};
+
+const WORK_FROM_HOME =
+  /\b(remote|home[- ]?office|mobiles arbeiten|work from home)\b/i;
+
+export function parsePersonio(
+  xml: string,
+  company: string,
+  board: string,
+): DraftPosting[] {
+  const out: DraftPosting[] = [];
+  for (const m of xml.matchAll(/<position\b[^>]*>([\s\S]*?)<\/position>/gi)) {
+    const block = m[1];
+    // the description sections carry <name> tags of their own
+    const head = block.replace(
+      /<jobDescriptions\b[\s\S]*?<\/jobDescriptions>/i,
+      '',
+    );
+    const id = text(xmlField(head, 'id'), 40);
+    const title = text(xmlField(head, 'name'), 200);
+    if (!/^\d+$/.test(id) || !title) continue;
+    const url = `${board}/job/${id}`;
+    const offices = [
+      xmlField(block, 'office'),
+      ...[
+        ...block.matchAll(
+          /<additionalOffices>([\s\S]*?)<\/additionalOffices>/gi,
+        ),
+      ]
+        .flatMap((a) => [
+          ...a[1].matchAll(/<office\b[^>]*>([\s\S]*?)<\/office>/gi),
+        ])
+        .map((o) =>
+          decodeEntities(o[1].replace(/<!\[CDATA\[|\]\]>/g, '').trim()),
+        ),
+    ]
+      .map((o) => text(o, 100))
+      .filter(Boolean);
+    const sections = [
+      ...block.matchAll(
+        /<jobDescription\b[^>]*>([\s\S]*?)<\/jobDescription>/gi,
+      ),
+    ]
+      .map((d) => {
+        const name = xmlField(d[1], 'name');
+        const value = xmlField(d[1], 'value');
+        return value ? `${name ? `<h3>${name}</h3>` : ''}${value}` : '';
+      })
+      .filter(Boolean)
+      .join('\n');
+    const schedule = xmlField(block, 'schedule');
+    const kind = xmlField(block, 'employmentType');
+    out.push(
+      draft({
+        external_id: `personio-${id}`,
+        source_url: url,
+        url,
+        company: text(xmlField(block, 'subcompany'), 200) || company,
+        title,
+        ...where(offices, WORK_FROM_HOME.test(title) ? true : null, ''),
+        employment_type: employmentType(`${kind} ${schedule}`),
+        seniority: text(xmlField(block, 'seniority'), 40),
+        tags: textList(
+          [
+            xmlField(block, 'department'),
+            ...xmlField(block, 'keywords')
+              .split(',')
+              .map((k) => k.trim()),
+          ].filter(Boolean),
+        ),
+        description: descriptionText(sections.slice(0, 200_000)),
+        posted_at: toIso(xmlField(block, 'createdAt')),
+      }),
+    );
+  }
+  return out;
+}
+
+const PERSONIO_BOARDS = (s: string) => [
+  `https://${encodeURIComponent(s)}.jobs.personio.de`,
+  `https://${encodeURIComponent(s)}.jobs.personio.com`,
+];
+
 const LEVER_EU = (s: string) =>
   `https://api.eu.lever.co/v0/postings/${encodeURIComponent(s)}?mode=json`;
 
-const FEED: Record<CompanyTarget['kind'], (slug: string) => string> = {
+type JsonKind = Exclude<CompanyTarget['kind'], 'personio'>;
+
+const FEED: Record<JsonKind, (slug: string) => string> = {
   greenhouse: (s) =>
     `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(s)}/jobs?content=true`,
   lever: (s) =>
@@ -221,27 +375,28 @@ const FEED: Record<CompanyTarget['kind'], (slug: string) => string> = {
     `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(s)}?includeCompensation=true`,
   workable: (s) =>
     `https://apply.workable.com/api/v1/widget/accounts/${encodeURIComponent(s)}`,
+  recruitee: (s) =>
+    `https://${encodeURIComponent(s)}.recruitee.com/api/offers/`,
 };
 
 /** The feed's job list and, where the feed gives one, the company's own name. */
-function unpack(
-  kind: CompanyTarget['kind'],
-  body: unknown,
-): { jobs: Json[]; name: string } {
+function unpack(kind: JsonKind, body: unknown): { jobs: Json[]; name: string } {
   if (Array.isArray(body)) return { jobs: body as Json[], name: '' };
   const b = (body ?? {}) as Json;
-  const jobs = Array.isArray(b.jobs) ? (b.jobs as Json[]) : [];
+  const list = kind === 'recruitee' ? b.offers : b.jobs;
+  const jobs = Array.isArray(list) ? (list as Json[]) : [];
   return { jobs, name: kind === 'workable' ? text(b.name, 200) : '' };
 }
 
 const PARSE: Record<
-  CompanyTarget['kind'],
+  JsonKind,
   (j: Json, company: string) => DraftPosting | null
 > = {
   greenhouse: parseGreenhouse,
   lever: parseLever,
   ashby: parseAshby,
   workable: parseWorkable,
+  recruitee: parseRecruitee,
 };
 
 export const ats: SourceAdapter = {
@@ -253,6 +408,34 @@ export const ats: SourceAdapter = {
     for (const c of ctx.companies ?? []) {
       if (f.left <= 0) break;
       const before = f.warnings.length;
+      if (c.kind === 'personio') {
+        let found: DraftPosting[] | null = null;
+        for (const board of PERSONIO_BOARDS(c.slug)) {
+          if (f.left <= 0) break;
+          const xml = await f.text(`${board}/xml?language=en`);
+          if (xml !== null && /<workzag-jobs\b/i.test(xml)) {
+            found = parsePersonio(xml, c.name || c.slug, board);
+            break;
+          }
+        }
+        if (found === null) {
+          companies.push({
+            id: c.id,
+            error: f.warnings.at(before) ?? 'Not a Personio job feed',
+          });
+          continue;
+        }
+        const keep = found.filter((d) =>
+          wanted(d.title, ctx.queries, ctx.roles),
+        );
+        postings.push(...keep);
+        companies.push({
+          id: c.id,
+          open_roles: found.length,
+          kept: keep.length,
+        });
+        continue;
+      }
       let region: 'eu' | undefined;
       let body: unknown | null;
       if (c.kind === 'lever' && c.region === 'eu') {

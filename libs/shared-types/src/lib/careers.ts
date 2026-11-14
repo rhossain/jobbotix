@@ -2,7 +2,7 @@ import type { AtsKind } from './database.types';
 
 /**
  * Reads a company's careers system and board slug from a careers or job
- * link, for the four systems Jobbotix can follow. Mirrors detectAts in
+ * link, for the six systems Jobbotix can follow. Mirrors detectAts in
  * supabase/functions/_shared/sources/normalise.ts (which knows more
  * systems, for discovery only).
  */
@@ -14,6 +14,11 @@ const PATTERNS: [AtsKind, RegExp][] = [
   ['lever', /^https?:\/\/jobs(?:\.eu)?\.lever\.co\/([a-z0-9_.-]+)/i],
   ['ashby', /^https?:\/\/jobs\.ashbyhq\.com\/([a-z0-9_.%-]+)/i],
   ['workable', /^https?:\/\/apply\.workable\.com\/([a-z0-9_-]+)/i],
+  ['recruitee', /^https?:\/\/([a-z0-9_-]+)\.recruitee\.com(?:\/|$)/i],
+  [
+    'personio',
+    /^https?:\/\/([a-z0-9_-]+)\.jobs\.personio\.(?:de|com)(?:\/|$)/i,
+  ],
 ];
 
 export const ATS_LABEL: Record<AtsKind, string> = {
@@ -21,6 +26,8 @@ export const ATS_LABEL: Record<AtsKind, string> = {
   lever: 'Lever',
   ashby: 'Ashby',
   workable: 'Workable',
+  recruitee: 'Recruitee',
+  personio: 'Personio',
 };
 
 export function careersSystem(
