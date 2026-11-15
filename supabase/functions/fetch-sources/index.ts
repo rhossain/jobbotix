@@ -160,6 +160,18 @@ Deno.serve(async (req) => {
             )
           : undefined;
 
+      // Mark the batch as polled before fetching. If the run dies part-way
+      // (a board too large for the function's limits), the same companies are
+      // not picked again next hour, which would stall the whole list.
+      if (companies?.length)
+        await admin
+          .from('companies')
+          .update({ last_polled_at: new Date().toISOString() })
+          .in(
+            'id',
+            companies.map((c) => c.id),
+          );
+
       const result = await adapter.run({
         // new terms first, then the rest in rotation: each source starts
         // further along the list every run (runs are 6 hours apart)
@@ -180,6 +192,18 @@ Deno.serve(async (req) => {
       });
       if (result.companies?.length)
         await admin.rpc('record_company_polls', { p: result.companies });
+      // Companies the run did not get to go back to the front of the queue.
+      if (companies?.length) {
+        const reached = new Set((result.companies ?? []).map((c) => c.id));
+        const missed = companies
+          .filter((c) => !reached.has(c.id))
+          .map((c) => c.id);
+        if (missed.length)
+          await admin
+            .from('companies')
+            .update({ last_polled_at: null })
+            .in('id', missed);
+      }
       run.requests = result.requests;
       run.warnings = result.warnings.slice(0, 10);
       if (backfill && result.requests > 0)

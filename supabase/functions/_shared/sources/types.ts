@@ -61,6 +61,8 @@ export interface AdapterContext {
   countries?: string[];
   /** Function secrets an adapter may need (API keys); injected for tests. */
   secret?: (name: string) => string | undefined;
+  /** Clock in milliseconds, for adapters that stop on a time budget; injected for tests. */
+  now?: () => number;
   /** For the company-careers source: which companies to poll this run. */
   companies?: CompanyTarget[];
 }

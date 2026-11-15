@@ -1,6 +1,8 @@
 import { deepStrictEqual as assertEquals, ok as assert } from 'node:assert';
 import {
   ats,
+  RUN_BUDGET_JOBS,
+  RUN_BUDGET_MS,
   parseAshby,
   parseGreenhouse,
   parseLever,
@@ -451,5 +453,58 @@ Deno.test(
       { id: 'r1', open_roles: 2, kept: 1 },
       { id: 'p1', open_roles: 2, kept: 1 },
     ]);
+  },
+);
+
+Deno.test(
+  'a run stops taking companies once its time or job budget is spent',
+  async () => {
+    const board = (n: number) =>
+      new Response(
+        JSON.stringify({
+          jobs: Array.from({ length: n }, (_, i) => ({
+            id: i,
+            title: i === 0 ? 'Frontend Engineer' : 'Account Executive',
+            absolute_url: `https://boards.greenhouse.io/big/jobs/${i}`,
+            location: { name: 'Remote' },
+            content: '&lt;p&gt;Text&lt;/p&gt;',
+          })),
+        }),
+      );
+    const three = [
+      { id: 'c1', kind: 'greenhouse' as const, slug: 'one', name: 'One' },
+      { id: 'c2', kind: 'greenhouse' as const, slug: 'two', name: 'Two' },
+      { id: 'c3', kind: 'greenhouse' as const, slug: 'three', name: 'Three' },
+    ];
+
+    // a board bigger than the job budget ends the run after it
+    const big = await ats.run(
+      ctx(
+        (() => Promise.resolve(board(RUN_BUDGET_JOBS + 1))) as typeof fetch,
+        three,
+      ),
+    );
+    assertEquals(big.companies, [
+      { id: 'c1', open_roles: RUN_BUDGET_JOBS + 1, kept: 1 },
+    ]);
+    assertEquals(big.requests, 1);
+
+    // so does the clock: 50 s a company leaves room for two
+    let t = 0;
+    const slow = await ats.run({
+      ...ctx(
+        (() => {
+          t += 50_000;
+          return Promise.resolve(board(2));
+        }) as typeof fetch,
+        three,
+      ),
+      now: () => t,
+    });
+    assert(RUN_BUDGET_MS < 100_000);
+    assertEquals(
+      slow.companies!.map((c) => c.id),
+      ['c1', 'c2'],
+    );
   },
 );

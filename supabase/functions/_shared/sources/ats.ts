@@ -399,14 +399,35 @@ const PARSE: Record<
   recruitee: parseRecruitee,
 };
 
+/** The job title as the feed spells it, read before the costly full parse. */
+const RAW_TITLE: Record<JsonKind, (j: Json) => unknown> = {
+  greenhouse: (j) => j.title,
+  lever: (j) => j.text,
+  ashby: (j) => j.title,
+  workable: (j) => j.title,
+  recruitee: (j) => j.title,
+};
+
+// A run has to finish inside the function's limits whatever the boards are
+// like: some carry thousands of jobs with full descriptions. It stops taking
+// new companies after this much time or this many jobs read; the companies
+// not reached are simply not in the result and are polled next run.
+export const RUN_BUDGET_MS = 75_000;
+export const RUN_BUDGET_JOBS = 3_000;
+
 export const ats: SourceAdapter = {
   id: 'ats',
   async run(ctx: AdapterContext): Promise<AdapterResult> {
     const f = fetcher(ctx, 300);
     const postings: DraftPosting[] = [];
     const companies: CompanyResult[] = [];
+    const clock = ctx.now ?? Date.now;
+    const started = clock();
+    let jobsRead = 0;
     for (const c of ctx.companies ?? []) {
       if (f.left <= 0) break;
+      if (clock() - started > RUN_BUDGET_MS || jobsRead >= RUN_BUDGET_JOBS)
+        break;
       const before = f.warnings.length;
       if (c.kind === 'personio') {
         let found: DraftPosting[] | null = null;
@@ -425,6 +446,7 @@ export const ats: SourceAdapter = {
           });
           continue;
         }
+        jobsRead += found.length;
         const keep = found.filter((d) =>
           wanted(d.title, ctx.queries, ctx.roles),
         );
@@ -463,7 +485,12 @@ export const ats: SourceAdapter = {
       const { jobs, name } = unpack(c.kind, body);
       const company = name || c.name || c.slug;
       let kept = 0;
+      jobsRead += jobs.length;
       for (const j of jobs) {
+        // most jobs on a board are not for our users: decide on the title
+        // alone before reading the description
+        const raw = text(RAW_TITLE[c.kind](j), 200);
+        if (!raw || !wanted(raw, ctx.queries, ctx.roles)) continue;
         const d = PARSE[c.kind](j, company);
         if (d && wanted(d.title, ctx.queries, ctx.roles)) {
           postings.push(d);
