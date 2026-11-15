@@ -1,4 +1,7 @@
-// Himalayas (himalayas.app): remote jobs, public JSON, no key.
+// Himalayas (himalayas.app): remote jobs, public JSON. Works without a key on
+// an allowance shared with every other caller; with the free key in the
+// HIMALAYAS_API_KEY secret (sent as a Bearer token) it has its own allowance
+// of 60 requests a minute and 10,000 a day, so more pages are read.
 //
 //   GET https://himalayas.app/jobs/api/search?q=<term>&sort=recent&page=<n>
 //   GET https://himalayas.app/jobs/api?limit=20&offset=<n>      (latest, unfiltered)
@@ -33,6 +36,9 @@ import {
 const BASE = 'https://himalayas.app';
 const PAGE_DELAY_MS = 400;
 const MAX_PAGES_PER_QUERY = 3;
+const MAX_PAGES_PER_QUERY_KEYED = 5;
+/** Without a key the allowance is shared with everyone: stay modest. */
+const KEYLESS_REQUESTS = 30;
 
 type Json = Record<string, unknown>;
 
@@ -156,13 +162,23 @@ export const himalayas: SourceAdapter = {
     let requests = 0;
     let failures = 0;
 
+    const key = ctx.secret?.('HIMALAYAS_API_KEY')?.trim() ?? '';
+    const budget = key
+      ? ctx.maxRequests
+      : Math.min(ctx.maxRequests, KEYLESS_REQUESTS);
+    const maxPages = key ? MAX_PAGES_PER_QUERY_KEYED : MAX_PAGES_PER_QUERY;
+
     const get = async (url: string): Promise<Json[] | null> => {
-      if (requests >= ctx.maxRequests) return null;
+      if (requests >= budget) return null;
       if (requests > 0) await ctx.sleep(PAGE_DELAY_MS);
       requests++;
       try {
         const res = await ctx.fetch(url, {
-          headers: { 'user-agent': USER_AGENT, accept: 'application/json' },
+          headers: {
+            'user-agent': USER_AGENT,
+            accept: 'application/json',
+            ...(key ? { authorization: `Bearer ${key}` } : {}),
+          },
           signal: AbortSignal.timeout(20_000),
         });
         if (!res.ok) {
@@ -205,10 +221,10 @@ export const himalayas: SourceAdapter = {
         ctx.queries.map((q) => q.trim().toLowerCase()).filter(Boolean),
       ),
     ];
-    for (let page = 1; page <= MAX_PAGES_PER_QUERY && open.length; page++) {
+    for (let page = 1; page <= maxPages && open.length; page++) {
       const next: string[] = [];
       for (const q of open) {
-        if (requests >= ctx.maxRequests) break;
+        if (requests >= budget) break;
         const jobs = await get(
           `${BASE}/jobs/api/search?q=${encodeURIComponent(q)}&sort=recent&page=${page}`,
         );

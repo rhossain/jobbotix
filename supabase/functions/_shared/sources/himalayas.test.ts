@@ -256,3 +256,30 @@ Deno.test(
     assertEquals(text('Café — ok'), 'Café — ok');
   },
 );
+
+Deno.test(
+  'the key is sent as a Bearer token and lifts the keyless request cap',
+  async () => {
+    const run = async (key: string | undefined) => {
+      const auth: (string | null)[] = [];
+      const r = await himalayas.run({
+        queries: Array.from({ length: 50 }, (_, i) => `term ${i}`),
+        since: new Date('2026-11-01T00:00:00Z'),
+        maxRequests: 45,
+        fetch: ((_u: string | URL | Request, init?: RequestInit) => {
+          auth.push(new Headers(init?.headers).get('authorization'));
+          return Promise.resolve(new Response(JSON.stringify({ jobs: [] })));
+        }) as typeof fetch,
+        sleep: () => Promise.resolve(),
+        secret: (name) => (name === 'HIMALAYAS_API_KEY' ? key : undefined),
+      });
+      return { auth, requests: r.requests };
+    };
+    const keyed = await run('hml_test');
+    assertEquals(keyed.requests, 45);
+    assert(keyed.auth.every((a) => a === 'Bearer hml_test'));
+    const open = await run(undefined);
+    assertEquals(open.requests, 30);
+    assert(open.auth.every((a) => a === null));
+  },
+);
