@@ -15,6 +15,8 @@ import { ADAPTERS } from '../_shared/sources/registry.ts';
 import type { CompanyTarget, PoolPosting } from '../_shared/sources/types.ts';
 
 const DEFAULT_LOOKBACK_DAYS = 3;
+/** A source that has never had a good run starts with its recent backlog. */
+const FIRST_RUN_LOOKBACK_DAYS = 14;
 const CHUNK = 150;
 
 interface RunSummary {
@@ -128,8 +130,14 @@ Deno.serve(async (req) => {
     };
     try {
       if (!adapter) throw new Error(`No adapter is built for "${s.id}" yet`);
-      // Page back to the last good run (with a day's overlap), never past the lookback window.
-      const floor = Date.now() - lookbackDays * 86_400_000;
+      // Page back to the last good run (with a day's overlap), never past the
+      // lookback window; a source's first good run reaches back two weeks.
+      const floor =
+        Date.now() -
+        (s.last_success_at
+          ? lookbackDays
+          : Math.max(lookbackDays, FIRST_RUN_LOOKBACK_DAYS)) *
+          86_400_000;
       const last = s.last_success_at
         ? Date.parse(s.last_success_at) - 86_400_000
         : floor;
