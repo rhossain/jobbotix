@@ -108,42 +108,45 @@ const csv = (s: string) =>
           >
             <jb-icon name="upload" /> Import
           </button>
-          <button
-            type="button"
-            jbButton
-            [attr.aria-expanded]="reviewing()"
-            (click)="reviewing.set(!reviewing()); importing.set(false)"
-          >
-            <jb-icon name="sparkles" /> Review with AI
-          </button>
-          <button
-            type="button"
-            jbButton
-            [busy]="exporting()"
-            [disabled]="exporting()"
-            title="Text PDF, readable by ATS parsers"
-            (click)="downloadPdf()"
-          >
-            <jb-icon name="download" /> PDF
-          </button>
-          <button
-            type="button"
-            jbButton
-            title="Word file (.docx), to edit or to send where one is asked for"
-            (click)="downloadDocx()"
-          >
-            <jb-icon name="download" /> Word
-          </button>
-          <button
-            type="button"
-            jbButton="ghost"
-            iconOnly
-            aria-label="Print"
-            title="Browser print dialog (choose Save as PDF)"
-            (click)="printPdf()"
-          >
-            <jb-icon name="printer" />
-          </button>
+          <!-- Nothing to review or export until there is a resume. -->
+          @if (words() > 0) {
+            <button
+              type="button"
+              jbButton
+              [attr.aria-expanded]="reviewing()"
+              (click)="reviewing.set(!reviewing()); importing.set(false)"
+            >
+              <jb-icon name="sparkles" /> Review with AI
+            </button>
+            <button
+              type="button"
+              jbButton
+              [busy]="exporting()"
+              [disabled]="exporting()"
+              title="Text PDF, readable by ATS parsers"
+              (click)="downloadPdf()"
+            >
+              <jb-icon name="download" /> PDF
+            </button>
+            <button
+              type="button"
+              jbButton
+              title="Word file (.docx), to edit or to send where one is asked for"
+              (click)="downloadDocx()"
+            >
+              <jb-icon name="download" /> Word
+            </button>
+            <button
+              type="button"
+              jbButton="ghost"
+              iconOnly
+              aria-label="Print"
+              title="Browser print dialog (choose Save as PDF)"
+              (click)="printPdf()"
+            >
+              <jb-icon name="printer" />
+            </button>
+          }
           <button
             type="button"
             jbButton="primary"

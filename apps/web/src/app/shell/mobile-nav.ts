@@ -284,12 +284,21 @@ export class TabBar {
           aria-hidden="true"
           >{{ initials() }}</span
         >
-        <span class="min-w-0">
+        <span class="min-w-0 flex-1">
           <span class="block truncate font-medium text-ink">{{ name() }}</span>
           <span class="block truncate text-sm text-ink-muted">{{
             email()
           }}</span>
         </span>
+        <button
+          type="button"
+          jbButton
+          size="sm"
+          class="shrink-0"
+          (click)="out()"
+        >
+          <jb-icon name="log-out" /> Sign out
+        </button>
       </div>
 
       @for (group of groups(); track group.id) {
@@ -331,10 +340,6 @@ export class TabBar {
         <span class="flex-1">Theme</span>
         <jb-theme-switch />
       </div>
-
-      <button type="button" jbButton block class="mt-4" (click)="out()">
-        <jb-icon name="log-out" /> Sign out
-      </button>
     </jb-sheet>
   `,
   styles: `

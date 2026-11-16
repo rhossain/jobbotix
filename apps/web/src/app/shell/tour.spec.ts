@@ -8,19 +8,20 @@ import { TOUR_STEPS, Tour } from './tour';
 @Component({ template: '<p data-tour="today-summary">Today</p>' })
 class TodayStub {}
 
-@Component({ template: '<form data-tour="search-profile">Search</form>' })
-class SearchStub {}
+/** The page of the tour's first real step: the resume. */
+@Component({ template: '<form data-tour="resume">Resume</form>' })
+class ResumeStub {}
 
 @Component({ imports: [RouterOutlet], template: '<router-outlet />' })
 class Host {}
 
 describe('Tour', () => {
   let router: Router;
-  let blockSearch = false;
+  let blockResume = false;
 
   beforeEach(() => {
     localStorage.clear();
-    blockSearch = false;
+    blockResume = false;
     vi.useFakeTimers({ shouldAdvanceTime: true });
     // jsdom lays nothing out; treat every element as on screen.
     vi.spyOn(Element.prototype, 'getClientRects').mockReturnValue([
@@ -32,9 +33,9 @@ describe('Tour', () => {
         provideRouter([
           { path: 'today', component: TodayStub },
           {
-            path: 'search',
-            component: SearchStub,
-            canActivate: [() => !blockSearch],
+            path: 'resume',
+            component: ResumeStub,
+            canActivate: [() => !blockResume],
           },
           { path: '**', component: TodayStub },
         ]),
@@ -94,8 +95,8 @@ describe('Tour', () => {
 
     tour.next();
     await settle();
-    expect(router.url).toBe('/search');
-    expect(tour.target()?.dataset['tour']).toBe('search-profile');
+    expect(router.url).toBe('/resume');
+    expect(tour.target()?.dataset['tour']).toBe('resume');
 
     tour.back();
     await settle();
@@ -105,7 +106,7 @@ describe('Tour', () => {
 
   it('ends when a page refuses to be left', async () => {
     localStorage.setItem('jb-tour-seen:u1', '1');
-    blockSearch = true;
+    blockResume = true;
     const tour = TestBed.inject(Tour);
     await router.navigateByUrl('/today');
     tour.start();

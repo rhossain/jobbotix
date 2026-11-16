@@ -76,7 +76,7 @@ export const ALL_NAV: NavItem[] = [
   {
     label: 'Job sites',
     link: '/sources',
-    icon: 'compass',
+    icon: 'globe',
     group: 'setup',
     keys: 'g o',
   },

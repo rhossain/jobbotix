@@ -22,8 +22,8 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
       <ul class="mt-2 list-disc space-y-1 pl-5">
         <li>Your account: email, display name, timezone.</li>
         <li>
-          Your search profile: the jobs, stacks and rules you set, and your
-          scoring weights.
+          Your job preferences: the job titles, skills and rules you set, and
+          your match score settings.
         </li>
         <li>
           Job postings your runs or you add: the posting's public text and link,
@@ -32,7 +32,7 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
         </li>
         <li>
           Activity on those postings (status changes, reminders, run summaries)
-          so the tracker can show history.
+          so Jobbotix can show history.
         </li>
       </ul>
 
@@ -40,7 +40,7 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
       <p class="mt-2">
         In a Supabase project (Postgres) with row-level security: every row
         carries your user id and the database refuses to show it to anyone else,
-        including other users. Email digests go out through Resend to the
+        including other users. The daily emails go out through Resend to the
         address on your account.
       </p>
 
@@ -134,13 +134,13 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
       </ul>
       <p class="mt-2">
         The admin cannot see your jobs, resume, letters, answers or notes. If
-        you ask for help, you can open your jobs and master resume to the admin
-        for 7 days from Settings, under Support access; it closes by itself, and
-        your notes and letters stay closed even then. Every time the admin opens
-        an account or changes something on it, that is recorded. The admin can
-        also suspend or delete an account that breaks the rules. Aggregate
-        market signals, if we ever show them, are counts across users with
-        nothing identifying.
+        you ask for help, you can open your jobs and resume to the admin for 7
+        days from Settings, under Support access; it closes by itself, and your
+        notes and letters stay closed even then. Every time the admin opens an
+        account or changes something on it, that is recorded. The admin can also
+        suspend or delete an account that breaks the rules. Aggregate market
+        signals, if we ever show them, are counts across users with nothing
+        identifying.
       </p>
 
       <h2 class="mt-10 text-xl font-semibold">Deleting your account</h2>

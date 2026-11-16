@@ -270,8 +270,8 @@ export function cents(amount: number, currency = 'usd'): string {
           @case ('search') {
             <p class="text-sm text-ink-muted">
               Replays this account's search rules over recent postings and
-              counts where each one stopped. It reads their search profile only,
-              writes nothing, and is recorded under Activity.
+              counts where each one stopped. It reads their job preferences
+              only, writes nothing, and is recorded under Activity.
             </p>
             <div class="mt-3">
               <button
@@ -506,7 +506,7 @@ export function cents(amount: number, currency = 'usd'): string {
               </ul>
             }
             @if (d.content?.resume) {
-              <h3 class="mt-5 text-sm font-semibold text-ink">Master resume</h3>
+              <h3 class="mt-5 text-sm font-semibold text-ink">Resume</h3>
               <pre
                 class="mt-1 max-h-96 overflow-auto rounded-control bg-sunken p-3 text-xs whitespace-pre-wrap"
                 >{{ resumeText() }}</pre>
@@ -833,12 +833,12 @@ export class AdminUser {
       { label: 'Last sign-in', value: day(a.last_sign_in_at) },
       { label: 'Email confirmed', value: a.email_confirmed ? 'Yes' : 'No' },
       { label: 'Invite code', value: a.invite_code || 'None' },
-      { label: 'Master resume', value: a.has_resume ? 'Saved' : 'None' },
+      { label: 'Resume', value: a.has_resume ? 'Saved' : 'None' },
       {
-        label: 'Search profile',
+        label: 'Job preferences',
         value: a.has_search_profile ? 'Set up' : 'None',
       },
-      { label: 'Ingest keys in use', value: String(a.ingest_keys) },
+      { label: 'Access keys in use', value: String(a.ingest_keys) },
       {
         label: 'AI paid by',
         value: a.ai_route === 'own' ? 'Own key only' : 'Credits, then own key',
@@ -855,7 +855,7 @@ export class AdminUser {
     return [
       { label: 'Jobs tracked', value: roles || 'None' },
       {
-        label: 'Last scheduled run',
+        label: 'Last search',
         value: a.last_run
           ? new Date(a.last_run).toLocaleString('en-GB', {
               dateStyle: 'medium',
@@ -863,7 +863,7 @@ export class AdminUser {
             })
           : 'never',
       },
-      { label: 'Runs in 30 days', value: String(a.runs_30d) },
+      { label: 'Searches in 30 days', value: String(a.runs_30d) },
       {
         label: 'Status changes in 30 days',
         value: String(a.events_30d['status_change'] ?? 0),

@@ -722,7 +722,8 @@ type Tab =
                   class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm"
                 >
                   <span class="min-w-0 text-ink-muted wrap-anywhere">
-                    {{ c.name || r.company }} hires on {{ atsLabel[c.kind] }}
+                    {{ c.name || r.company }} lists its jobs on
+                    {{ atsLabel[c.kind] }}
                   </span>
                   <button
                     type="button"

@@ -108,7 +108,7 @@ const LIMITS = {
                 ></div>
               </div>
               <p class="mt-2 text-xs text-ink-muted">
-                {{ t.runs_30d }} ingest runs · {{ t.ai_calls_30d }} AI calls
+                {{ t.runs_30d }} searches · {{ t.ai_calls_30d }} AI calls
                 (counted from events; the Supabase dashboard has the exact
                 number)
               </p>
@@ -183,8 +183,8 @@ const LIMITS = {
                   <th class="py-2 pr-4">Joined</th>
                   <th class="py-2 pr-4">Jobs</th>
                   <th class="py-2 pr-4">Applied</th>
-                  <th class="py-2 pr-4">Last run</th>
-                  <th class="py-2 pr-4">Runs / 30d</th>
+                  <th class="py-2 pr-4">Last search</th>
+                  <th class="py-2 pr-4">Searches / 30d</th>
                   <th class="py-2 pr-4">AI calls / 30d</th>
                   <th class="py-2">Keys</th>
                 </tr>

@@ -27,16 +27,16 @@ export const TOUR_STEPS: readonly TourStep[] = [
     body: 'Jobbotix searches job sites for you every day and gives each job a match score. You read the best ones here, apply yourself, and keep track of where each application stands. This tour shows where each part lives. It takes about a minute.',
   },
   {
-    route: '/search',
-    target: 'search-profile',
-    title: '1. Say what you are looking for',
-    body: 'Start here. Add the job titles you want and your skills, say where you can work and what to leave out, then press Save. Fill from my resume can do most of it for you once your resume is in.',
-  },
-  {
     route: '/resume',
     target: 'resume',
-    title: '2. Add your resume once',
-    body: 'Paste or import your resume here. It is the starting point for every tailored resume and cover letter, so keep it complete and up to date.',
+    title: '1. Add your resume once',
+    body: 'Start here. Import your resume or type it in. It is the starting point for every tailored resume and cover letter, so keep it complete and up to date.',
+  },
+  {
+    route: '/search',
+    target: 'search-profile',
+    title: '2. Say what you are looking for',
+    body: 'Add the job titles you want and your skills, say where you can work and what to leave out, then press Save. Fill from my resume can do most of it for you once your resume is in.',
   },
   {
     route: '/today',

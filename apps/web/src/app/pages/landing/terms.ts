@@ -237,8 +237,8 @@ export class Terms {
   protected readonly earlyBefore = PRICING.earlyBefore;
   protected readonly freeProfiles =
     PRICING.limits.free.searchProfiles === 1
-      ? 'one search profile'
-      : `${PRICING.limits.free.searchProfiles} search profiles`;
+      ? 'one search'
+      : `${PRICING.limits.free.searchProfiles} searches`;
   protected readonly freeReviews =
     PRICING.limits.free.resumeReviews === 1
       ? 'one AI review'
