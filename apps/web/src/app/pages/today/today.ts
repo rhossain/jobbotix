@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   inject,
+  signal,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import {
@@ -79,22 +80,43 @@ interface Reminder {
       </p>
       <p lead class="mt-2 max-w-[var(--reading-max)] text-ink-muted md:text-lg">
         @if (run(); as r) {
-          {{ runPhrase() }} looked at {{ r.searched }} job posts and added
-          <b class="font-semibold text-ink">{{ r.added }}</b>
-          worth a look;
-          <a class="text-brand-ink underline" routerLink="/passed-over"
-            >{{ r.excluded }} were filtered out</a
-          >{{ passedOver() }}.
-          @if (r.aiCheck; as c) {
-            The AI check read {{ c.looked }} uncertain
-            {{ c.looked === 1 ? 'title' : 'titles' }}: it turned down
-            {{ c.turnedDown }} and recognised {{ c.confirmed }} more as your
-            kind of job, {{ c.broughtIn }} of which passed your other settings
-            and {{ c.broughtIn === 1 ? 'was' : 'were' }} added.
+          @if (r.added > 0) {
+            Jobbotix found
+            <b class="font-semibold text-ink">{{ r.added }}</b>
+            new {{ r.added === 1 ? 'job' : 'jobs' }} for you {{ runWhen() }}.
+          } @else {
+            No new jobs for you {{ runWhen() }}. Jobbotix keeps looking.
+          }
+          <button
+            type="button"
+            class="cursor-pointer border-0 bg-transparent p-0 text-base text-brand-ink underline"
+            aria-controls="today-search-details"
+            [attr.aria-expanded]="detailsOpen()"
+            (click)="detailsOpen.set(!detailsOpen())"
+          >
+            {{ detailsOpen() ? 'Hide details' : 'See details' }}
+          </button>
+          @if (detailsOpen()) {
+            <span id="today-search-details" class="mt-2 block text-base">
+              {{ runPhrase() }} looked at {{ r.searched }} job posts and added
+              {{ r.added }};
+              <a class="text-brand-ink underline" routerLink="/passed-over"
+                >{{ r.excluded }} were filtered out</a
+              >{{ passedOver() }}.
+              @if (r.aiCheck; as c) {
+                AI took a second look at {{ c.looked }}
+                {{ c.looked === 1 ? 'job title' : 'job titles' }} it was unsure
+                about: {{ c.turnedDown }}
+                {{ c.turnedDown === 1 ? 'was' : 'were' }} not your kind of job,
+                {{ c.confirmed }} {{ c.confirmed === 1 ? 'was' : 'were' }}, and
+                {{ c.broughtIn }} of those
+                {{ c.broughtIn === 1 ? 'was' : 'were' }} added.
+              }
+            </span>
           }
           @if (r.aiTrouble; as t) {
             <span class="mt-1 block text-sm text-warn">
-              The AI step did not finish in {{ t.runs }}
+              AI could not help in {{ t.runs }}
               {{ t.runs === 1 ? 'search' : 'searches' }}, so your preferences
               decided alone{{ t.reason ? ': ' + t.reason : '' }}.
             </span>
@@ -475,6 +497,16 @@ export class Today {
     const first = (this.auth.profile()?.name ?? '').split(/\s+/)[0];
     return first ? `Good ${part}, ${first}` : `Good ${part}`;
   });
+  /** Whether the line under the greeting shows the numbers behind it. */
+  readonly detailsOpen = signal(false);
+  /** "in the last 24 hours", "today", "yesterday", "3 days ago", "on 2 Nov". */
+  readonly runWhen = computed(() => {
+    const r = this.run();
+    if (!r?.at) return '';
+    if (r.runs > 1) return 'in the last 24 hours';
+    const rel = relativeDay(r.at);
+    return /^\d+ \w{3}/.test(rel) ? `on ${rel}` : rel;
+  });
   /** "In the last 24 hours, 6 runs", "Today's 06:45 run", "The run 3 days ago". */
   readonly runPhrase = computed(() => {
     const r = this.run();
@@ -497,7 +529,7 @@ export class Today {
       : '';
     const other =
       r.notRelevant !== undefined
-        ? `. ${r.notRelevant} were another kind of job`
+        ? `. ${r.notRelevant} were a different kind of job`
         : '';
     return `${low}${other}`;
   });

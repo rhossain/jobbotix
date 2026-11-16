@@ -54,7 +54,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     route: '/today',
     target: 'today-new',
     title: 'Review the new jobs',
-    body: 'The ring is the match score out of 100. Open a job to see why it fits, the drafted cover letter and screening answers, a tailored resume and interview prep. Mark the ones you want as To apply.',
+    body: 'The ring is the match score out of 100. Open a job to see why it fits, the drafted cover letter and screening answers, a tailored resume and interview prep. Press Save job on the ones you want, and Not for me on the rest.',
     phoneBody:
       'The ring is the match score out of 100. Tap a job for why it fits, the drafted letter and answers, a tailored resume and prep. Swipe a job right to mark it To apply, or left to skip it.',
   },

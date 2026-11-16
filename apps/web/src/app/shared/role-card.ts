@@ -16,12 +16,14 @@ import { InterviewsRepo, RolesRepo } from '../core/data/repos';
 import { Icon, MatchRing } from '../ui';
 import { Viewport } from '../core/viewport';
 import { RelativeDayPipe, TypeLabelPipe } from './format';
+import { RoleMover } from './role-mover';
 import { StatusSelect } from './status-select';
 
 /**
  * One role as a card: match ring, title, company, the facts that decide
  * whether to look closer, and the status. The whole card opens the role;
- * the status control sits above that link.
+ * the status control sits above that link. A new role shows two buttons
+ * instead: Save job (to To apply) and Not for me (to Skipped).
  */
 @Component({
   selector: 'jb-role-card',
@@ -112,7 +114,31 @@ import { StatusSelect } from './status-select';
               >
             }
           </p>
-          <jb-status-select class="relative z-10 shrink-0" [role]="role()" />
+          @if (role().status === 'new') {
+            <!-- A new job needs one decision: keep it or not. -->
+            <div class="relative z-10 flex shrink-0 gap-1.5">
+              <button
+                type="button"
+                class="jb-btn jb-btn-ghost jb-btn-sm"
+                [attr.aria-label]="'Not for me: ' + role().title"
+                title="Hide this job. You can find it again under Skipped."
+                (click)="mover.move(role(), 'skipped')"
+              >
+                Not for me
+              </button>
+              <button
+                type="button"
+                class="jb-btn jb-btn-sm"
+                [attr.aria-label]="'Save job: ' + role().title"
+                title="Keep this job in your To apply list"
+                (click)="mover.move(role(), 'shortlist')"
+              >
+                Save job
+              </button>
+            </div>
+          } @else {
+            <jb-status-select class="relative z-10 shrink-0" [role]="role()" />
+          }
         </div>
       </div>
     </article>
@@ -121,6 +147,7 @@ import { StatusSelect } from './status-select';
 export class RoleCard {
   protected readonly viewport = inject(Viewport);
   private readonly repo = inject(RolesRepo);
+  protected readonly mover = inject(RoleMover);
   private readonly interviews = inject(InterviewsRepo);
   /** "Wed 11 Nov, 12:00" for the next scheduled round, if any. */
   protected readonly nextInterview = computed(() => {
