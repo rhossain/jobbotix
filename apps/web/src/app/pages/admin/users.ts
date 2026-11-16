@@ -144,7 +144,8 @@ function download(name: string, type: string, body: string) {
                 <th class="py-2 pr-4">Jobs</th>
                 <th class="py-2 pr-4">AI calls, 30 days</th>
                 <th class="py-2 pr-4">Signed up</th>
-                <th class="py-2">Last active</th>
+                <th class="py-2 pr-4">Last active</th>
+                <th class="py-2">Manage</th>
               </tr>
             </thead>
             <tbody>
@@ -186,11 +187,27 @@ function download(name: string, type: string, body: string) {
                   <td class="py-2 pr-4 whitespace-nowrap">
                     {{ u.created_at | relativeDay }}
                   </td>
-                  <td class="py-2 whitespace-nowrap">
+                  <td class="py-2 pr-4 whitespace-nowrap">
                     @if (u.last_active) {
                       {{ u.last_active | relativeDay }}
                     } @else {
                       <span class="text-ink-muted">never</span>
+                    }
+                  </td>
+                  <td class="py-2 whitespace-nowrap">
+                    @if (u.is_admin) {
+                      <span class="text-ink-muted">–</span>
+                    } @else {
+                      <a
+                        [routerLink]="['/admin/users', u.id]"
+                        fragment="suspend-delete"
+                        class="text-brand-ink underline"
+                        >{{
+                          u.suspended
+                            ? 'Lift suspension or delete'
+                            : 'Suspend or delete'
+                        }}</a
+                      >
                     }
                   </td>
                 </tr>

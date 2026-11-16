@@ -7,7 +7,10 @@ import {
   input,
   signal,
   untracked,
+  Injector,
+  afterNextRender,
 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import {
@@ -614,7 +617,13 @@ export function cents(amount: number, currency = 'usd'): string {
         </div>
 
         @if (!d.account.is_admin) {
-          <div class="flex flex-col gap-3 border-t border-line pt-5">
+          <div
+            id="suspend-delete"
+            class="flex scroll-mt-24 flex-col gap-3 border-t border-line pt-5"
+          >
+            <h3 class="font-semibold text-ink">
+              Suspend or delete this account
+            </h3>
             @if (d.account.suspended_at) {
               <div>
                 <button
@@ -704,6 +713,8 @@ export class AdminUser {
   private readonly toast = inject(Toast);
   private readonly confirm = inject(Confirm);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
+  private readonly doc = inject(DOCUMENT);
 
   readonly detail = signal<AdminUserDetail | null>(null);
   readonly error = signal('');
@@ -895,6 +906,15 @@ export class AdminUser {
         d.billing.entitlements.plan === 'free' ? 'pro' : 'free',
       );
       if (this.tab() === 'content' && !d.content) this.tab.set('account');
+      // The Users list links straight to the suspend and delete controls.
+      if (this.router.parseUrl(this.router.url).fragment === 'suspend-delete')
+        afterNextRender(
+          () =>
+            this.doc
+              .getElementById('suspend-delete')
+              ?.scrollIntoView({ block: 'start' }),
+          { injector: this.injector },
+        );
     } catch (e) {
       this.error.set((e as Error).message || 'Could not load the account');
     }
