@@ -154,6 +154,7 @@ export interface PageAction {
 
 const COLLAPSE_KEY = 'jb-sidebar-collapsed';
 const HINTS_KEY = 'jb-shortcut-hints';
+const CHOOSE_MODEL_KEY = 'jb-choose-model';
 
 /** UI state the shell, the shortcuts and the pages share. */
 @Injectable({ providedIn: 'root' })
@@ -169,6 +170,8 @@ export class ShellState {
   readonly sidebarCollapsed = signal(readFlag(COLLAPSE_KEY));
   /** Shortcut letters beside the menu items: off unless switched on in Settings. */
   readonly shortcutHints = signal(readFlag(HINTS_KEY));
+  /** The AI model dropdown beside Draft buttons: off unless switched on in Settings. */
+  readonly chooseModel = signal(readFlag(CHOOSE_MODEL_KEY));
   readonly online = signal(
     typeof navigator === 'undefined' ? true : navigator.onLine,
   );
@@ -211,6 +214,11 @@ export class ShellState {
   setShortcutHints(on: boolean) {
     this.shortcutHints.set(on);
     writeFlag(HINTS_KEY, on);
+  }
+
+  setChooseModel(on: boolean) {
+    this.chooseModel.set(on);
+    writeFlag(CHOOSE_MODEL_KEY, on);
   }
 }
 

@@ -224,13 +224,33 @@ import {
           </button>
           @if (!advancedOpen()) {
             <p class="mt-1 text-sm text-ink-muted">
-              AI usage and cost, and access keys for your own automated search.
-              Most people never need these.
+              AI usage and cost, choosing the AI model, and access keys for your
+              own automated search. Most people never need these.
             </p>
           }
         </div>
         @if (advancedOpen()) {
           <div id="settings-advanced" class="flex flex-col gap-6">
+            <section class="jb-card p-5 md:p-6">
+              <label class="flex cursor-pointer items-start gap-3">
+                <input
+                  type="checkbox"
+                  class="mt-1"
+                  [checked]="shell.chooseModel()"
+                  (change)="shell.setChooseModel($any($event.target).checked)"
+                />
+                <span>
+                  <span class="jb-section-title block"
+                    >Let me choose the AI model</span
+                  >
+                  <span class="mt-1 block text-sm text-ink-muted">
+                    Shows a list of AI models beside each Draft button. Left
+                    off, Jobbotix picks one for you.
+                  </span>
+                </span>
+              </label>
+            </section>
+
             <!-- Usage -->
             <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
               <div class="flex flex-wrap items-center justify-between gap-3">

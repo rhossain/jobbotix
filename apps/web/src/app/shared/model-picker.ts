@@ -15,9 +15,12 @@ import {
 } from '@jobbotix/shared-types';
 import { SettingsRepo } from '../core/data/repos';
 import { Plan } from '../core/plan';
+import { ShellState } from '../shell/shell-state';
 
 /**
- * The per-generation model override shown next to every Generate button.
+ * The per-generation model override next to every Generate button, shown
+ * only to people who switched it on in Settings (Advanced); everyone else
+ * gets the default.
  * Empty value = the default: the account's credits when it is on Pro,
  * otherwise the first AI connection in Settings on its own model. With
  * several connections the models are grouped by provider; picking one sends
@@ -33,7 +36,7 @@ import { Plan } from '../core/plan';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'inline-flex flex-wrap items-center gap-2' },
   template: `
-    @if (hasKey()) {
+    @if (hasKey() && shell.chooseModel()) {
       <select
         class="jb-input jb-input-inline min-h-9 max-w-full py-1 text-sm"
         aria-label="Model for this generation"
@@ -82,11 +85,11 @@ import { Plan } from '../core/plan';
       }
     } @else if (!hasKey() && !quiet()) {
       <span class="text-xs text-ink-muted"
-        >No AI connection, so drafts are written locally.
+        >No AI connected, so drafts use simple templates.
         <a routerLink="/settings" class="text-brand-ink underline"
-          >Connect a provider</a
+          >Connect an AI provider</a
         >
-        (Gemini and Groq are free) for model-written text.</span
+        (Gemini and Groq are free) for better-written text.</span
       >
     }
   `,
@@ -94,6 +97,7 @@ import { Plan } from '../core/plan';
 export class ModelPicker {
   protected readonly settings = inject(SettingsRepo);
   private readonly plan = inject(Plan);
+  protected readonly shell = inject(ShellState);
   readonly value = model('');
   /** Say nothing when there is no connection (a second picker on the same page). */
   readonly quiet = input(false);

@@ -809,10 +809,10 @@ export class RoleDetail {
   readonly id = input.required<string>();
 
   readonly tabs: TabItem<Tab>[] = [
-    { id: 'fit', label: 'Fit', icon: 'target' },
+    { id: 'fit', label: 'Why it fits', icon: 'target' },
     { id: 'company', label: 'Company', icon: 'building' },
     { id: 'resume', label: 'Resume', icon: 'file-text' },
-    { id: 'prep', label: 'Prep', icon: 'lightbulb' },
+    { id: 'prep', label: 'Interview prep', icon: 'lightbulb' },
     { id: 'interviews', label: 'Interviews', icon: 'calendar' },
     { id: 'posting', label: 'Job post', icon: 'briefcase' },
     { id: 'activity', label: 'Activity', icon: 'clock' },
