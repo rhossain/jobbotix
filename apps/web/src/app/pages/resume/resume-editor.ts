@@ -197,11 +197,38 @@ const csv = (s: string) =>
         <jb-template-picker />
       </div>
 
-      <jb-resume-check
-        [sections]="d()"
-        (go)="focusField($event)"
-        (review)="reviewing.set(true); importing.set(false)"
-      />
+      @if (words() === 0) {
+        <!-- An empty resume gets a way in, not a score of 0 out of 100. -->
+        @if (!importing()) {
+          <section
+            class="jb-card flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between md:p-6"
+          >
+            <div>
+              <h2 class="font-semibold text-ink">
+                Start with the resume you have
+              </h2>
+              <p class="mt-1 text-sm text-ink-muted">
+                Import a PDF or Word file and Jobbotix fills in the boxes below.
+                You can also type it in yourself.
+              </p>
+            </div>
+            <button
+              type="button"
+              jbButton="primary"
+              class="shrink-0"
+              (click)="importing.set(true); reviewing.set(false)"
+            >
+              <jb-icon name="upload" /> Import my resume
+            </button>
+          </section>
+        }
+      } @else {
+        <jb-resume-check
+          [sections]="d()"
+          (go)="focusField($event)"
+          (review)="reviewing.set(true); importing.set(false)"
+        />
+      }
 
       <div
         class="grid grid-cols-1 gap-6 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"

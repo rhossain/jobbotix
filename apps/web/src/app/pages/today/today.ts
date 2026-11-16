@@ -122,8 +122,8 @@ interface Reminder {
             </span>
           }
         } @else {
-          Nothing has been searched yet. Jobbotix checks job sites several times
-          a day; new jobs appear here within the hour.
+          No searches yet. Once your job preferences are saved, Jobbotix checks
+          job sites several times a day and new jobs appear here.
         }
       </p>
       <div actions class="hidden gap-2 md:flex">

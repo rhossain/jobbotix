@@ -29,6 +29,7 @@ import {
   SavedViewsRepo,
   SearchProfileRepo,
 } from '../../core/data/repos';
+import { ShellState } from '../../shell/shell-state';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
 import { RoleMover } from '../../shared/role-mover';
@@ -99,11 +100,17 @@ const DEFAULT_FILTERS: Filters = {
     <jb-pull-refresh [action]="refresh" />
     <jb-page-header title="Jobs">
       <p lead class="mt-2 text-ink-muted">
-        {{ rows().length }} of {{ repo.roles().length }} jobs<span
-          class="hidden [@media(hover:hover)]:inline"
-          >. Use <kbd class="jb-kbd">↑</kbd> <kbd class="jb-kbd">↓</kbd> to
-          move, <kbd class="jb-kbd">Enter</kbd> to open.</span
-        >
+        @if (repo.roles().length) {
+          {{ rows().length }} of {{ repo.roles().length }} jobs
+          @if (shell.shortcutHints()) {
+            <span class="hidden [@media(hover:hover)]:inline"
+              >. Use <kbd class="jb-kbd">↑</kbd> <kbd class="jb-kbd">↓</kbd> to
+              move, <kbd class="jb-kbd">Enter</kbd> to open.</span
+            >
+          }
+        } @else {
+          Every job found for you, and any you add yourself.
+        }
       </p>
       <div actions class="hidden gap-2 md:flex">
         <a jbButton="primary" routerLink="/jobs/new"
@@ -651,6 +658,7 @@ const DEFAULT_FILTERS: Filters = {
 })
 export class Roles {
   protected readonly repo = inject(RolesRepo);
+  protected readonly shell = inject(ShellState);
 
   /** The most serious posting warning for a table row, or null. */
   protected healthBadge(r: RoleRow) {

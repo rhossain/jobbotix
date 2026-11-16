@@ -30,7 +30,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     route: '/search',
     target: 'search-profile',
     title: '1. Say what you are looking for',
-    body: 'Start here. Add the job titles you want and your skills, say where you can work and what to leave out, then press Save. Every search follows these choices.',
+    body: 'Start here. Add the job titles you want and your skills, say where you can work and what to leave out, then press Save. Fill from my resume can do most of it for you once your resume is in.',
   },
   {
     route: '/resume',
@@ -50,7 +50,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
     title: 'Review the new jobs',
     body: 'The ring is the match score out of 100. Open a job to see why it fits, the drafted cover letter and screening answers, a tailored resume and interview prep. Press Save job on the ones you want, and Not for me on the rest.',
     phoneBody:
-      'The ring is the match score out of 100. Tap a job for why it fits, the drafted letter and answers, a tailored resume and prep. Swipe a job right to mark it To apply, or left to skip it.',
+      'The ring is the match score out of 100. Tap a job for why it fits, the drafted letter and answers, a tailored resume and prep. Tap Save job on the ones you want and Not for me on the rest, or swipe a job right to save it and left to skip it.',
   },
   {
     route: '/jobs',
