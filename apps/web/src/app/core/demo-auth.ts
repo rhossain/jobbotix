@@ -44,6 +44,9 @@ export class DemoAuth {
   async requestPasswordReset() {
     /* no-op in demo */
   }
+  async confirmEmailLink() {
+    /* no-op in demo */
+  }
   async updatePassword() {
     /* no-op in demo */
   }

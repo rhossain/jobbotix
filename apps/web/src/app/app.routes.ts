@@ -174,6 +174,12 @@ export const appRoutes: Route[] = [
     title: 'New password · Jobbotix',
   },
   {
+    path: 'auth/confirm',
+    loadComponent: () =>
+      import('./pages/auth/confirm').then((m) => m.AuthConfirm),
+    title: 'Confirming · Jobbotix',
+  },
+  {
     path: 'admin',
     canActivate: [authGuard, adminGuard],
     loadComponent: () =>

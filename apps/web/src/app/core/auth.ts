@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import type { Session, User } from '@supabase/supabase-js';
+import type { EmailOtpType, Session, User } from '@supabase/supabase-js';
 import type { ProfileRow } from '@jobbotix/shared-types';
 import { injectSupabase } from './supabase';
 
@@ -82,6 +82,17 @@ export class Auth {
     if (error) throw new Error(friendly(error.message));
   }
 
+  /** Trade the one-time token from an auth email link for a session. */
+  async confirmEmailLink(tokenHash: string, type: EmailOtpType) {
+    const { data, error } = await this.supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type,
+    });
+    if (error) throw new Error(friendly(error.message));
+    // Be signed in before the caller navigates, as in signIn.
+    if (data.session) await this.apply(data.session);
+  }
+
   async updatePassword(password: string) {
     const { error } = await this.supabase.auth.updateUser({ password });
     if (error) throw new Error(friendly(error.message));
@@ -137,6 +148,8 @@ function friendly(message: string): string {
     return 'An account with this email already exists. Sign in instead.';
   if (m.includes('password should be'))
     return 'Use at least 8 characters for the password.';
+  if (m.includes('expired') || m.includes('link is invalid'))
+    return 'This link has expired or was already used. Ask for a new one and try again.';
   if (m.includes('rate limit'))
     return 'Too many attempts. Wait a minute and try again.';
   return message;
