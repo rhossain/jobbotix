@@ -13,6 +13,7 @@ export * from './lib/prep';
 export * from './lib/share';
 export * from './lib/market';
 export * from './lib/countries';
+export * from './lib/local-coverage';
 export * from './lib/runs';
 export * from './lib/careers';
 export * from './lib/company';

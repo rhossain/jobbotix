@@ -109,6 +109,8 @@ const needKey = (ctx: AdapterContext, ...names: string[]): string[] => {
 // Adzuna
 // ---------------------------------------------------------------------------
 
+// Keep in step with LOCAL_JOB_COUNTRIES in libs/shared-types/src/lib/local-coverage.ts,
+// which tells users where on-site jobs can be found.
 export const ADZUNA_COUNTRIES = [
   'GB',
   'US',

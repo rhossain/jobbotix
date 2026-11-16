@@ -7,6 +7,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
+import { DOCUMENT } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
@@ -15,6 +16,7 @@ import {
   SALARY_CURRENCIES,
   SCORING_WEIGHT_LABELS,
   countryName,
+  localCoverage,
   countryOptions,
   limitOf,
   nextProfileName,
@@ -293,9 +295,11 @@ const MAX_PROFILES = 5;
                   </ul>
                 } @else {
                   <p class="mt-2 text-xs text-ink-muted">
-                    Nothing strong enough in the last 14 days. Try "Suggest
-                    other job titles", or check the choices below that leave job
-                    posts out.
+                    Nothing strong enough in the last 14 days. If you have just
+                    added a job title, Jobbotix has not looked for it yet: save,
+                    and check again in a few hours. Otherwise try "Suggest other
+                    job titles", or check question 4 and the choices below that
+                    leave job posts out.
                   </p>
                 }
                 @if (x.excluded.length) {
@@ -414,15 +418,59 @@ const MAX_PROFILES = 5;
           </fieldset>
 
           <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
-            <legend class="jb-section-title mb-2">Remote work</legend>
-            <label class="flex items-center gap-2"
-              ><input
-                id="sp-worldwide"
-                type="checkbox"
-                formControlName="worldwide"
+            <legend class="jb-section-title mb-2">4. Remote or on-site?</legend>
+            <label class="flex items-start gap-2">
+              <input
+                id="sp-work-remote"
+                type="radio"
+                name="sp-work"
+                class="mt-1"
+                [checked]="remoteOnly() === true"
+                (change)="setRemoteOnly(true)"
               />
-              Must be fully remote, hiring worldwide</label
-            >
+              <span>Remote jobs only</span>
+            </label>
+            <label class="flex items-start gap-2">
+              <input
+                id="sp-work-any"
+                type="radio"
+                name="sp-work"
+                class="mt-1"
+                [checked]="remoteOnly() === false"
+                (change)="setRemoteOnly(false)"
+              />
+              <span
+                >Remote jobs, and on-site or hybrid jobs in the countries I can
+                work in</span
+              >
+            </label>
+            <p class="text-ink-muted">
+              Most jobs outside software are on-site, so pick the second if you
+              would go to a workplace.
+            </p>
+            @if (remoteOnly() === false) {
+              @if (local(); as l) {
+                @if (l.covered.length) {
+                  <p class="text-ink-muted">
+                    Jobbotix can find on-site jobs in
+                    {{ l.covered.join(', ') }}.
+                  </p>
+                }
+                @if (l.missing.length) {
+                  <p class="text-warn">
+                    Jobbotix cannot find on-site jobs in
+                    {{ l.missing.join(', ') }} yet. You still get remote jobs
+                    open to people there.
+                  </p>
+                }
+                @if (!l.covered.length && !l.missing.length) {
+                  <p class="text-warn">
+                    Choose the country you live in above, so Jobbotix knows
+                    where to look for on-site jobs.
+                  </p>
+                }
+              }
+            }
             <label class="flex items-center gap-2"
               ><input
                 id="sp-overlap"
@@ -431,18 +479,6 @@ const MAX_PROFILES = 5;
               />
               Timezone-overlap requirements are fine</label
             >
-            <label class="flex flex-col gap-1">
-              <span
-                >Skip jobs limited to these regions
-                <span class="text-ink-muted">(comma-separated)</span></span
-              >
-              <input
-                id="sp-regions"
-                type="text"
-                formControlName="excludeRegions"
-                class="jb-input"
-              />
-            </label>
           </fieldset>
 
           <div class="md:col-span-2">
@@ -483,14 +519,6 @@ const MAX_PROFILES = 5;
                     formControlName="nonEnglish"
                   />
                   Jobs needing a language other than English</label
-                >
-                <label class="flex items-center gap-2"
-                  ><input
-                    id="sp-hybrid"
-                    type="checkbox"
-                    formControlName="hybrid"
-                  />
-                  On-site or hybrid jobs</label
                 >
                 <label class="flex items-center gap-2"
                   ><input
@@ -718,6 +746,39 @@ const MAX_PROFILES = 5;
                   }
                 </div>
               </fieldset>
+
+              <fieldset
+                class="jb-sp-group flex flex-col gap-2.5 text-sm md:col-span-2"
+              >
+                <legend class="jb-section-title mb-2">
+                  For your own automated search
+                </legend>
+                <p class="text-ink-muted">
+                  These two only shape the optional do-it-yourself search under
+                  Advanced. Jobbotix's own search goes by your countries and the
+                  remote or on-site choice above.
+                </p>
+                <label class="flex items-center gap-2"
+                  ><input
+                    id="sp-worldwide"
+                    type="checkbox"
+                    formControlName="worldwide"
+                  />
+                  Ask for jobs open worldwide</label
+                >
+                <label class="flex flex-col gap-1">
+                  <span
+                    >Skip jobs limited to these regions
+                    <span class="text-ink-muted">(comma-separated)</span></span
+                  >
+                  <input
+                    id="sp-regions"
+                    type="text"
+                    formControlName="excludeRegions"
+                    class="jb-input"
+                  />
+                </label>
+              </fieldset>
             </div>
           }
 
@@ -878,6 +939,7 @@ export class SearchProfile {
   protected readonly resumes = inject(ResumesRepo);
   protected readonly auth = inject(Auth);
   private readonly toast = inject(Toast);
+  private readonly doc = inject(DOCUMENT);
   private readonly plan = inject(Plan);
   private readonly confirm = inject(Confirm);
 
@@ -913,6 +975,22 @@ export class SearchProfile {
   readonly saving = signal(false);
   /** The second half of the form: what to leave out, pay, emails, match score. */
   readonly moreOpen = signal(false);
+  /**
+   * Remote jobs only (true), or on-site and hybrid too (false). Null until
+   * chosen: a new account has to say, because the answer decides whether
+   * most jobs outside software can reach it at all.
+   */
+  readonly remoteOnly = signal<boolean | null>(null);
+  /** The countries typed into the form, as codes; kept as a signal for `local`. */
+  private readonly canWorkIn = signal<string[]>([]);
+  /** Where on-site jobs can and cannot be found, by country name. */
+  readonly local = computed(() => {
+    const c = localCoverage(this.canWorkIn());
+    return {
+      covered: c.covered.map(countryName),
+      missing: c.missing.map(countryName),
+    };
+  });
   /** The optional do-it-yourself search with Claude, folded away until asked for. */
   readonly advancedOpen = signal(false);
   /** The target roles in order, kept in step with the form control. */
@@ -1140,6 +1218,12 @@ export class SearchProfile {
   });
 
   /** Proposes the profile from the master resume; the user reviews and saves. */
+  setRemoteOnly(on: boolean) {
+    this.remoteOnly.set(on);
+    this.form.controls.hybrid.setValue(on);
+    this.form.markAsDirty();
+  }
+
   fillFromResume() {
     const master = this.resumes.master();
     if (!master) return;
@@ -1162,6 +1246,14 @@ export class SearchProfile {
     this.form.controls.targetRoles.valueChanges
       .pipe(takeUntilDestroyed())
       .subscribe((v) => this.roleList.set(splitLines(v)));
+    this.form.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      const v = this.form.getRawValue();
+      this.canWorkIn.set(
+        [v.homeCountry, ...parseCountryList(v.allowedCountries).codes].filter(
+          Boolean,
+        ),
+      );
+    });
     if (!this.resumes.loaded()) void this.resumes.load();
     void this.repo.load();
     effect(() => {
@@ -1276,6 +1368,7 @@ export class SearchProfile {
   private fill(p: SearchProfileRow) {
     const remote = (p.remote_rules ?? {}) as Record<string, unknown>;
     const excl = (p.exclusions ?? {}) as Record<string, unknown>;
+    this.remoteOnly.set(excl['hybrid_or_onsite'] !== false);
     this.digestDays.set(
       p.digest_days?.length ? [...p.digest_days] : [1, 2, 3, 4, 5, 6, 7],
     );
@@ -1312,6 +1405,13 @@ export class SearchProfile {
 
   async save() {
     if (this.saving()) return;
+    if (this.remoteOnly() === null) {
+      this.toast.show(
+        'Choose remote jobs only, or on-site jobs too (question 4)',
+      );
+      this.doc.getElementById('sp-work-remote')?.focus();
+      return;
+    }
     const v = this.form.getRawValue();
     const employment_types: EmploymentType[] = [
       ...(v.fullTime ? (['full_time'] as const) : []),
