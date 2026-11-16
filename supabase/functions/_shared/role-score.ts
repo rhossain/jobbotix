@@ -157,7 +157,7 @@ export function applyVerdict(
     );
   if (r.kind === 'needs_country')
     return lead(
-      'Limited to some countries; set your country in Search profile to check',
+      'Limited to some countries; set your country in Job preferences to check',
     );
   // Ruled out on where it can be done from: the remote bonus no longer applies.
   if (!/^(Limited to|Hybrid|On-site|Requires local)/.test(r.reason))
@@ -241,7 +241,7 @@ export async function scoreRole(
   if (!sp)
     return {
       error:
-        'Set up your search profile first, so there is something to score against.',
+        'Fill in your job preferences first, so there is something to score against.',
     };
   const p = sp as ProfileRow;
   const setting = (k: string) =>

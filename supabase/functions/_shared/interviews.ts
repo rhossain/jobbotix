@@ -141,7 +141,7 @@ export function calendarEvent(
   const lines = [
     `${role.title} at ${role.company}`,
     i.interviewers.trim() ? `With: ${i.interviewers.trim()}` : '',
-    appUrl ? `Prep and notes: ${appUrl}/roles/${i.role_id}` : '',
+    appUrl ? `Prep and notes: ${appUrl}/jobs/${i.role_id}` : '',
   ].filter(Boolean);
   return {
     uid: `${i.id}@jobbotix.com`,

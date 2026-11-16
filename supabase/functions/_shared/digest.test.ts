@@ -37,11 +37,11 @@ Deno.test('buildDigest lists new roles best first and counts letters', () => {
     ],
     stale: [],
   });
-  assertEquals(d.subject, 'Job search: 2 new roles (5 Nov)');
+  assertEquals(d.subject, 'Job search: 2 new jobs (5 Nov)');
   assertEquals(d.text.startsWith('Good morning, Sazzad.'), true);
   assertEquals(d.text.indexOf('92 ·') < d.text.indexOf('70 ·'), true);
   assertEquals(d.text.includes('1 of these have a cover letter ready'), true);
-  assertEquals(d.html.includes('href="https://jobbotix.com/roles/b"'), true);
+  assertEquals(d.html.includes('href="https://jobbotix.com/jobs/b"'), true);
   assertEquals(d.html.includes('<script'), false);
 });
 
@@ -57,7 +57,7 @@ Deno.test('buildDigest says nothing new and shows stale reminders', () => {
     ],
   });
   assertEquals(d.subject, 'Job search: nothing new (5 Nov)');
-  assertEquals(d.text.includes('Nothing new since the last run.'), true);
+  assertEquals(d.text.includes('Nothing new since the last search.'), true);
   assertEquals(
     d.text.includes('Senior Angular Engineer at Northwind: 4 days'),
     true,
@@ -170,7 +170,7 @@ Deno.test('buildDigest leads with interviews in the user time zone', () => {
       'Interviews coming up:\n- Thu 5 Nov, 14:00 · Technical interview · Senior Angular Engineer at Acme & Co · with Ana Ruiz',
     ),
   );
-  assert(d.text.includes('https://jobbotix.com/roles/r9?tab=prep'));
+  assert(d.text.includes('https://jobbotix.com/jobs/r9?tab=prep'));
   assert(d.html.includes('Acme &amp; Co'));
   assert(
     d.html.indexOf('Interviews coming up') < d.html.indexOf('Nothing new'),

@@ -101,7 +101,7 @@ describe('calendar', () => {
   it('builds an event from the round', () => {
     expect(e?.title).toBe('Technical interview: Acme, Inc.');
     expect(e?.description).toContain('With: Ana Ruiz (EM), Ben Ode');
-    expect(e?.description).toContain('https://jobbotix.com/roles/r1');
+    expect(e?.description).toContain('https://jobbotix.com/jobs/r1');
     expect(calendarEvent(iv({ scheduled_at: null }), e as never)).toBeNull();
   });
 

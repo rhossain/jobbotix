@@ -40,7 +40,7 @@ Deno.test(
       '88: Senior Angular Engineer at Acme <Labs>, and 1 more',
     );
     assert(email.text.startsWith('Hi Sazzad,'));
-    assert(email.text.includes('https://jobbotix.com/roles/r1'));
+    assert(email.text.includes('https://jobbotix.com/jobs/r1'));
     assert(
       email.html.includes('Acme &lt;Labs&gt;') &&
         !email.html.includes('<Labs>'),

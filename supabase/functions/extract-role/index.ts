@@ -64,7 +64,7 @@ Deno.serve(
     const url = (body.url ?? '').trim();
     if (!/^https?:\/\//i.test(url))
       return json(400, {
-        error: 'A posting URL starting with http(s):// is required',
+        error: 'Paste a link that starts with http:// or https://',
       });
 
     // 1. Get the posting text
@@ -83,20 +83,21 @@ Deno.serve(
         });
         if (!res.ok)
           return json(422, {
-            error: `The posting page answered ${res.status}. Paste the posting text instead.`,
+            error: `That page could not be opened (error ${res.status}). Paste the text of the job post instead.`,
           });
         html = await res.text();
         text = htmlToText(html);
       } catch {
         return json(422, {
-          error: 'Could not fetch that page. Paste the posting text instead.',
+          error:
+            'That page could not be opened. Paste the text of the job post instead.',
         });
       }
     }
     if (text.length < 80)
       return json(422, {
         error:
-          'That page has almost no readable text. Paste the posting instead.',
+          'That page has almost no readable text. Paste the text of the job post instead.',
       });
 
     // 2. Extract: the model on an AI connection, heuristics otherwise

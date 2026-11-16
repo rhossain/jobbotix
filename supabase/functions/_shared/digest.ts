@@ -70,7 +70,7 @@ export function summariseRuns(
 }
 
 const runLabel = (r: DigestRun) =>
-  (r.runs ?? 1) > 1 ? `Last 24 hours (${r.runs} runs)` : 'Last run';
+  (r.runs ?? 1) > 1 ? `Last 24 hours (${r.runs} searches)` : 'Last search';
 
 export interface DigestInterview {
   role_id: string;
@@ -145,7 +145,7 @@ export function buildDigest(input: DigestInput): DigestEmail {
   const subject =
     (today ? `Interview${today === 1 ? '' : 's'} today · ` : '') +
     (top.length
-      ? `Job search: ${top.length} new role${top.length === 1 ? '' : 's'} (${date})`
+      ? `Job search: ${top.length} new job${top.length === 1 ? '' : 's'} (${date})`
       : `Job search: nothing new (${date})`);
   const ivLine = (i: DigestInterview) =>
     `${formatInterviewTime(i.scheduled_at, input.timezone)} · ${interviewLabel(i)} · ${i.role_title} at ${i.company}${i.interviewers ? ` · with ${i.interviewers}` : ''}`;
@@ -159,7 +159,7 @@ export function buildDigest(input: DigestInput): DigestEmail {
     lines.push('Interviews coming up:');
     for (const i of interviews) {
       lines.push(`- ${ivLine(i)}`);
-      lines.push(`  Prep: ${input.appUrl}/roles/${i.role_id}?tab=prep`);
+      lines.push(`  Prep: ${input.appUrl}/jobs/${i.role_id}?tab=prep`);
     }
     lines.push('');
   }
@@ -175,16 +175,16 @@ export function buildDigest(input: DigestInput): DigestEmail {
     lines.push('');
     lines.push(
       withLetter
-        ? `${withLetter} of these have a cover letter ready in the tracker.`
+        ? `${withLetter} of these have a cover letter ready in Jobbotix.`
         : 'No cover letters were drafted for this batch.',
     );
   } else {
-    lines.push('Nothing new since the last run.');
+    lines.push('Nothing new since the last search.');
   }
   if (input.run) {
     lines.push('');
     lines.push(
-      `${runLabel(input.run)}: ${input.run.searched} listings reviewed, ${input.run.added} added, ${input.run.excluded} excluded.`,
+      `${runLabel(input.run)}: ${input.run.searched} job posts looked at, ${input.run.added} added, ${input.run.excluded} filtered out.`,
     );
   }
   if (input.stale.length) {
@@ -196,7 +196,7 @@ export function buildDigest(input: DigestInput): DigestEmail {
       );
   }
   lines.push('');
-  lines.push(`Open the tracker: ${input.appUrl}/today`);
+  lines.push(`Open Jobbotix: ${input.appUrl}/today`);
   const text = lines.join('\n');
 
   const roleHtml = top
@@ -205,10 +205,10 @@ export function buildDigest(input: DigestInput): DigestEmail {
       <tr>
         <td style="padding:10px 12px 10px 0;vertical-align:top;font:600 20px/1 'IBM Plex Mono',Menlo,monospace;color:${r.score >= 80 ? '#2f7d4f' : r.score >= 60 ? '#b7791f' : '#737373'}">${r.score}</td>
         <td style="padding:10px 0;vertical-align:top;font:15px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#1b2026">
-          <a href="${esc(input.appUrl)}/roles/${esc(r.id)}" style="color:#0b5a5a;font-weight:600;text-decoration:none">${esc(r.title)}</a>
+          <a href="${esc(input.appUrl)}/jobs/${esc(r.id)}" style="color:#0b5a5a;font-weight:600;text-decoration:none">${esc(r.title)}</a>
           <div style="color:#5d6771">${esc(r.company)} · ${esc(r.location || 'remote scope unknown')} · ${typeLabel(r.type)}${r.salary ? ` · ${esc(r.salary)}` : ''}${r.ai_match ? ' · <span style="color:#0f6e6e">AI-assisted dev</span>' : ''}</div>
           ${r.reasons[0] ? `<div style="margin-top:4px;font-size:14px">${esc(r.reasons[0])}</div>` : ''}
-          <div style="margin-top:4px;font-size:13px"><a href="${esc(r.url)}" style="color:#5d6771">Open posting ↗</a></div>
+          <div style="margin-top:4px;font-size:13px"><a href="${esc(r.url)}" style="color:#5d6771">Open job post ↗</a></div>
         </td>
       </tr>`,
     )
@@ -217,7 +217,7 @@ export function buildDigest(input: DigestInput): DigestEmail {
   const staleHtml = input.stale.length
     ? `<h2 style="margin:24px 0 8px;font:600 12px/1 'IBM Plex Sans',Segoe UI,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#737373">Waiting on you</h2>
        <ul style="margin:0;padding-left:18px;font:14px/1.5 'IBM Plex Sans',Segoe UI,sans-serif;color:#1b2026">
-       ${input.stale.map((r) => `<li><a href="${esc(input.appUrl)}/roles/${esc(r.id)}" style="color:#0b5a5a">${esc(r.title)}</a> at ${esc(r.company)}: in To apply for ${daysBetween(r.status_changed_at, input.now)} days</li>`).join('')}
+       ${input.stale.map((r) => `<li><a href="${esc(input.appUrl)}/jobs/${esc(r.id)}" style="color:#0b5a5a">${esc(r.title)}</a> at ${esc(r.company)}: in To apply for ${daysBetween(r.status_changed_at, input.now)} days</li>`).join('')}
        </ul>`
     : '';
 
@@ -229,21 +229,21 @@ export function buildDigest(input: DigestInput): DigestEmail {
       interviews.length
         ? `<h2 style="margin:20px 0 8px;font:600 12px/1 'IBM Plex Sans',Segoe UI,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#737373">Interviews coming up</h2>
            <ul style="margin:0;padding-left:18px;font:14px/1.5 'IBM Plex Sans',Segoe UI,sans-serif;color:#1b2026">
-           ${interviews.map((i) => `<li style="margin-bottom:6px"><b>${esc(formatInterviewTime(i.scheduled_at, input.timezone))}</b> · ${esc(interviewLabel(i))} · <a href="${esc(input.appUrl)}/roles/${esc(i.role_id)}?tab=prep" style="color:#0b5a5a">${esc(i.role_title)}</a> at ${esc(i.company)}${i.interviewers ? ` · with ${esc(i.interviewers)}` : ''}</li>`).join('')}
+           ${interviews.map((i) => `<li style="margin-bottom:6px"><b>${esc(formatInterviewTime(i.scheduled_at, input.timezone))}</b> · ${esc(interviewLabel(i))} · <a href="${esc(input.appUrl)}/jobs/${esc(i.role_id)}?tab=prep" style="color:#0b5a5a">${esc(i.role_title)}</a> at ${esc(i.company)}${i.interviewers ? ` · with ${esc(i.interviewers)}` : ''}</li>`).join('')}
            </ul>`
         : ''
     }
     ${
       top.length
-        ? `<h2 style="margin:20px 0 4px;font:600 12px/1 'IBM Plex Sans',Segoe UI,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#737373">New roles</h2>
+        ? `<h2 style="margin:20px 0 4px;font:600 12px/1 'IBM Plex Sans',Segoe UI,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#737373">New jobs</h2>
            <table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse">${roleHtml}</table>
-           <p style="font:13px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#5d6771;margin:8px 0 0">${withLetter ? `${withLetter} of these have a cover letter ready in the tracker.` : 'No cover letters were drafted for this batch.'}</p>`
-        : `<p style="font:15px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#5d6771;margin:12px 0 0">Nothing new since the last run.</p>`
+           <p style="font:13px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#5d6771;margin:8px 0 0">${withLetter ? `${withLetter} of these have a cover letter ready in Jobbotix.` : 'No cover letters were drafted for this batch.'}</p>`
+        : `<p style="font:15px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#5d6771;margin:12px 0 0">Nothing new since the last search.</p>`
     }
-    ${input.run ? `<p style="font:13px/1.45 'IBM Plex Mono',Menlo,monospace;color:#5d6771;margin:16px 0 0">${runLabel(input.run)}: ${input.run.searched} listings reviewed · ${input.run.added} added · ${input.run.excluded} excluded</p>` : ''}
+    ${input.run ? `<p style="font:13px/1.45 'IBM Plex Mono',Menlo,monospace;color:#5d6771;margin:16px 0 0">${runLabel(input.run)}: ${input.run.searched} job posts looked at · ${input.run.added} added · ${input.run.excluded} filtered out</p>` : ''}
     ${staleHtml}
-    <p style="margin:24px 0 0"><a href="${esc(input.appUrl)}/today" style="display:inline-block;background:#0b5a5a;color:#fff;font:600 14px/1 'IBM Plex Sans',Segoe UI,sans-serif;padding:10px 14px;border-radius:6px;text-decoration:none">Open the tracker</a></p>
-    <p style="font:12px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#9aa5ad;margin:24px 0 0">You get this because a daily search runs for your Jobbotix account. Change the time or stop it under Search profile.</p>
+    <p style="margin:24px 0 0"><a href="${esc(input.appUrl)}/today" style="display:inline-block;background:#0b5a5a;color:#fff;font:600 14px/1 'IBM Plex Sans',Segoe UI,sans-serif;padding:10px 14px;border-radius:6px;text-decoration:none">Open Jobbotix</a></p>
+    <p style="font:12px/1.45 'IBM Plex Sans',Segoe UI,sans-serif;color:#9aa5ad;margin:24px 0 0">You get this because a daily search runs for your Jobbotix account. Change the time or stop it under Job preferences.</p>
   </div></body></html>`;
 
   return { subject, text, html };

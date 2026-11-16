@@ -42,20 +42,20 @@ export function buildAlert(input: {
       ? `${top.score}: ${top.title} at ${top.company}, and ${more} more`
       : `${top.score}: ${top.title} at ${top.company}`;
   const first = input.name.split(' ')[0] || 'there';
-  const link = (r: AlertRole) => `${input.appUrl}/roles/${r.id}`;
+  const link = (r: AlertRole) => `${input.appUrl}/jobs/${r.id}`;
   const text = [
     `Hi ${first},`,
     '',
     input.roles.length === 1
-      ? 'A new role just cleared your alert score:'
-      : `${input.roles.length} new roles just cleared your alert score:`,
+      ? 'A new job is a strong match for you:'
+      : `${input.roles.length} new jobs are a strong match for you:`,
     '',
     ...input.roles.map(
       (r) =>
         `${r.score}  ${r.title} at ${r.company} (${r.location || 'location not given'}; via ${r.source})\n    ${link(r)}`,
     ),
     '',
-    'Change or turn off these alerts on Search profile.',
+    'Change or turn off these emails under Job preferences.',
   ].join('\n');
   const rows = input.roles
     .map(
@@ -65,8 +65,8 @@ export function buildAlert(input: {
     .join('');
   const html = `<p>Hi ${esc(first)},</p><p>${
     input.roles.length === 1
-      ? 'A new role just cleared your alert score:'
-      : `${input.roles.length} new roles just cleared your alert score:`
-  }</p><table>${rows}</table><p style="color:#666">Change or turn off these alerts on Search profile.</p>`;
+      ? 'A new job is a strong match for you:'
+      : `${input.roles.length} new jobs are a strong match for you:`
+  }</p><table>${rows}</table><p style="color:#666">Change or turn off these emails under Job preferences.</p>`;
   return { subject, text, html };
 }
