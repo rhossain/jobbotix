@@ -909,10 +909,16 @@ export class AdminUser {
       // The Users list links straight to the suspend and delete controls.
       if (this.router.parseUrl(this.router.url).fragment === 'suspend-delete')
         afterNextRender(
-          () =>
-            this.doc
-              .getElementById('suspend-delete')
-              ?.scrollIntoView({ block: 'start' }),
+          () => {
+            // window.scrollTo, not scrollIntoView: that also scrolls the
+            // clipped app shell and pushes the whole page down.
+            const el = this.doc.getElementById('suspend-delete');
+            const win = this.doc.defaultView;
+            if (el && win)
+              win.scrollTo({
+                top: el.getBoundingClientRect().top + win.scrollY - 96,
+              });
+          },
           { injector: this.injector },
         );
     } catch (e) {
