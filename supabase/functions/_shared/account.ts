@@ -30,5 +30,37 @@ export async function deleteAccount(
     if (error) return `Key: ${error.message}`;
   }
   const { error } = await admin.auth.admin.deleteUser(userId);
-  return error ? error.message : null;
+  if (error) return error.message;
+  await tellBrowsers(userId);
+  return null;
+}
+
+/**
+ * Tells every browser signed in to this account to check its session now, so
+ * a deleted or suspended account is signed out at once instead of at the
+ * app's next routine check. A Realtime broadcast on the account's own
+ * channel; the message carries nothing, and the browser decides by asking
+ * the auth server, so a forged one only causes a harmless check. Best
+ * effort: a failure here never fails the delete or the suspension.
+ */
+export async function tellBrowsers(userId: string): Promise<void> {
+  const url = Deno.env.get('SUPABASE_URL');
+  const key = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key) return;
+  try {
+    await fetch(`${url}/realtime/v1/api/broadcast`, {
+      method: 'POST',
+      headers: {
+        apikey: key,
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        messages: [{ topic: `account:${userId}`, event: 'ended', payload: {} }],
+      }),
+      signal: AbortSignal.timeout(4000),
+    });
+  } catch {
+    /* the app's own check catches it within a minute */
+  }
 }

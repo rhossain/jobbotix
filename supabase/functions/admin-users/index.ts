@@ -26,7 +26,7 @@ import {
 import { relevance } from '../_shared/match.ts';
 import { resolveWeights } from '../_shared/score.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { deleteAccount } from '../_shared/account.ts';
+import { deleteAccount, tellBrowsers } from '../_shared/account.ts';
 import {
   ADMIN_ACTIONS,
   BAN_FOREVER,
@@ -372,6 +372,7 @@ Deno.serve(
         .eq('id', userId);
       if (error) return json(500, { error: error.message });
       await audit(action, userId, on ? { reason } : {});
+      if (on) await tellBrowsers(userId);
       return json(200, { suspended: on });
     }
 
