@@ -21,6 +21,7 @@ import {
   type VariantDiff,
 } from '@jobbotix/shared-types';
 import { ResumesRepo, VariantsRepo } from '../../core/data/repos';
+import { ExportMenu } from '../../shared/export-menu';
 import { ModelPicker } from '../../shared/model-picker';
 import { ResumePreview } from '../../shared/resume-preview';
 import { ResumeTemplateChoice } from '../../core/resume-template';
@@ -41,6 +42,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
     BarRow,
     Button,
     EmptyState,
+    ExportMenu,
     Icon,
     ModelPicker,
     ResumePreview,
@@ -159,24 +161,11 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
               >
                 <jb-icon name="check" /> Approve
               </button>
-              <button
-                type="button"
-                jbButton
+              <jb-export-menu
                 [busy]="exporting()"
-                [disabled]="exporting()"
-                title="Text PDF of the result, readable by ATS parsers"
-                (click)="downloadPdf()"
-              >
-                <jb-icon name="download" /> PDF
-              </button>
-              <button
-                type="button"
-                jbButton
-                title="Word file (.docx) of the result"
-                (click)="downloadDocx()"
-              >
-                <jb-icon name="download" /> Word
-              </button>
+                (pdf)="downloadPdf()"
+                (word)="downloadDocx()"
+              />
               <button
                 type="button"
                 jbButton

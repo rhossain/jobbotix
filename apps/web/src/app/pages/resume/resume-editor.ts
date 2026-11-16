@@ -23,6 +23,7 @@ import { ResumesRepo } from '../../core/data/repos';
 import { ResumeTemplateChoice } from '../../core/resume-template';
 import { RelativeDayPipe } from '../../shared/format';
 import { ResumePreview } from '../../shared/resume-preview';
+import { ExportMenu } from '../../shared/export-menu';
 import { TemplatePicker } from '../../shared/template-picker';
 import { WatchHow } from '../../shared/watch-how';
 import { ResumeCheckPanel } from './resume-check';
@@ -67,6 +68,7 @@ const csv = (s: string) =>
   selector: 'jb-resume-editor',
   imports: [
     Button,
+    ExportMenu,
     FieldControl,
     Icon,
     PageHeader,
@@ -120,24 +122,11 @@ const csv = (s: string) =>
             >
               <jb-icon name="sparkles" /> Review with AI
             </button>
-            <button
-              type="button"
-              jbButton
+            <jb-export-menu
               [busy]="exporting()"
-              [disabled]="exporting()"
-              title="Text PDF, readable by ATS parsers"
-              (click)="downloadPdf()"
-            >
-              <jb-icon name="download" /> PDF
-            </button>
-            <button
-              type="button"
-              jbButton
-              title="Word file (.docx), to edit or to send where one is asked for"
-              (click)="downloadDocx()"
-            >
-              <jb-icon name="download" /> Word
-            </button>
+              (pdf)="downloadPdf()"
+              (word)="downloadDocx()"
+            />
             <button
               type="button"
               jbButton="ghost"
