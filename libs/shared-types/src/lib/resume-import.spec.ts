@@ -154,3 +154,56 @@ Maintained legacy systems.
     expect(parseResumeText('   ').warnings).toEqual(['Nothing to import.']);
   });
 });
+
+describe('resumes outside software', () => {
+  const NURSE = `Test Person
+Registered Nurse
+test.person@example.com | +1 555 0100 | Toronto, Canada
+
+SUMMARY
+Registered nurse with 8 years of experience in telehealth nursing.
+
+EXPERIENCE
+Telehealth Nurse, Maple Care Clinic, Toronto
+March 2021 - Present
+- Triage about 40 patient calls a day by phone and video.
+
+Staff Nurse, Northside General Hospital, Toronto
+June 2017 - February 2021
+- Cared for 6 to 8 patients per shift.
+`;
+
+  it('reads a nurse: the headline, and title before employer', () => {
+    const { resume } = parseResumeText(NURSE);
+    expect(resume.contact.name).toBe('Test Person');
+    expect(resume.contact.headline).toBe('Registered Nurse');
+    expect(resume.experience.map((e) => [e.title, e.company])).toEqual([
+      ['Telehealth Nurse', 'Maple Care Clinic'],
+      ['Staff Nurse', 'Northside General Hospital'],
+    ]);
+  });
+
+  it('reads a job it has no word for, from the employer beside it', () => {
+    const { resume } = parseResumeText(`Sam Rivera
+Dog Groomer
+sam@example.com
+
+EXPERIENCE
+Dog Groomer, Happy Paws Clinic
+May 2019 - Present
+- Groom about 12 dogs a day.
+`);
+    expect(resume.contact.headline).toBe('Dog Groomer');
+    expect(resume.experience[0].title).toBe('Dog Groomer');
+    expect(resume.experience[0].company).toBe('Happy Paws Clinic');
+  });
+
+  it('still takes a surname that is also a trade as a name', () => {
+    const { resume } = parseResumeText(`James Cook
+Senior Software Engineer
+james@example.com
+`);
+    expect(resume.contact.name).toBe('James Cook');
+    expect(resume.contact.headline).toBe('Senior Software Engineer');
+  });
+});

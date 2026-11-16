@@ -88,6 +88,24 @@ describe('suggestProfile', () => {
     expect(s.targetRoles).toEqual(['Frontend Developer']);
   });
 
+  it('keeps a title as written where "Senior" is not how the job is advertised', () => {
+    const r = emptyResume();
+    r.contact.headline = 'Registered Nurse';
+    r.experience = [
+      {
+        company: 'Maple Care Clinic',
+        title: 'Telehealth Nurse',
+        location: 'Toronto',
+        start: '2017-06',
+        end: '',
+        bullets: [],
+      },
+    ];
+    const s = suggestProfile(r, new Date('2026-11-16'));
+    expect(s.targetRoles).toEqual(['Registered Nurse', 'Telehealth Nurse']);
+    expect(s.minSeniority).toBe('senior');
+  });
+
   it('copes with an empty resume', () => {
     expect(suggestProfile(emptyResume())).toEqual({
       targetRoles: [],

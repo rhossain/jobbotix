@@ -244,8 +244,16 @@ const URL = /* @__PURE__ */ new RegExp(
   'i',
 );
 const BULLET = /^\s*(?:[-*•·▪◦‣●■□➢➤►✓✔]|\d+[.)])\s+/;
+/**
+ * Words that mark a line as a job title, in any line of work. Words that are
+ * also common surnames (Cook, Baker, Carpenter, Driver, Dean, Porter…) are
+ * left out on purpose: the header uses this to tell a title from a name.
+ */
 const TITLE_WORDS =
-  /\b(engineer|developer|programmer|manager|lead|architect|designer|consultant|intern|analyst|director|head|specialist|founder|officer|cto|ceo|vp|president|administrator|scientist|researcher|coordinator|associate|assistant|teacher|instructor|freelancer?|contractor)\b/i;
+  /\b(engineer|developer|programmer|manager|lead|architect|designer|consultant|intern|analyst|director|head|specialist|founder|officer|cto|ceo|cfo|coo|vp|president|administrator|scientist|researcher|coordinator|associate|assistant|teacher|instructor|freelancer?|contractor|nurse|doctor|physician|surgeon|dentist|pharmacist|paramedic|midwife|therapist|physiotherapist|psychologist|counsell?or|caregiver|carer|practitioner|clinician|radiographer|nutritionist|dietitian|veterinarian|accountant|bookkeeper|auditor|cashier|teller|banker|underwriter|actuary|economist|statistician|advis[eo]r|lawyer|attorney|paralegal|solicitor|barrister|secretary|receptionist|clerk|supervisor|executive|representative|recruiter|salesperson|merchandiser|buyer|marketer|strategist|planner|scheduler|estimator|surveyor|inspector|dispatcher|operator|technician|technologist|mechanic|electrician|plumber|welder|machinist|foreman|labou?rer|chef|barista|waiter|waitress|bartender|housekeeper|cleaner|janitor|nanny|tutor|professor|lecturer|trainer|librarian|principal|writer|copywriter|editor|journalist|reporter|translator|interpreter|photographer|videographer|illustrator|animator|producer|stylist|barber|beautician|pilot|courier|tester|sysadmin|trainee|apprentice|volunteer|worker|staff)\b/i;
+/** Words that mark a part of an experience line as the employer. */
+const ORG_WORDS =
+  /\b(clinic|hospital|universit\w*|college|school|academy|institute|bank|company|centre|center|services?|foundation|store|shop|restaurant|hotel|ministry|department|council|authority|association|society|trust|partners|enterprises|industries|holdings|international|healthcare|medical|pharmacy|airlines?|motors|foods|logistics|media|press|publishing|firm|charity|ngo|pharma|insurance|retail|supermarket|market|cafe|bakery|salon|garage|factory|mills?|hospice|care home|nursing home)\b/i;
 /** Suffixes that make a part a company even when it contains a title word. */
 const COMPANY_SUFFIX =
   /\b(ltd|limited|inc|llc|llp|gmbh|corp|corporation|plc|pvt|s\.?a|ag|bv|co)\b\.?|\b(solutions|technologies|labs|studios?|agency|group|systems|digital|consulting)\b/i;
@@ -651,6 +659,24 @@ function parseHeader(
       r.contact.location = t;
     }
   }
+  // A headline in a line of work this reader has no word for ("Dog Groomer",
+  // "Sommelier"): the short line straight under the name, when it is plain
+  // words and not an address.
+  if (!r.contact.headline && r.contact.name) {
+    const at = header.findIndex(
+      (l) => l.trim().toLowerCase() === r.contact.name.toLowerCase(),
+    );
+    const under = at >= 0 ? (header[at + 1] ?? '').trim() : '';
+    if (
+      under &&
+      wordCount(under) <= 6 &&
+      /^\p{L}[\p{L} &/'-]+$/u.test(under) &&
+      under !== r.contact.location &&
+      !EMAIL.test(under) &&
+      !URL.test(under)
+    )
+      r.contact.headline = under;
+  }
   if (!r.contact.name && header[0] && wordCount(header[0]) <= 5) {
     r.contact.name = header[0];
     warnings.push('Guessed the name from the first line; check it.');
@@ -922,7 +948,14 @@ function parseExperience(
       .map((l) => (l === lines[di] ? l.replace(m[0], ' ') : l))
       .join(' | ');
     const clean = (ps: string[]) =>
-      ps.map((p) => p.replace(/^[-,|(]+|[-,|)]+$/g, '').trim()).filter(Boolean);
+      ps
+        .map((p) =>
+          p
+            .trim()
+            .replace(/^[-,|(\s]+|[-,|)\s]+$/g, '')
+            .trim(),
+        )
+        .filter(Boolean);
     let parts = clean(headerText.split(/\s*(?:\||·|•|—|–| - | at | @ )\s*/));
     if (parts.length < 2) parts = clean(headerText.split(/\s*,\s*/));
     const e: ExperienceEntry = {
@@ -933,11 +966,25 @@ function parseExperience(
       end: parseDate(m[2]),
       bullets: [],
     };
+    // No part reads as a title (a job this reader has no word for), but one
+    // names an employer: "Dog Groomer, Happy Paws Clinic". The first part that
+    // is not the employer is the title, instead of being taken for the company.
+    if (
+      !parts.some((p) => TITLE_WORDS.test(p)) &&
+      parts.some((p) => ORG_WORDS.test(p) || COMPANY_SUFFIX.test(p))
+    ) {
+      const title = parts.find(
+        (p) => !ORG_WORDS.test(p) && !COMPANY_SUFFIX.test(p) && !/\d/.test(p),
+      );
+      if (title) e.title = title;
+    }
     for (const p of parts) {
-      const companyLike = COMPANY_SUFFIX.test(p);
+      if (p === e.title) continue;
+      const companyLike = COMPANY_SUFFIX.test(p) || ORG_WORDS.test(p);
       if (
         !e.title &&
         TITLE_WORDS.test(p) &&
+        !ORG_WORDS.test(p) &&
         !/\b(ltd|limited|inc|llc|gmbh|corp|plc|pvt)\b/i.test(p)
       )
         e.title = p;

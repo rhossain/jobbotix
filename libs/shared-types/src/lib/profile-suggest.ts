@@ -17,6 +17,13 @@ export interface ProfileSuggestion {
 
 const LEVEL = /\b(senior|sr\.?|lead|principal|staff|head|junior|jr\.?|mid)\b/i;
 const LEAD = /\b(lead|principal|staff|head)\b/i;
+/**
+ * Jobs that are advertised with "Senior" in front. A nurse or a chef with ten
+ * years is still looked for as "Registered Nurse" or "Chef", so those titles
+ * are kept as written.
+ */
+const TAKES_SENIOR =
+  /\b(engineer|developer|programmer|architect|designer|analyst|consultant|scientist|researcher|accountant|administrator|specialist|tester|manager|writer|editor|recruiter|marketer|strategist|auditor|advis[eo]r|technician)\b/i;
 
 /** "Senior Frontend Engineer | AI-Augmented Development" → "Senior Frontend Engineer". */
 function cleanTitle(t: string): string {
@@ -68,7 +75,7 @@ export function suggestProfile(
     const at =
       LEVEL.test(t) && !/\b(junior|jr\.?|mid)\b/i.test(t)
         ? t
-        : senior
+        : senior && TAKES_SENIOR.test(base)
           ? `Senior ${base}`
           : base;
     const key = at.toLowerCase();
