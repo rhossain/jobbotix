@@ -269,22 +269,27 @@ export function matchPosting(
       break;
     case 'hybrid':
     case 'onsite': {
-      const onsiteOk =
-        !p.remote_only &&
-        !bool(excl['hybrid_or_onsite'], true) &&
-        fits(
-          [
-            ...post.hiring_countries,
-            ...(post.source_country ? [post.source_country] : []),
-          ],
-          post.hiring_regions,
-        );
-      if (!onsiteOk) {
+      const wantsOnsite =
+        !p.remote_only && !bool(excl['hybrid_or_onsite'], true);
+      if (!wantsOnsite) {
         return {
           kind: 'excluded',
           reason:
             post.remote_policy === 'hybrid' ? 'Hybrid role' : 'On-site role',
         };
+      }
+      // On-site work is wanted, but this workplace is in a country the
+      // person cannot work in: say where, not just "on-site".
+      const here = fits(
+        [
+          ...post.hiring_countries,
+          ...(post.source_country ? [post.source_country] : []),
+        ],
+        post.hiring_regions,
+      );
+      if (!here) {
+        if (!allowed.size) return { kind: 'needs_country' };
+        return { kind: 'excluded', reason: `Limited to ${place}` };
       }
       break;
     }

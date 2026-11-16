@@ -156,6 +156,14 @@ Deno.test(
       ).kind,
       'match',
     );
+    // on-site work is wanted, but the workplace is in another country
+    assertEquals(
+      m(
+        { remote_policy: 'onsite', hiring_countries: ['GB'] },
+        { remote_only: false, exclusions: { hybrid_or_onsite: false } },
+      ),
+      { kind: 'excluded', reason: 'Limited to United Kingdom' },
+    );
   },
 );
 
