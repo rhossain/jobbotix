@@ -41,7 +41,7 @@ interface Draft {
   template: `
     <jb-sheet
       [(open)]="open"
-      [title]="contact() ? 'Edit person' : 'Add a person'"
+      [title]="contact() ? 'Edit contact' : 'Add a contact'"
     >
       <form
         id="contact-form"
@@ -140,7 +140,7 @@ interface Draft {
           [busy]="busy()"
           [disabled]="busy() || !draft().name.trim()"
         >
-          {{ contact() ? 'Save' : 'Add person' }}
+          {{ contact() ? 'Save' : 'Add contact' }}
         </button>
       </div>
     </jb-sheet>

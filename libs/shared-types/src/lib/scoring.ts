@@ -36,7 +36,7 @@ export const DEFAULT_SCORING_WEIGHTS: ScoringWeights = {
 };
 
 export const SCORING_WEIGHT_LABELS: Record<keyof ScoringWeights, string> = {
-  title_match: 'Job title is one of your target roles',
+  title_match: 'Job title is one of your job titles',
   framework_primary: 'Primary stack is the main skill',
   framework_other: 'Another of your stacks or frameworks',
   fullstack: 'Full-stack with a frontend framework',

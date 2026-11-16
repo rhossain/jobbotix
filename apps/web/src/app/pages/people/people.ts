@@ -40,7 +40,7 @@ import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
     >
       <div actions>
         <button type="button" jbButton="primary" (click)="adding.set(true)">
-          <jb-icon name="user-plus" /> Add a person
+          <jb-icon name="user-plus" /> Add a contact
         </button>
       </div>
     </jb-page-header>
@@ -55,7 +55,7 @@ import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
           message, logs what you sent and tells you when to follow up.
           <div actions>
             <button type="button" jbButton="primary" (click)="adding.set(true)">
-              <jb-icon name="user-plus" /> Add a person
+              <jb-icon name="user-plus" /> Add a contact
             </button>
           </div>
         </jb-empty-state>

@@ -79,7 +79,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
           [hint]="
             demo
               ? 'Demo mode cannot fetch pages, so paste the job post here (80 characters or more).'
-              : 'Paste it if the page blocks automated reading: select everything on the job post, copy, paste.'
+              : 'Paste it if Jobbotix cannot read the page: select everything on the job post, copy, paste.'
           "
         >
           <textarea

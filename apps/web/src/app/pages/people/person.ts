@@ -96,7 +96,7 @@ import {
             type="button"
             jbButton="ghost"
             iconOnly
-            aria-label="Delete this person"
+            aria-label="Delete this contact"
             title="Delete"
             (click)="remove()"
           >

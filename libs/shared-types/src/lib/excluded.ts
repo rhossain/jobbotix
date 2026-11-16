@@ -28,12 +28,12 @@ export const EXCLUDED_GROUPS: ExcludedGroupInfo[] = [
   {
     id: 'low',
     label: 'Right job, low score',
-    help: 'Your kind of job, but little else in the posting matched your profile.',
+    help: 'Your kind of job, but little else in the job post matched what you want.',
   },
   {
     id: 'ai',
     label: 'Checked by AI: a different job',
-    help: 'The title was close to one of your target roles; the AI check read it as another job.',
+    help: 'The title was close to one of your job titles, but AI read the job post as a different job.',
   },
   {
     id: 'place',
@@ -43,27 +43,27 @@ export const EXCLUDED_GROUPS: ExcludedGroupInfo[] = [
   {
     id: 'onsite',
     label: 'On-site or hybrid',
-    help: 'Needs you in an office your profile does not cover.',
+    help: 'Needs you in an office, in a place you have not said you can work.',
   },
   {
     id: 'level',
     label: 'Below your level',
-    help: 'More junior than the lowest level in your search profile.',
+    help: 'More junior than the lowest level in your job preferences.',
   },
   {
     id: 'pay',
     label: 'Pay below your minimum',
-    help: 'The posted pay tops out under the minimum in your search profile.',
+    help: 'The posted pay tops out under the minimum in your job preferences.',
   },
   {
     id: 'contract',
     label: 'Contract type not wanted',
-    help: 'A kind of contract your search profile leaves out.',
+    help: 'A kind of contract your job preferences leave out.',
   },
   {
     id: 'language',
     label: 'Requires another language',
-    help: 'Asks for a language that is not in your search profile.',
+    help: 'Asks for a language that is not in your job preferences.',
   },
   {
     id: 'permit',
@@ -73,7 +73,7 @@ export const EXCLUDED_GROUPS: ExcludedGroupInfo[] = [
   {
     id: 'other',
     label: 'Other reasons',
-    help: 'Ruled out for the reason shown on each posting.',
+    help: 'Ruled out for the reason shown on each job post.',
   },
 ];
 
