@@ -230,7 +230,7 @@ export function heuristicScore(
   const otherInHead = others.find((t) => has(t, head));
   if (primary && has(primary, head)) {
     breakdown.framework_primary = w.framework_primary;
-    reasons.push(`${titleCase(primary)} is the main framework`);
+    reasons.push(`${titleCase(primary)} is the main skill asked for`);
   } else if (primary && has(primary, body)) {
     breakdown.framework_primary = Math.round(w.framework_primary / 2);
     reasons.push(`Mentions ${titleCase(primary)}`);

@@ -67,10 +67,10 @@ const MAX_BYTES = 10 * 1024 * 1024;
             />
             <span class="min-w-0">
               <span class="block text-sm font-medium text-ink"
-                >Built-in reader</span
+                >Standard reader</span
               >
               <span class="block text-xs text-ink-muted"
-                >Parsed in your browser. Nothing is sent anywhere.</span
+                >Read in your browser. Nothing is sent anywhere.</span
               >
             </span>
           </label>
@@ -200,7 +200,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
                   aiModel() ? ' · ' + aiModel() : ''
                 }}
               } @else {
-                Built-in reader
+                Standard reader
               }
             </span>
             @if (source() === 'ai') {
@@ -241,7 +241,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
           <p class="text-sm">
             Found
             <b>{{ res.resume.contact.name || 'no name' }}</b>
-            · {{ res.resume.experience.length }} roles ·
+            · {{ res.resume.experience.length }} jobs ·
             {{ skillCount() }} skills ·
             {{ res.resume.education.length }} education ·
             {{ res.resume.projects.length }} projects
@@ -384,7 +384,7 @@ export class ResumeImportPanel {
         : this.result()
           ? 'Read again with AI'
           : 'Read with AI';
-    return this.result() ? 'Parse again' : 'Parse';
+    return this.result() ? 'Read again' : 'Read my resume';
   });
   readonly model = signal('');
   readonly aiModel = signal('');

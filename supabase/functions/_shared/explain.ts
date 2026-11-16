@@ -100,7 +100,7 @@ export function profileWarnings(p: MatchProfile): string[] {
     );
   if (!p.home_country && !p.allowed_countries.length)
     out.push(
-      'No country is set: postings limited to a region cannot be judged.',
+      'Your country is not saved yet, so jobs open only to some countries cannot be checked.',
     );
   return out;
 }

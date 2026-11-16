@@ -54,12 +54,12 @@ describe('ResumeImportPanel: how a resume is read', () => {
   it('uses the built-in reader unless AI is picked, and sends nothing', async () => {
     const { p, asked } = panel({});
     expect(p.mode()).toBe('local');
-    expect(p.parseLabel()).toBe('Parse');
+    expect(p.parseLabel()).toBe('Read my resume');
     await p.parse();
     expect(asked).toEqual([]);
     expect(p.source()).toBe('local');
     expect(p.result()?.resume.contact.name).toBe('Rafi Ahmed');
-    expect(p.parseLabel()).toBe('Parse again');
+    expect(p.parseLabel()).toBe('Read again');
   });
 
   it('reads with AI when that is picked, on the model chosen', async () => {

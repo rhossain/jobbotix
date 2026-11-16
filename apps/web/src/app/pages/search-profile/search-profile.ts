@@ -300,7 +300,7 @@ const MAX_PROFILES = 5;
                 }
                 @if (x.excluded.length) {
                   <p class="mt-3 text-xs font-medium text-ink-muted">
-                    Ruled out by
+                    Left out because
                   </p>
                   <ul class="mt-1 text-xs">
                     @for (e of x.excluded.slice(0, 5); track e.reason) {

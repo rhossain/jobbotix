@@ -122,8 +122,8 @@ interface Reminder {
             </span>
           }
         } @else {
-          No searches yet. Once your job preferences are saved, Jobbotix checks
-          job sites several times a day and new jobs appear here.
+          No searches yet. Jobbotix checks job sites several times a day; your
+          first jobs appear within a few hours of saving your job preferences.
         }
       </p>
       <div actions class="hidden gap-2 md:flex">
@@ -371,7 +371,9 @@ interface Reminder {
             <jb-skeleton shape="card" [count]="3" />
           } @else if (fresh().length === 0) {
             <jb-empty-state
-              title="Nothing new since the last search"
+              [title]="
+                run() ? 'Nothing new since the last search' : 'No jobs yet'
+              "
               icon="inbox"
             >
               The next search adds jobs here, best match first. Jobs you have
