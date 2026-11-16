@@ -11,13 +11,15 @@ export interface NavItem {
   group: NavGroupId;
   /** One of the four places on the phone tab bar. */
   tab?: boolean;
+  /** Kept out of the menus (reached from Settings, Advanced); search still finds it. */
+  hidden?: boolean;
   /** Keyboard shortcut shown beside the item, e.g. "g t". */
   keys?: string;
   adminOnly?: boolean;
 }
 
-/** Every page in the menu, in menu order: what you use daily, then set-up, then the account. */
-const NAV: NavItem[] = [
+/** Every page, in menu order: what you use daily, then set-up, then the account. */
+export const ALL_NAV: NavItem[] = [
   {
     label: 'Today',
     link: '/today',
@@ -89,6 +91,7 @@ const NAV: NavItem[] = [
     link: '/usage',
     icon: 'gauge',
     group: 'account',
+    hidden: true,
     keys: 'g u',
   },
   {
@@ -102,10 +105,12 @@ const NAV: NavItem[] = [
 ];
 
 /** The four places used every day: the bottom tab bar on phones. */
-export const PRIMARY_NAV: NavItem[] = NAV.filter((i) => i.tab);
+const MENU = ALL_NAV.filter((i) => !i.hidden);
+
+export const PRIMARY_NAV: NavItem[] = MENU.filter((i) => i.tab);
 
 /** Everything else: under "More" on phones. */
-export const SECONDARY_NAV: NavItem[] = NAV.filter((i) => !i.tab);
+export const SECONDARY_NAV: NavItem[] = MENU.filter((i) => !i.tab);
 
 export interface NavGroup {
   id: NavGroupId;
@@ -120,7 +125,7 @@ const GROUP_LABELS: Record<NavGroupId, string> = {
 };
 
 /** `items` under their headings, in menu order; groups left empty are dropped. */
-export function navGroups(items: NavItem[] = NAV): NavGroup[] {
+export function navGroups(items: NavItem[] = MENU): NavGroup[] {
   return (Object.keys(GROUP_LABELS) as NavGroupId[])
     .map((id) => ({
       id,

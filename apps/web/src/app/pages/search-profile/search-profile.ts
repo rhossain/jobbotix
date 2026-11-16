@@ -761,77 +761,96 @@ const MAX_PROFILES = 5;
           </div>
         </form>
 
-        <section class="jb-card flex flex-col gap-4 p-5 md:p-7">
-          <div
-            class="flex flex-wrap items-center justify-between gap-3"
-            data-tour="search-prompt"
+        <div>
+          <button
+            type="button"
+            class="jb-btn jb-btn-ghost"
+            aria-controls="sp-advanced"
+            [attr.aria-expanded]="advancedOpen()"
+            (click)="advancedOpen.set(!advancedOpen())"
           >
-            <h2 class="jb-section-title">
-              Your own automated search (optional)
-            </h2>
-            <div class="flex flex-wrap gap-2">
-              <button
-                type="button"
-                class="jb-btn"
-                [attr.aria-busy]="keyBusy() ? 'true' : null"
-                [disabled]="keyBusy()"
-                (click)="newKey()"
-              >
-                <jb-icon name="key-round" /> New access key
-              </button>
-              <button
-                type="button"
-                class="jb-btn-primary"
-                (click)="copyPrompt()"
-              >
-                Copy prompt
-              </button>
-            </div>
-          </div>
-          <p class="text-sm text-ink-muted">
-            Jobbotix already searches for you. If you also use Claude, paste
-            this into a Claude task that repeats every morning; it searches too
-            and adds what it finds here.
-            @if (ingestKey()) {
-              Your new access key is shown once below; it is already in the
-              prompt.
-            } @else {
-              Create an access key first; the prompt uses it to add results
-              under your account.
-            }
-          </p>
-          @if (ingestKey()) {
-            <div
-              class="flex flex-col gap-2 rounded-control bg-signal-tint p-3.5 sm:flex-row sm:items-center"
-            >
-              <p
-                class="min-w-0 flex-1 font-mono text-xs break-all text-ink"
-                aria-label="Access key"
-              >
-                {{ ingestKey() }}
-              </p>
-              <jb-copy-button
-                [text]="ingestKey()"
-                label="Copy key"
-                size="sm"
-                confirm="Access key copied"
-              />
-            </div>
-            <p class="text-xs text-signal-ink">
-              Shown once. Copy it now if you need it elsewhere.
+            <jb-icon [name]="advancedOpen() ? 'chevron-up' : 'chevron-down'" />
+            Advanced
+          </button>
+          @if (!advancedOpen()) {
+            <p class="mt-1 text-sm text-ink-muted">
+              Set up your own automated search with Claude. Jobbotix already
+              searches for you, so most people never need this.
             </p>
           }
-          <pre
-            class="jb-letter max-h-96 max-w-none overflow-auto font-mono text-xs"
-            tabindex="0"
-            aria-label="Scheduled-task prompt"
-            >{{ prompt() }}</pre>
-          <p class="text-xs text-ink-muted">
-            Results arrive on
-            <a routerLink="/today" class="text-brand-ink underline">Today</a>.
-            It never sends applications for you.
-          </p>
-        </section>
+        </div>
+        @if (advancedOpen()) {
+          <div id="sp-advanced" class="contents">
+            <section class="jb-card flex flex-col gap-4 p-5 md:p-7">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="jb-section-title">
+                  Your own automated search (optional)
+                </h2>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    class="jb-btn"
+                    [attr.aria-busy]="keyBusy() ? 'true' : null"
+                    [disabled]="keyBusy()"
+                    (click)="newKey()"
+                  >
+                    <jb-icon name="key-round" /> New access key
+                  </button>
+                  <button
+                    type="button"
+                    class="jb-btn-primary"
+                    (click)="copyPrompt()"
+                  >
+                    Copy prompt
+                  </button>
+                </div>
+              </div>
+              <p class="text-sm text-ink-muted">
+                Jobbotix already searches for you. If you also use Claude, paste
+                this into a Claude task that repeats every morning; it searches
+                too and adds what it finds here.
+                @if (ingestKey()) {
+                  Your new access key is shown once below; it is already in the
+                  prompt.
+                } @else {
+                  Create an access key first; the prompt uses it to add results
+                  under your account.
+                }
+              </p>
+              @if (ingestKey()) {
+                <div
+                  class="flex flex-col gap-2 rounded-control bg-signal-tint p-3.5 sm:flex-row sm:items-center"
+                >
+                  <p
+                    class="min-w-0 flex-1 font-mono text-xs break-all text-ink"
+                    aria-label="Access key"
+                  >
+                    {{ ingestKey() }}
+                  </p>
+                  <jb-copy-button
+                    [text]="ingestKey()"
+                    label="Copy key"
+                    size="sm"
+                    confirm="Access key copied"
+                  />
+                </div>
+                <p class="text-xs text-signal-ink">
+                  Shown once. Copy it now if you need it elsewhere.
+                </p>
+              }
+              <pre
+                class="jb-letter max-h-96 max-w-none overflow-auto font-mono text-xs"
+                tabindex="0"
+                aria-label="Scheduled-task prompt"
+                >{{ prompt() }}</pre>
+              <p class="text-xs text-ink-muted">
+                Results arrive on
+                <a routerLink="/today" class="text-brand-ink underline">Today</a
+                >. It never sends applications for you.
+              </p>
+            </section>
+          </div>
+        }
       }
     </section>
   `,
@@ -894,6 +913,8 @@ export class SearchProfile {
   readonly saving = signal(false);
   /** The second half of the form: what to leave out, pay, emails, match score. */
   readonly moreOpen = signal(false);
+  /** The optional do-it-yourself search with Claude, folded away until asked for. */
+  readonly advancedOpen = signal(false);
   /** The target roles in order, kept in step with the form control. */
   readonly roleList = signal<string[]>([]);
   readonly suggesting = signal(false);

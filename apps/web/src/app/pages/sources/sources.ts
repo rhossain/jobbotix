@@ -18,6 +18,7 @@ import {
   SourcesRepo,
   WatchlistRepo,
 } from '../../core/data/repos';
+import { Auth } from '../../core/auth';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
@@ -178,20 +179,21 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
                   @case ('ok') {
                     <span
                       class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-good"
-                      ><jb-icon name="circle-check" [size]="14" /> Active</span
+                      ><jb-icon name="circle-check" [size]="14" /> Working</span
                     >
                   }
                   @case ('failing') {
                     <span
                       class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-bad"
-                      ><jb-icon name="circle-x" [size]="14" /> Failing</span
+                      ><jb-icon name="circle-x" [size]="14" />
+                      {{ admin() ? 'Failing' : 'Not working right now' }}</span
                     >
                   }
                   @case ('needs-key') {
                     <span
                       class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-warn"
-                      ><jb-icon name="key-round" [size]="14" /> Needs a
-                      key</span
+                      ><jb-icon name="key-round" [size]="14" />
+                      {{ admin() ? 'Needs a key' : 'Coming soon' }}</span
                     >
                   }
                   @case ('waiting') {
@@ -211,16 +213,20 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
 
               @if (s.last_run_at) {
                 <p class="text-ink-muted">
-                  Last read {{ s.last_run_at | relativeDay }}:
-                  <span class="tabular-nums text-ink">{{
-                    s.last_fetched
-                  }}</span>
-                  job posts,
-                  <span class="tabular-nums text-ink">{{ s.last_new }}</span>
-                  new
+                  @if (admin()) {
+                    Last read {{ s.last_run_at | relativeDay }}:
+                    <span class="tabular-nums text-ink">{{
+                      s.last_fetched
+                    }}</span>
+                    job posts,
+                    <span class="tabular-nums text-ink">{{ s.last_new }}</span>
+                    new
+                  } @else {
+                    Checked {{ s.last_run_at | relativeDay }}
+                  }
                 </p>
               }
-              @if (s.last_error && health(s) === 'failing') {
+              @if (admin() && s.last_error && health(s) === 'failing') {
                 <p class="break-words text-xs text-bad">{{ s.last_error }}</p>
               }
               @if (s.attribution) {
@@ -237,6 +243,8 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
 })
 export class SourcesPage {
   private readonly repo = inject(SourcesRepo);
+  /** The admin sees counts and error text; everyone else a plain status. */
+  protected readonly admin = inject(Auth).isAdmin;
   private readonly profiles = inject(SearchProfileRepo);
   private readonly watchlist = inject(WatchlistRepo);
   private readonly toast = inject(Toast);

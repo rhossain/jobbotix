@@ -14,7 +14,7 @@ import { RolesRepo } from '../core/data/repos';
 import { Shortcuts } from '../core/shortcuts';
 import { Theme } from '../core/theme';
 import { Icon, type IconName } from '../ui';
-import { PRIMARY_NAV, SECONDARY_NAV, ShellState } from './shell-state';
+import { ALL_NAV, ShellState } from './shell-state';
 import { Tour } from './tour';
 
 interface Command {
@@ -173,16 +173,16 @@ export class CommandPalette {
 
   private readonly commands = computed<Command[]>(() => {
     const go = (link: string) => () => this.router.navigateByUrl(link);
-    const pages = [...PRIMARY_NAV, ...SECONDARY_NAV]
-      .filter((i) => !i.adminOnly || this.auth.isAdmin())
-      .map<Command>((i) => ({
-        id: 'go' + i.link.replace(/\W/g, '-'),
-        group: 'Go to',
-        label: i.label,
-        icon: i.icon,
-        keys: i.keys,
-        run: go(i.link),
-      }));
+    const pages = ALL_NAV.filter(
+      (i) => !i.adminOnly || this.auth.isAdmin(),
+    ).map<Command>((i) => ({
+      id: 'go' + i.link.replace(/\W/g, '-'),
+      group: 'Go to',
+      label: i.label,
+      icon: i.icon,
+      keys: i.keys,
+      run: go(i.link),
+    }));
     const actions: Command[] = [
       {
         id: 'add-role',

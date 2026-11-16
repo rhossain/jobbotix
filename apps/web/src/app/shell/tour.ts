@@ -33,15 +33,9 @@ export const TOUR_STEPS: readonly TourStep[] = [
     body: 'Start here. Add the job titles you want and your skills, say where you can work and what to leave out, then press Save. Every search follows these choices.',
   },
   {
-    route: '/search',
-    target: 'search-prompt',
-    title: '2. Optional: add your own automated search',
-    body: 'Jobbotix already searches for you, so most people can skip this. If you use Claude, press New access key, then Copy prompt, and paste the prompt into a Claude task that repeats every morning. It adds what it finds to your jobs.',
-  },
-  {
     route: '/resume',
     target: 'resume',
-    title: '3. Add your resume once',
+    title: '2. Add your resume once',
     body: 'Paste or import your resume here. It is the starting point for every tailored resume and cover letter, so keep it complete and up to date.',
   },
   {

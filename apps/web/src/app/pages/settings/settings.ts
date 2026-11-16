@@ -156,25 +156,6 @@ import {
 
       <jb-ai-connections />
 
-      <!-- Usage -->
-      <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <h2 class="jb-section-title">AI usage on your keys</h2>
-          <a jbButton="ghost" size="sm" routerLink="/usage"
-            >See usage <jb-icon name="arrow-up-right" [size]="16"
-          /></a>
-        </div>
-        @if (usageMonth().calls === 0) {
-          <p class="text-sm text-ink-muted">No AI calls in the last 30 days.</p>
-        } @else {
-          <p class="text-sm text-ink-muted">
-            Last 30 days: {{ usageMonth().calls }} calls, about
-            <span class="font-medium text-ink">{{ usageMonth().cost }}</span>
-            at list prices.
-          </p>
-        }
-      </section>
-
       <!-- Voice samples -->
       <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
         <h2 class="jb-section-title">Voice samples</h2>
@@ -228,48 +209,96 @@ import {
         </form>
       </section>
 
-      <!-- Ingest keys -->
-      <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
-        <h2 class="jb-section-title">Access keys</h2>
-        <p class="text-sm text-ink-muted">
-          Only needed if you set up your own automated search. Each key lets one
-          task add jobs to your account. Create one from
-          <a routerLink="/search" class="text-brand-ink underline"
-            >Job preferences</a
-          >; revoke it here if it leaks.
-        </p>
-        @if (repo.ingestKeys().length === 0) {
-          <p class="text-sm text-ink-muted">No keys yet.</p>
-        } @else {
-          <ul class="divide-y divide-line text-sm">
-            @for (k of repo.ingestKeys(); track k.id) {
-              <li
-                class="flex flex-wrap items-center justify-between gap-2 py-2"
-              >
-                <span>
-                  {{ k.label }} · created {{ k.created_at | relativeDay }}
-                  @if (k.last_used_at) {
-                    · last used {{ k.last_used_at | relativeDay }}
-                  }
-                  @if (k.revoked_at) {
-                    <span class="jb-tag ml-1 bg-bad-tint text-bad"
-                      >Revoked</span
+      <!-- Advanced: things most people never need -->
+      <section class="flex flex-col gap-6" id="advanced">
+        <div>
+          <button
+            type="button"
+            class="jb-btn jb-btn-ghost"
+            aria-controls="settings-advanced"
+            [attr.aria-expanded]="advancedOpen()"
+            (click)="advancedOpen.set(!advancedOpen())"
+          >
+            <jb-icon [name]="advancedOpen() ? 'chevron-up' : 'chevron-down'" />
+            Advanced
+          </button>
+          @if (!advancedOpen()) {
+            <p class="mt-1 text-sm text-ink-muted">
+              AI usage and cost, and access keys for your own automated search.
+              Most people never need these.
+            </p>
+          }
+        </div>
+        @if (advancedOpen()) {
+          <div id="settings-advanced" class="flex flex-col gap-6">
+            <!-- Usage -->
+            <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <h2 class="jb-section-title">AI usage on your keys</h2>
+                <a jbButton="ghost" size="sm" routerLink="/usage"
+                  >See usage <jb-icon name="arrow-up-right" [size]="16"
+                /></a>
+              </div>
+              @if (usageMonth().calls === 0) {
+                <p class="text-sm text-ink-muted">
+                  No AI calls in the last 30 days.
+                </p>
+              } @else {
+                <p class="text-sm text-ink-muted">
+                  Last 30 days: {{ usageMonth().calls }} calls, about
+                  <span class="font-medium text-ink">{{
+                    usageMonth().cost
+                  }}</span>
+                  at list prices.
+                </p>
+              }
+            </section>
+
+            <!-- Ingest keys -->
+            <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
+              <h2 class="jb-section-title">Access keys</h2>
+              <p class="text-sm text-ink-muted">
+                Only needed if you set up your own automated search. Each key
+                lets one task add jobs to your account. Create one from
+                <a routerLink="/search" class="text-brand-ink underline"
+                  >Job preferences</a
+                >; revoke it here if it leaks.
+              </p>
+              @if (repo.ingestKeys().length === 0) {
+                <p class="text-sm text-ink-muted">No keys yet.</p>
+              } @else {
+                <ul class="divide-y divide-line text-sm">
+                  @for (k of repo.ingestKeys(); track k.id) {
+                    <li
+                      class="flex flex-wrap items-center justify-between gap-2 py-2"
                     >
+                      <span>
+                        {{ k.label }} · created {{ k.created_at | relativeDay }}
+                        @if (k.last_used_at) {
+                          · last used {{ k.last_used_at | relativeDay }}
+                        }
+                        @if (k.revoked_at) {
+                          <span class="jb-tag ml-1 bg-bad-tint text-bad"
+                            >Revoked</span
+                          >
+                        }
+                      </span>
+                      @if (!k.revoked_at) {
+                        <button
+                          type="button"
+                          class="jb-btn jb-btn-sm text-bad"
+                          (click)="revoke(k.id)"
+                          [disabled]="busy()"
+                        >
+                          Revoke
+                        </button>
+                      }
+                    </li>
                   }
-                </span>
-                @if (!k.revoked_at) {
-                  <button
-                    type="button"
-                    class="jb-btn jb-btn-sm text-bad"
-                    (click)="revoke(k.id)"
-                    [disabled]="busy()"
-                  >
-                    Revoke
-                  </button>
-                }
-              </li>
-            }
-          </ul>
+                </ul>
+              }
+            </section>
+          </div>
         }
       </section>
 
@@ -283,6 +312,8 @@ export class Settings {
   protected readonly theme = inject(Theme);
   protected readonly tour = inject(Tour);
   protected readonly shell = inject(ShellState);
+  /** AI usage and access keys stay folded away until asked for. */
+  protected readonly advancedOpen = signal(false);
   private readonly confirm = inject(Confirm);
   protected readonly themes: TabItem<ThemePreference>[] = [
     { id: 'system', label: 'System', icon: 'monitor' },
