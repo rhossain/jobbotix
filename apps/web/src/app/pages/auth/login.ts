@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -23,6 +24,27 @@ import { AuthShell } from './auth-shell';
       heading="Sign in"
       lead="Your jobs, letters and notes are waiting."
     >
+      @if (ended(); as why) {
+        <p
+          class="mb-4 rounded-card border border-line bg-sunken p-3 text-sm text-ink"
+          role="status"
+        >
+          @if (why === 'suspended') {
+            This account has been suspended, so you were signed out. Write to
+            <a class="text-brand-ink underline" [href]="'mailto:' + support">{{
+              support
+            }}</a>
+            to ask about it.
+          } @else {
+            This account no longer exists, so you were signed out. If that is a
+            mistake, write to
+            <a class="text-brand-ink underline" [href]="'mailto:' + support">{{
+              support
+            }}</a
+            >.
+          }
+        </p>
+      }
       <form
         [formGroup]="form"
         (ngSubmit)="submit()"
@@ -80,6 +102,13 @@ export class Login {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+
+  protected readonly support = 'support@jobbotix.com';
+  /** Set when the app signed this browser out: the account was deleted or suspended. */
+  protected readonly ended = computed(() => {
+    const why = this.route.snapshot.queryParamMap.get('ended');
+    return why === 'removed' || why === 'suspended' ? why : null;
+  });
 
   readonly busy = signal(false);
   readonly error = signal('');

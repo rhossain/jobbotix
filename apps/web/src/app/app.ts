@@ -17,6 +17,7 @@ import {
 } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { Auth } from './core/auth';
+import { SessionWatch } from './core/session-watch';
 import { Shortcuts } from './core/shortcuts';
 import { Theme } from './core/theme';
 import { Viewport } from './core/viewport';
@@ -112,6 +113,7 @@ export class App {
   constructor() {
     inject(Theme);
     inject(Shortcuts).install();
+    inject(SessionWatch).start();
 
     const win = this.doc.defaultView;
 

@@ -25,6 +25,8 @@ export class Auth {
   readonly isAdmin = computed(() => this._profile()?.is_admin ?? false);
 
   readonly ready: Promise<void>;
+  /** A verify() in flight, so several callers share one request. */
+  private verifying: Promise<SessionEnded | null> | null = null;
 
   constructor() {
     this.ready = this.supabase.auth
@@ -73,6 +75,42 @@ export class Auth {
 
   async signOut() {
     await this.supabase.auth.signOut();
+  }
+
+  /**
+   * Asks the server whether this session's account is still there and still
+   * allowed in. A deleted or suspended account keeps a working token for up
+   * to an hour, and the pages keep what they already loaded, so without this
+   * the app stays usable in a browser that was signed in before.
+   *
+   * When the account is gone or suspended the session is dropped from this
+   * browser and the reason is returned; otherwise null. Being offline, or
+   * any error that does not say the account is gone, changes nothing.
+   */
+  verify(): Promise<SessionEnded | null> {
+    this.verifying ??= this.runVerify().finally(() => {
+      this.verifying = null;
+    });
+    return this.verifying;
+  }
+
+  private async runVerify(): Promise<SessionEnded | null> {
+    if (!this._session()) return null;
+    const { error } = await this.supabase.auth.getUser();
+    let why: SessionEnded | null = null;
+    if (error) {
+      if (accountGone(error)) why = 'removed';
+    } else {
+      // A suspended account still has its profile row; the admin's reason
+      // for suspending stays between the admin and the account's email.
+      await this.refreshProfile();
+      if (this._profile()?.suspended_at) why = 'suspended';
+    }
+    if (!why) return null;
+    // Local only: the server has nothing left to sign out for a deleted user.
+    await this.supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+    await this.apply(null);
+    return why;
   }
 
   async requestPasswordReset(email: string) {
@@ -135,6 +173,31 @@ export class Auth {
       this._status.set('signed_out');
     }
   }
+}
+
+/** Why a session was ended from the server's side. */
+export type SessionEnded = 'removed' | 'suspended';
+
+/**
+ * True when the auth server says the account behind this token no longer
+ * exists (or its session was revoked). A network failure has no such status
+ * and never signs anyone out.
+ */
+export function accountGone(error: {
+  status?: number;
+  code?: string;
+  message?: string;
+}): boolean {
+  if (error.status === 403 || error.status === 404) return true;
+  if (
+    error.code === 'user_not_found' ||
+    error.code === 'session_not_found' ||
+    error.code === 'user_banned'
+  )
+    return true;
+  return /does not exist|user not found|session.*not.*found/i.test(
+    error.message ?? '',
+  );
 }
 
 /** Turn Supabase auth messages into sentences a person can act on. */

@@ -59,4 +59,7 @@ export class DemoAuth {
   async refreshProfile() {
     /* static */
   }
+  async verify() {
+    return null;
+  }
 }
