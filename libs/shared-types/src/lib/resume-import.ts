@@ -384,7 +384,7 @@ export function parseResumeText(input: string): ResumeImport {
   const edu = sections.get('education');
   if (edu) resume.education = parseEducation(edu);
   const certs = sections.get('certifications');
-  if (certs) resume.certifications = flatList(certs);
+  if (certs) resume.certifications = certList(certs);
 
   // A headline is the first thing a recruiter reads; borrow the latest title.
   if (!resume.contact.headline && resume.experience[0]?.title) {
@@ -569,6 +569,24 @@ function flatList(lines: string[], keepRatings = false): string[] {
     }
   }
   return dedupe(out);
+}
+
+/**
+ * Certifications, one per line. A comma inside a line joins the name to who
+ * issued it ("Registered Nurse, College of Nurses of Ontario"), so lines are
+ * split on commas only when the whole section is a single line.
+ */
+function certList(lines: string[]): string[] {
+  const rows = lines.map((l) => l.replace(BULLET, '').trim()).filter(Boolean);
+  if (rows.length < 2) return flatList(lines);
+  return dedupe(
+    rows.flatMap((l) =>
+      l
+        .split(/\s*[;|•·]\s*/)
+        .map((x) => x.trim().replace(/\.$/, ''))
+        .filter(Boolean),
+    ),
+  );
 }
 
 function dedupe(xs: string[]): string[] {

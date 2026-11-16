@@ -198,6 +198,18 @@ May 2019 - Present
     expect(resume.experience[0].company).toBe('Happy Paws Clinic');
   });
 
+  it('keeps a certification and who issued it on one line', () => {
+    const { resume } = parseResumeText(`${NURSE}
+CERTIFICATIONS
+Registered Nurse, College of Nurses of Ontario
+Basic Life Support (BLS)
+`);
+    expect(resume.certifications).toEqual([
+      'Registered Nurse, College of Nurses of Ontario',
+      'Basic Life Support (BLS)',
+    ]);
+  });
+
   it('still takes a surname that is also a trade as a name', () => {
     const { resume } = parseResumeText(`James Cook
 Senior Software Engineer
