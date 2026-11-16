@@ -138,6 +138,12 @@ export const appRoutes: Route[] = [
     title: 'Settings · Jobbotix',
   },
   {
+    path: 'help',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/help/help').then((m) => m.HelpPage),
+    title: 'Help · Jobbotix',
+  },
+  {
     path: 'resume',
     canActivate: [authGuard],
     canDeactivate: [unsavedChangesGuard],

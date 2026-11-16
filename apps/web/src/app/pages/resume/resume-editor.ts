@@ -24,6 +24,7 @@ import { ResumeTemplateChoice } from '../../core/resume-template';
 import { RelativeDayPipe } from '../../shared/format';
 import { ResumePreview } from '../../shared/resume-preview';
 import { TemplatePicker } from '../../shared/template-picker';
+import { WatchHow } from '../../shared/watch-how';
 import { ResumeCheckPanel } from './resume-check';
 import { ResumeImportPanel } from './resume-import';
 import { ResumeReviewPanel } from './resume-review';
@@ -74,6 +75,7 @@ const csv = (s: string) =>
     ResumeImportPanel,
     ResumeReviewPanel,
     TemplatePicker,
+    WatchHow,
     ResumePreview,
     ScaledPage,
     Tabs,
@@ -214,6 +216,7 @@ const csv = (s: string) =>
                 Import a PDF or Word file and Jobbotix fills in the boxes below.
                 You can also type it in yourself.
               </p>
+              <jb-watch-how class="mt-2" guide="add-your-resume" />
             </div>
             <button
               type="button"

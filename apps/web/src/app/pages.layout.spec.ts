@@ -42,6 +42,7 @@ const SIGNED_IN: PageCase[] = [
   { name: 'Search profile', url: '/search' },
   { name: 'Master resume', url: '/resume' },
   { name: 'Settings', url: '/settings' },
+  { name: 'Help', url: '/help' },
   { name: 'Admin', url: '/admin' },
   { name: 'Invite codes', url: '/admin/invites' },
   { name: 'UI kit', url: '/_ui' },

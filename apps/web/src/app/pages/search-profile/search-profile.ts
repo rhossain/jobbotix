@@ -40,6 +40,7 @@ import {
 import { Plan } from '../../core/plan';
 import { Toast } from '../../shared/toast';
 import { UpgradeNote } from '../../shared/upgrade-note';
+import { WatchHow } from '../../shared/watch-how';
 import { Button, CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
 import { Confirm } from '../../ui/confirm';
 import { environment } from '../../../environments/environment';
@@ -65,13 +66,16 @@ const MAX_PROFILES = 5;
     RouterLink,
     Skeleton,
     UpgradeNote,
+    WatchHow,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-page-header
       title="Job preferences"
       lead="Tell Jobbotix what kind of job you want. It checks new job posts against these choices every hour. When you save a change, the last 30 days are checked again over the next few hours."
-    />
+    >
+      <jb-watch-how lead class="mt-2" guide="say-what-job-you-want" />
+    </jb-page-header>
     <section class="mt-8 flex flex-col gap-6">
       @if (!repo.loaded()) {
         <jb-skeleton shape="tile" [count]="3" />

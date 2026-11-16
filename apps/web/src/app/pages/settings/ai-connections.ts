@@ -19,6 +19,7 @@ import {
 import { SettingsRepo, type AiCheck } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
+import { WatchHow } from '../../shared/watch-how';
 import { Button, Confirm, Icon } from '../../ui';
 
 export interface ConnectionStatus {
@@ -74,7 +75,7 @@ const OTHER = '__other';
  */
 @Component({
   selector: 'jb-ai-connections',
-  imports: [Button, FormsModule, Icon, RelativeDayPipe],
+  imports: [Button, FormsModule, Icon, RelativeDayPipe, WatchHow],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'contents' },
   template: `
@@ -90,6 +91,7 @@ const OTHER = '__other';
         matches and writes letters, answers and interview prep for you. Gemini
         and Groq have free tiers that need no card.
       </p>
+      <jb-watch-how guide="connect-free-ai" />
 
       @if (repo.connections().length) {
         <ol class="flex flex-col gap-3">

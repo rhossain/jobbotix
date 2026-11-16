@@ -46,6 +46,13 @@ interface Step {
               {{ doneCount() }} of {{ steps().length }} done. Each step makes
               the matches better.
             </p>
+            <a
+              routerLink="/help"
+              class="mt-1.5 inline-flex items-center gap-1.5 text-sm font-medium text-brand-ink underline-offset-2 hover:underline"
+            >
+              <jb-icon name="circle-play" [size]="16" /> Watch the short how-to
+              videos
+            </a>
           </div>
           <button
             type="button"

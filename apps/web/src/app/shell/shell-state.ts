@@ -102,6 +102,7 @@ export const ALL_NAV: NavItem[] = [
     adminOnly: true,
   },
   { label: 'Settings', link: '/settings', icon: 'settings', group: 'account' },
+  { label: 'Help', link: '/help', icon: 'circle-play', group: 'account' },
 ];
 
 /** The four places used every day: the bottom tab bar on phones. */

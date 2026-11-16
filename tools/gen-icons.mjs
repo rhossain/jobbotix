@@ -80,6 +80,7 @@ const ICONS = [
   'gauge',
   'newspaper',
   'users',
+  'circle-play',
 ];
 
 const out = {};
