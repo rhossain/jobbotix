@@ -27,6 +27,8 @@ export class Auth {
   readonly ready: Promise<void>;
   /** A verify() in flight, so several callers share one request. */
   private verifying: Promise<SessionEnded | null> | null = null;
+  /** The session last handed to apply(), and the work it started. */
+  private applying: { token: string | null; done: Promise<void> } | null = null;
 
   constructor() {
     this.ready = this.supabase.auth
@@ -95,16 +97,29 @@ export class Auth {
   }
 
   private async runVerify(): Promise<SessionEnded | null> {
-    if (!this._session()) return null;
-    const { error } = await this.supabase.auth.getUser();
+    const session = this._session();
+    if (!session) return null;
+    // A token at or near its end is left to the client's own refresh, which
+    // signs a deleted account out by itself; asking with it would be refused
+    // for being old, not for the account being gone.
+    const left = (session.expires_at ?? 0) * 1000 - Date.now();
+    if (left < 60_000) return null;
     let why: SessionEnded | null = null;
-    if (error) {
-      if (accountGone(error)) why = 'removed';
-    } else {
-      // A suspended account still has its profile row; the admin's reason
-      // for suspending stays between the admin and the account's email.
-      await this.refreshProfile();
-      if (this._profile()?.suspended_at) why = 'suspended';
+    try {
+      // With the token passed in, the client asks without holding its auth
+      // lock for the length of the request. Holding it made a page opened
+      // meanwhile wait on the loading screen until the request ended.
+      const { error } = await this.supabase.auth.getUser(session.access_token);
+      if (error) {
+        if (accountGone(error)) why = 'removed';
+      } else {
+        // A suspended account still has its profile row; the admin's reason
+        // for suspending stays between the admin and the account's email.
+        await this.refreshProfile();
+        if (this._profile()?.suspended_at) why = 'suspended';
+      }
+    } catch {
+      return null; // offline, or the request did not get through
     }
     if (!why) return null;
     // Local only: the server has nothing left to sign out for a deleted user.
@@ -163,7 +178,23 @@ export class Auth {
     this._profile.set(data ?? null);
   }
 
-  private async apply(session: Session | null) {
+  private apply(session: Session | null): Promise<void> {
+    // Start-up hands over the same session twice (once read from storage,
+    // once announced by the client); when they overlap, the second shares
+    // the first's work instead of fetching the profile again.
+    const token = session?.access_token ?? null;
+    if (this.applying && this.applying.token === token)
+      return this.applying.done;
+    const done = this.runApply(session).finally(() => {
+      // Only while it is in flight: a later event with the same token (a
+      // changed email, say) is applied afresh.
+      if (this.applying?.done === done) this.applying = null;
+    });
+    this.applying = { token, done };
+    return done;
+  }
+
+  private async runApply(session: Session | null) {
     this._session.set(session);
     if (session) {
       await this.refreshProfile();
@@ -180,22 +211,23 @@ export type SessionEnded = 'removed' | 'suspended';
 
 /**
  * True when the auth server says the account behind this token no longer
- * exists (or its session was revoked). A network failure has no such status
- * and never signs anyone out.
+ * exists (or its session was revoked). A network failure, an expired token
+ * or any other refusal never signs anyone out.
  */
 export function accountGone(error: {
   status?: number;
   code?: string;
   message?: string;
 }): boolean {
-  if (error.status === 403 || error.status === 404) return true;
   if (
     error.code === 'user_not_found' ||
     error.code === 'session_not_found' ||
     error.code === 'user_banned'
   )
     return true;
-  return /does not exist|user not found|session.*not.*found/i.test(
+  // Older auth servers send the sentence without a code. A bare 403 is not
+  // enough: an expired or malformed token is refused with 403 too.
+  return /user from sub claim in jwt does not exist|session from session_id claim in jwt does not exist|user not found/i.test(
     error.message ?? '',
   );
 }
