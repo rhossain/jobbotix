@@ -283,7 +283,7 @@ const WEEKS = 8;
           </section>
 
           <section class="jb-card p-5 md:p-6">
-            <h2 class="text-lg font-semibold text-ink">Score distribution</h2>
+            <h2 class="text-lg font-semibold text-ink">Match scores</h2>
             <div class="mt-4 flex flex-col gap-3">
               @for (b of i.scores; track b.label) {
                 <jb-bar-row
@@ -304,7 +304,7 @@ const WEEKS = 8;
             </div>
             <p class="mt-4 text-xs text-ink-muted">
               If most jobs sit under 70, tighten your job preferences; if most
-              sit at 85 and up, the weights are too generous to be useful.
+              sit at 85 and up, the match score is too generous to be useful.
             </p>
           </section>
         </div>
@@ -325,9 +325,9 @@ const WEEKS = 8;
             } @else {
               <p class="mt-1 text-sm text-ink-muted">
                 {{ m.roles }} jobs found for {{ m.users }} people; counts only,
-                nobody's rows. {{ m.ai_share }}% mention AI-assisted work,
-                {{ m.contract_share }}% are contracts, median score
-                {{ m.median_score }}.
+                nobody's own jobs are shown. {{ m.ai_share }}% mention
+                AI-assisted work, {{ m.contract_share }}% are contracts, median
+                score {{ m.median_score }}.
               </p>
               <div class="mt-5 grid gap-8 md:grid-cols-2">
                 <div>
@@ -378,7 +378,7 @@ const WEEKS = 8;
                   >
                     <th class="py-2 pr-4 font-medium">Status</th>
                     <th class="py-2 pr-4 text-right font-medium">
-                      Mean days before moving on
+                      Average days before moving on
                     </th>
                     <th class="py-2 text-right font-medium">Jobs</th>
                   </tr>

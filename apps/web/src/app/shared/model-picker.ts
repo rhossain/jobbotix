@@ -41,7 +41,7 @@ import { Plan } from '../core/plan';
         (change)="value.set($any($event.target).value)"
       >
         <option value="">
-          {{ onCredits() ? 'Jobbotix AI (credits)' : 'Default model' }}
+          {{ onCredits() ? 'Jobbotix AI (credits)' : 'AI model: automatic' }}
         </option>
         @if (groups().length === 1) {
           @for (m of groups()[0].models; track m.id) {

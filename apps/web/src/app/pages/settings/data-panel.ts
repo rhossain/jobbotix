@@ -40,7 +40,7 @@ const today = () => new Date().toISOString().slice(0, 10);
       <h2 id="data-h" class="jb-section-title">Your data</h2>
       <p class="text-sm text-ink-muted">
         Download your jobs for a spreadsheet, or everything in your account
-        (roles, resumes, letters, interviews, people, settings) as one file.
+        (jobs, resumes, letters, interviews, contacts, settings) as one file.
       </p>
       <div class="flex flex-wrap gap-2">
         <button type="button" jbButton (click)="exportCsv()">
@@ -146,7 +146,7 @@ const today = () => new Date().toISOString().slice(0, 10);
       </h2>
       <p class="text-sm text-ink-muted">
         Removes your account and everything in it straight away: jobs, resumes,
-        letters, interviews, people, keys and your saved AI keys. It cannot be
+        letters, interviews, contacts, keys and your saved AI keys. It cannot be
         undone; download your data first if you want a copy.
       </p>
       <label class="flex flex-col gap-1.5 text-sm font-medium">
