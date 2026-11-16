@@ -132,7 +132,7 @@ Deno.test('summariseRuns sums the last day and labels the digest line', () => {
   });
   assert(
     email.text.includes(
-      'Last 24 hours (2 runs): 170 listings reviewed, 3 added, 4 excluded.',
+      'Last 24 hours (2 searches): 170 job posts looked at, 3 added, 4 filtered out.',
     ),
   );
   assertEquals(
