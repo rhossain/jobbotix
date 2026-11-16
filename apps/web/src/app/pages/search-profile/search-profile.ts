@@ -172,8 +172,12 @@ const MAX_PROFILES = 5;
           }
           <div class="flex flex-col gap-1 text-sm">
             <label for="sp-roles"
-              >Job titles you want
-              <span class="text-ink-muted">(best first)</span></label
+              ><span class="jb-section-title block"
+                >1. What job do you want?</span
+              >
+              <span class="block text-ink-muted"
+                >Add one or more job titles, the one you want most first</span
+              ></label
             >
             @if (roleList().length) {
               <ul class="flex flex-wrap gap-1.5" aria-label="Your job titles">
@@ -359,9 +363,11 @@ const MAX_PROFILES = 5;
           </div>
           <label class="flex flex-col gap-1 text-sm">
             <span
-              >Your skills
-              <span class="text-ink-muted"
-                >(one per line, primary first)</span
+              ><span class="jb-section-title block"
+                >2. What are your skills?</span
+              >
+              <span class="block text-ink-muted"
+                >One per line, your strongest first</span
               ></span
             >
             <textarea
@@ -372,39 +378,9 @@ const MAX_PROFILES = 5;
           </label>
 
           <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
-            <legend class="jb-section-title mb-2">Remote</legend>
-            <label class="flex items-center gap-2"
-              ><input
-                id="sp-worldwide"
-                type="checkbox"
-                formControlName="worldwide"
-              />
-              Must be fully remote, hiring worldwide</label
-            >
-            <label class="flex items-center gap-2"
-              ><input
-                id="sp-overlap"
-                type="checkbox"
-                formControlName="overlapOk"
-              />
-              Timezone-overlap requirements are fine</label
-            >
-            <label class="flex flex-col gap-1">
-              <span
-                >Skip jobs limited to these regions
-                <span class="text-ink-muted">(comma-separated)</span></span
-              >
-              <input
-                id="sp-regions"
-                type="text"
-                formControlName="excludeRegions"
-                class="jb-input"
-              />
-            </label>
-          </fieldset>
-
-          <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
-            <legend class="jb-section-title mb-2">Where you can work</legend>
+            <legend class="jb-section-title mb-2">
+              3. Where can you work?
+            </legend>
             <label class="flex flex-col gap-1">
               <span>Country you live in</span>
               <select
@@ -438,233 +414,312 @@ const MAX_PROFILES = 5;
           </fieldset>
 
           <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
-            <legend class="jb-section-title mb-2">Exclude</legend>
+            <legend class="jb-section-title mb-2">Remote work</legend>
             <label class="flex items-center gap-2"
               ><input
-                id="sp-visa"
+                id="sp-worldwide"
                 type="checkbox"
-                formControlName="visaRequired"
+                formControlName="worldwide"
               />
-              Jobs needing residency, work authorization or a visa</label
+              Must be fully remote, hiring worldwide</label
             >
             <label class="flex items-center gap-2"
               ><input
-                id="sp-lang"
+                id="sp-overlap"
                 type="checkbox"
-                formControlName="nonEnglish"
+                formControlName="overlapOk"
               />
-              Jobs needing a language other than English</label
+              Timezone-overlap requirements are fine</label
             >
-            <label class="flex items-center gap-2"
-              ><input id="sp-hybrid" type="checkbox" formControlName="hybrid" />
-              On-site or hybrid jobs</label
-            >
-            <label class="flex items-center gap-2"
-              ><input id="sp-junior" type="checkbox" formControlName="junior" />
-              Junior and mid-level jobs</label
-            >
-            <label class="flex items-center gap-2">
-              Job posts older than
+            <label class="flex flex-col gap-1">
+              <span
+                >Skip jobs limited to these regions
+                <span class="text-ink-muted">(comma-separated)</span></span
+              >
               <input
-                id="sp-days"
-                type="number"
-                min="7"
-                max="120"
-                formControlName="olderThanDays"
-                class="jb-input jb-input-inline w-24"
+                id="sp-regions"
+                type="text"
+                formControlName="excludeRegions"
+                class="jb-input"
               />
-              days
             </label>
           </fieldset>
 
-          <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
-            <legend class="jb-section-title mb-2">Employment</legend>
-            <label class="flex items-center gap-2"
-              ><input id="sp-ft" type="checkbox" formControlName="fullTime" />
-              Full-time</label
+          <div class="md:col-span-2">
+            <button
+              type="button"
+              class="jb-btn jb-btn-ghost"
+              aria-controls="sp-more"
+              [attr.aria-expanded]="moreOpen()"
+              (click)="moreOpen.set(!moreOpen())"
             >
-            <label class="flex items-center gap-2"
-              ><input id="sp-ct" type="checkbox" formControlName="contract" />
-              Contract</label
-            >
-            <label class="flex items-center gap-2"
-              ><input id="sp-fl" type="checkbox" formControlName="freelance" />
-              Freelance</label
-            >
-            <label class="flex items-center gap-2"
-              ><input id="sp-pt" type="checkbox" formControlName="partTime" />
-              Part-time</label
-            >
-            <div class="flex flex-wrap items-center gap-2">
-              <label for="sp-min-pay">Minimum pay</label>
-              <input
-                id="sp-min-pay"
-                type="number"
-                min="0"
-                step="1000"
-                inputmode="numeric"
-                placeholder="None"
-                formControlName="minSalary"
-                class="jb-input jb-input-inline w-32"
-              />
-              <select
-                aria-label="Minimum pay currency"
-                formControlName="minSalaryCurrency"
-                class="jb-input jb-input-inline"
-              >
-                @for (c of currencies; track c) {
-                  <option [value]="c">{{ c }}</option>
-                }
-              </select>
-              a year
-            </div>
-            <p class="-mt-1 text-xs text-ink-muted">
-              Job posts that state less are left out; hourly, daily and monthly
-              rates are counted as yearly, other currencies at approximate
-              rates. Job posts with no pay stated are kept.
-            </p>
-            <label class="flex items-center gap-2">
-              Minimum seniority
-              <select
-                id="sp-seniority"
-                formControlName="minSeniority"
-                class="jb-input jb-input-inline"
-              >
-                <option value="mid">Mid</option>
-                <option value="senior">Senior</option>
-                <option value="lead">Lead</option>
-              </select>
-            </label>
-          </fieldset>
-
-          <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
-            <legend class="jb-section-title mb-2">Emails</legend>
-            @if (!isMain()) {
-              <p class="text-ink-muted">
-                The daily email covers every search and follows the settings on
-                your main search.
+              <jb-icon [name]="moreOpen() ? 'chevron-up' : 'chevron-down'" />
+              {{ moreOpen() ? 'Fewer options' : 'More options' }}
+            </button>
+            @if (!moreOpen()) {
+              <p class="mt-1 text-sm text-ink-muted">
+                What to leave out, job type and pay, emails and the match score.
+                The usual choices are already set, so you can skip these.
               </p>
-            } @else {
-              <label class="flex items-center gap-2">
-                <input
-                  id="sp-digest-on"
-                  type="checkbox"
-                  formControlName="digestEnabled"
-                />
-                Send me a daily email with new jobs
-              </label>
-              <label class="flex items-center gap-2">
-                at
-                <input
-                  id="sp-digest"
-                  type="time"
-                  formControlName="digestTime"
-                  class="jb-input jb-input-inline"
-                />
-                <span class="text-ink-muted"
-                  >({{ auth.profile()?.timezone || 'your timezone' }})</span
+            }
+          </div>
+
+          @if (moreOpen()) {
+            <div id="sp-more" class="contents">
+              <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
+                <legend class="jb-section-title mb-2">Exclude</legend>
+                <label class="flex items-center gap-2"
+                  ><input
+                    id="sp-visa"
+                    type="checkbox"
+                    formControlName="visaRequired"
+                  />
+                  Jobs needing residency, work authorization or a visa</label
                 >
-              </label>
-              <div
-                class="flex flex-wrap items-center gap-1.5"
-                role="group"
-                aria-label="Days to send the daily email"
-              >
-                <span class="mr-1">on</span>
-                @for (d of weekdays; track d.n) {
-                  <button
-                    type="button"
-                    class="jb-chip"
-                    [attr.aria-pressed]="digestDays().includes(d.n)"
-                    (click)="toggleDay(d.n)"
-                  >
-                    {{ d.label }}
-                  </button>
-                }
-              </div>
-              <label class="flex items-center gap-2">
-                Only jobs with a match score of at least
-                <input
-                  id="sp-digest-min"
-                  type="number"
-                  min="0"
-                  max="100"
-                  step="5"
-                  formControlName="digestMinScore"
-                  class="jb-input jb-input-inline w-24"
-                />
-              </label>
-              <p class="text-ink-muted">
-                Every job is still added to your list; this only changes the
-                email.
-              </p>
-            }
-            <label class="mt-2 flex flex-wrap items-center gap-2">
-              Email me right away when a new job
-              @if (repo.profiles().length > 1 || isNew()) {
-                from this search
-              }
-              has a match score of at least
-              <input
-                id="sp-alert-min"
-                type="number"
-                min="0"
-                max="100"
-                step="5"
-                formControlName="alertMinScore"
-                class="jb-input jb-input-inline w-24"
-                placeholder="Off"
-              />
-            </label>
-            @if (canAlert()) {
-              <p class="text-ink-muted">
-                Leave it empty for no instant emails. Checked every hour, as new
-                jobs are added.
-              </p>
-            } @else {
-              <jb-upgrade-note feature="instant_alerts" />
-            }
-          </fieldset>
-
-          <fieldset
-            class="jb-sp-group flex flex-col gap-2.5 text-sm md:col-span-2"
-          >
-            <legend
-              class="jb-section-title mb-2 flex w-full items-center justify-between gap-3"
-            >
-              Match score
-              <button
-                type="button"
-                class="jb-btn jb-btn-ghost jb-btn-sm"
-                (click)="resetWeights()"
-              >
-                Reset to defaults
-              </button>
-            </legend>
-            <p class="text-ink-muted">
-              How many points each thing adds to a job's match score. Negative
-              numbers take points away.
-            </p>
-            <div
-              class="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2"
-              formGroupName="weights"
-            >
-              @for (k of weightKeys; track k) {
-                <label class="flex items-center justify-between gap-3">
-                  <span>{{ weightLabels[k] }}</span>
+                <label class="flex items-center gap-2"
+                  ><input
+                    id="sp-lang"
+                    type="checkbox"
+                    formControlName="nonEnglish"
+                  />
+                  Jobs needing a language other than English</label
+                >
+                <label class="flex items-center gap-2"
+                  ><input
+                    id="sp-hybrid"
+                    type="checkbox"
+                    formControlName="hybrid"
+                  />
+                  On-site or hybrid jobs</label
+                >
+                <label class="flex items-center gap-2"
+                  ><input
+                    id="sp-junior"
+                    type="checkbox"
+                    formControlName="junior"
+                  />
+                  Junior and mid-level jobs</label
+                >
+                <label class="flex items-center gap-2">
+                  Job posts older than
                   <input
-                    [id]="'sp-w-' + k"
+                    id="sp-days"
                     type="number"
-                    min="-50"
-                    max="50"
-                    step="1"
-                    [formControlName]="k"
-                    class="jb-input jb-input-inline w-24 text-right"
+                    min="7"
+                    max="120"
+                    formControlName="olderThanDays"
+                    class="jb-input jb-input-inline w-24"
+                  />
+                  days
+                </label>
+              </fieldset>
+
+              <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
+                <legend class="jb-section-title mb-2">Employment</legend>
+                <label class="flex items-center gap-2"
+                  ><input
+                    id="sp-ft"
+                    type="checkbox"
+                    formControlName="fullTime"
+                  />
+                  Full-time</label
+                >
+                <label class="flex items-center gap-2"
+                  ><input
+                    id="sp-ct"
+                    type="checkbox"
+                    formControlName="contract"
+                  />
+                  Contract</label
+                >
+                <label class="flex items-center gap-2"
+                  ><input
+                    id="sp-fl"
+                    type="checkbox"
+                    formControlName="freelance"
+                  />
+                  Freelance</label
+                >
+                <label class="flex items-center gap-2"
+                  ><input
+                    id="sp-pt"
+                    type="checkbox"
+                    formControlName="partTime"
+                  />
+                  Part-time</label
+                >
+                <div class="flex flex-wrap items-center gap-2">
+                  <label for="sp-min-pay">Minimum pay</label>
+                  <input
+                    id="sp-min-pay"
+                    type="number"
+                    min="0"
+                    step="1000"
+                    inputmode="numeric"
+                    placeholder="None"
+                    formControlName="minSalary"
+                    class="jb-input jb-input-inline w-32"
+                  />
+                  <select
+                    aria-label="Minimum pay currency"
+                    formControlName="minSalaryCurrency"
+                    class="jb-input jb-input-inline"
+                  >
+                    @for (c of currencies; track c) {
+                      <option [value]="c">{{ c }}</option>
+                    }
+                  </select>
+                  a year
+                </div>
+                <p class="-mt-1 text-xs text-ink-muted">
+                  Job posts that state less are left out; hourly, daily and
+                  monthly rates are counted as yearly, other currencies at
+                  approximate rates. Job posts with no pay stated are kept.
+                </p>
+                <label class="flex items-center gap-2">
+                  Minimum seniority
+                  <select
+                    id="sp-seniority"
+                    formControlName="minSeniority"
+                    class="jb-input jb-input-inline"
+                  >
+                    <option value="mid">Mid</option>
+                    <option value="senior">Senior</option>
+                    <option value="lead">Lead</option>
+                  </select>
+                </label>
+              </fieldset>
+
+              <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
+                <legend class="jb-section-title mb-2">Emails</legend>
+                @if (!isMain()) {
+                  <p class="text-ink-muted">
+                    The daily email covers every search and follows the settings
+                    on your main search.
+                  </p>
+                } @else {
+                  <label class="flex items-center gap-2">
+                    <input
+                      id="sp-digest-on"
+                      type="checkbox"
+                      formControlName="digestEnabled"
+                    />
+                    Send me a daily email with new jobs
+                  </label>
+                  <label class="flex items-center gap-2">
+                    at
+                    <input
+                      id="sp-digest"
+                      type="time"
+                      formControlName="digestTime"
+                      class="jb-input jb-input-inline"
+                    />
+                    <span class="text-ink-muted"
+                      >({{ auth.profile()?.timezone || 'your timezone' }})</span
+                    >
+                  </label>
+                  <div
+                    class="flex flex-wrap items-center gap-1.5"
+                    role="group"
+                    aria-label="Days to send the daily email"
+                  >
+                    <span class="mr-1">on</span>
+                    @for (d of weekdays; track d.n) {
+                      <button
+                        type="button"
+                        class="jb-chip"
+                        [attr.aria-pressed]="digestDays().includes(d.n)"
+                        (click)="toggleDay(d.n)"
+                      >
+                        {{ d.label }}
+                      </button>
+                    }
+                  </div>
+                  <label class="flex items-center gap-2">
+                    Only jobs with a match score of at least
+                    <input
+                      id="sp-digest-min"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="5"
+                      formControlName="digestMinScore"
+                      class="jb-input jb-input-inline w-24"
+                    />
+                  </label>
+                  <p class="text-ink-muted">
+                    Every job is still added to your list; this only changes the
+                    email.
+                  </p>
+                }
+                <label class="mt-2 flex flex-wrap items-center gap-2">
+                  Email me right away when a new job
+                  @if (repo.profiles().length > 1 || isNew()) {
+                    from this search
+                  }
+                  has a match score of at least
+                  <input
+                    id="sp-alert-min"
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="5"
+                    formControlName="alertMinScore"
+                    class="jb-input jb-input-inline w-24"
+                    placeholder="Off"
                   />
                 </label>
-              }
+                @if (canAlert()) {
+                  <p class="text-ink-muted">
+                    Leave it empty for no instant emails. Checked every hour, as
+                    new jobs are added.
+                  </p>
+                } @else {
+                  <jb-upgrade-note feature="instant_alerts" />
+                }
+              </fieldset>
+
+              <fieldset
+                class="jb-sp-group flex flex-col gap-2.5 text-sm md:col-span-2"
+              >
+                <legend
+                  class="jb-section-title mb-2 flex w-full items-center justify-between gap-3"
+                >
+                  Match score
+                  <button
+                    type="button"
+                    class="jb-btn jb-btn-ghost jb-btn-sm"
+                    (click)="resetWeights()"
+                  >
+                    Reset to defaults
+                  </button>
+                </legend>
+                <p class="text-ink-muted">
+                  How many points each thing adds to a job's match score.
+                  Negative numbers take points away.
+                </p>
+                <div
+                  class="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2"
+                  formGroupName="weights"
+                >
+                  @for (k of weightKeys; track k) {
+                    <label class="flex items-center justify-between gap-3">
+                      <span>{{ weightLabels[k] }}</span>
+                      <input
+                        [id]="'sp-w-' + k"
+                        type="number"
+                        min="-50"
+                        max="50"
+                        step="1"
+                        [formControlName]="k"
+                        class="jb-input jb-input-inline w-24 text-right"
+                      />
+                    </label>
+                  }
+                </div>
+              </fieldset>
             </div>
-          </fieldset>
+          }
 
           <div
             class="flex items-center gap-3 border-t border-line pt-5 md:col-span-2"
@@ -837,6 +892,8 @@ export class SearchProfile {
   readonly canAlert = computed(() => this.plan.can('instant_alerts'));
 
   readonly saving = signal(false);
+  /** The second half of the form: what to leave out, pay, emails, match score. */
+  readonly moreOpen = signal(false);
   /** The target roles in order, kept in step with the form control. */
   readonly roleList = signal<string[]>([]);
   readonly suggesting = signal(false);
