@@ -91,3 +91,27 @@ Deno.test('parseExtraction keeps the four employment types', () => {
   assertEquals(parseExtraction('{"type":"part_time"}')?.type, 'part_time');
   assertEquals(parseExtraction('{"type":"weird"}')?.type, 'full_time');
 });
+
+Deno.test(
+  'heuristicExtract reads a labelled employer and a currency-code salary from pasted text',
+  () => {
+    const r = heuristicExtract(
+      'https://example.com/careers/telehealth-nurse',
+      '<title></title>Remote Telehealth Registered Nurse\nCompany: Example Health Line\nLocation: Remote, Canada\nPay: CAD 80,000 to 95,000 a year.',
+    );
+    assertEquals(r.title, 'Remote Telehealth Registered Nurse');
+    assertEquals(r.company, 'Example Health Line');
+    assertEquals(r.salary, 'CAD 80,000 to 95,000 a year');
+  },
+);
+
+Deno.test(
+  'heuristicExtract does not take "company" inside a sentence for a label',
+  () => {
+    const r = heuristicExtract(
+      'https://www.acme.example/jobs/1',
+      '<title>Frontend Developer</title>Our company: values people. Join a company that cares.',
+    );
+    assertEquals(r.company, 'Acme');
+  },
+);

@@ -59,6 +59,14 @@ export function heuristicExtract(url: string, html: string): ExtractedRole {
     title = m[1].trim();
     company = m[2].trim();
   }
+  // Pasted posts often name the employer on a line of its own
+  // ("Company: Example Health Line"); that beats guessing from the link.
+  if (!company) {
+    const labelled = text.match(
+      /^[ \t]*(?:company|employer|organi[sz]ation|hiring company)[ \t]*[:：][ \t]*(\S.{0,78}?)[ \t]*$/im,
+    );
+    if (labelled) company = labelled[1].trim();
+  }
   if (!company) {
     try {
       company = new URL(url).hostname.replace(/^www\./, '').split('.')[0];
@@ -78,9 +86,14 @@ export function heuristicExtract(url: string, html: string): ExtractedRole {
         : /\bpart[- ]time\b/.test(lower)
           ? 'part_time'
           : 'full_time';
-  const salaryMatch = text.match(
-    /(?:[$€£]\s?\d[\d,.]*\s?[kK]?(?:\s?[-–]\s?[$€£]?\s?\d[\d,.]*\s?[kK]?)?(?:\s?(?:per|\/)\s?(?:year|yr|hour|hr|h))?)/,
-  );
+  const salaryMatch =
+    text.match(
+      /(?:[$€£]\s?\d[\d,.]*\s?[kK]?(?:\s?[-–]\s?[$€£]?\s?\d[\d,.]*\s?[kK]?)?(?:\s?(?:per|\/)\s?(?:year|yr|hour|hr|h))?)/,
+    ) ??
+    // "CAD 80,000 to 95,000 a year": a currency code where others put a sign.
+    text.match(
+      /\b(?:USD|CAD|AUD|NZD|SGD|EUR|GBP|CHF|INR|BDT|AED)\s?\d[\d,.]*\s?[kK]?(?:\s?(?:[-–]|to)\s?\d[\d,.]*\s?[kK]?)?(?:\s?(?:per|a|\/)\s?(?:year|yr|month|hour|hr|h)\b)?/,
+    );
   const location = /\bremote\b/i.test(text) ? 'Remote' : '';
   return {
     company,
