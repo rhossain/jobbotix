@@ -176,7 +176,7 @@ export function suggestTemplate(input: {
   }
 
   if (photo === 'customary' && !hasPhoto)
-    note = `A photo is customary in ${market}. Add one on the Master resume page to use the Photo template.`;
+    note = `A photo is customary in ${market}. Add one on the My resume page to use the Photo template.`;
   else if (photo === 'discouraged')
     note = `Employers in ${market} ask for resumes without a photo, so leave the Photo template for other jobs.`;
   else if (!countries.length)

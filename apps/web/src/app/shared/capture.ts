@@ -13,7 +13,7 @@ export interface Captured {
 }
 
 /**
- * What a share sheet hands over, as /roles/new?url=&text=&title=. Android
+ * What a share sheet hands over, as /jobs/new?url=&text=&title=. Android
  * often puts the link inside `text` ("Senior Angular Engineer https://…"),
  * so the first link in the text stands in for a missing `url`.
  */
@@ -74,6 +74,6 @@ export function acceptPosting(
  */
 export function bookmarklet(appOrigin: string): string {
   const target = JSON.stringify(appOrigin);
-  const src = `(()=>{const o=${target};const d={type:'jobbotix-posting',url:location.href,title:document.title,text:(String(getSelection())||document.body.innerText||'').slice(0,50000)};const w=window.open(o+'/roles/new?via=bookmarklet&url='+encodeURIComponent(location.href),'jobbotix');if(!w){location.href=o+'/roles/new?url='+encodeURIComponent(location.href);return}let n=0;const t=setInterval(()=>{try{w.postMessage(d,o)}catch(e){}if(++n>25)clearInterval(t)},400)})()`;
+  const src = `(()=>{const o=${target};const d={type:'jobbotix-posting',url:location.href,title:document.title,text:(String(getSelection())||document.body.innerText||'').slice(0,50000)};const w=window.open(o+'/jobs/new?via=bookmarklet&url='+encodeURIComponent(location.href),'jobbotix');if(!w){location.href=o+'/jobs/new?url='+encodeURIComponent(location.href);return}let n=0;const t=setInterval(()=>{try{w.postMessage(d,o)}catch(e){}if(++n>25)clearInterval(t)},400)})()`;
   return `javascript:${encodeURIComponent(src)}`;
 }

@@ -99,15 +99,15 @@ const DEFAULT_FILTERS: Filters = {
     <jb-pull-refresh [action]="refresh" />
     <jb-page-header title="Roles">
       <p lead class="mt-2 text-ink-muted">
-        {{ rows().length }} of {{ repo.roles().length }} roles<span
+        {{ rows().length }} of {{ repo.roles().length }} jobs<span
           class="hidden [@media(hover:hover)]:inline"
           >. Use <kbd class="jb-kbd">↑</kbd> <kbd class="jb-kbd">↓</kbd> to
           move, <kbd class="jb-kbd">Enter</kbd> to open.</span
         >
       </p>
       <div actions class="hidden gap-2 md:flex">
-        <a jbButton="primary" routerLink="/roles/new"
-          ><jb-icon name="plus" /> Add role</a
+        <a jbButton="primary" routerLink="/jobs/new"
+          ><jb-icon name="plus" /> Add job</a
         >
       </div>
     </jb-page-header>
@@ -120,7 +120,7 @@ const DEFAULT_FILTERS: Filters = {
     >
       <div class="flex gap-2">
         <label class="relative min-w-0 flex-1">
-          <span class="sr-only">Search roles</span>
+          <span class="sr-only">Search jobs</span>
           <jb-icon
             name="search"
             [size]="18"
@@ -130,7 +130,7 @@ const DEFAULT_FILTERS: Filters = {
             id="roles-q"
             type="search"
             class="jb-input pl-10"
-            placeholder="Search company, title, stack"
+            placeholder="Search company, title, skill"
             [value]="filters().q"
             (input)="set('q', $any($event.target).value)"
           />
@@ -229,12 +229,11 @@ const DEFAULT_FILTERS: Filters = {
       @if (!repo.loaded()) {
         <jb-skeleton shape="row" [count]="6" />
       } @else if (repo.roles().length === 0) {
-        <jb-empty-state title="No roles yet" icon="inbox">
-          The daily search adds roles here. Until its first run, add a posting
-          yourself.
+        <jb-empty-state title="No jobs yet" icon="inbox">
+          The daily search adds jobs here. Until it has run, add a job yourself.
           <div actions>
-            <a jbButton="primary" routerLink="/roles/new"
-              ><jb-icon name="plus" /> Add a role</a
+            <a jbButton="primary" routerLink="/jobs/new"
+              ><jb-icon name="plus" /> Add a job</a
             >
           </div>
         </jb-empty-state>
@@ -243,7 +242,7 @@ const DEFAULT_FILTERS: Filters = {
           title="Nothing matches these filters"
           icon="list-filter"
         >
-          {{ repo.roles().length }} roles are hidden by the current filters.
+          {{ repo.roles().length }} jobs are hidden by the current filters.
           <div actions>
             <button type="button" jbButton (click)="reset()">
               Clear filters
@@ -279,7 +278,7 @@ const DEFAULT_FILTERS: Filters = {
             <div
               class="jb-card sticky top-2 z-20 mb-3 flex flex-wrap items-center gap-2 px-4 py-3 text-sm shadow-[var(--elev-overlay)]"
               role="toolbar"
-              aria-label="Selected roles"
+              aria-label="Selected jobs"
             >
               <span class="mr-1 font-medium text-ink"
                 >{{ selected().size }} selected</span
@@ -302,7 +301,7 @@ const DEFAULT_FILTERS: Filters = {
               </button>
               <select
                 class="jb-input w-auto"
-                aria-label="Move the selected roles to"
+                aria-label="Move the selected jobs to"
                 (change)="moveSelectedTo($any($event.target))"
               >
                 <option value="">Move to…</option>
@@ -331,14 +330,14 @@ const DEFAULT_FILTERS: Filters = {
                     <input
                       type="checkbox"
                       class="size-4 align-middle"
-                      aria-label="Select every role shown"
+                      aria-label="Select every job shown"
                       [checked]="allSelected()"
                       [indeterminate]="selected().size > 0 && !allSelected()"
                       (change)="selectAll($any($event.target).checked)"
                     />
                   </th>
                   <th class="w-16 py-3 pr-2 pl-3 font-medium">Match</th>
-                  <th class="py-3 pr-4 font-medium">Role</th>
+                  <th class="py-3 pr-4 font-medium">Job</th>
                   <th class="hidden py-3 pr-4 font-medium lg:table-cell">
                     Type
                   </th>
@@ -378,7 +377,7 @@ const DEFAULT_FILTERS: Filters = {
                     </td>
                     <td class="min-w-0 py-3 pr-4 wrap-anywhere">
                       <a
-                        [routerLink]="['/roles', r.id]"
+                        [routerLink]="['/jobs', r.id]"
                         class="font-semibold text-ink no-underline hover:underline"
                         (click)="$event.stopPropagation()"
                         >{{ r.title }}</a
@@ -432,7 +431,7 @@ const DEFAULT_FILTERS: Filters = {
       }
     </div>
 
-    <jb-sheet [(open)]="filtersOpen" title="Filter roles">
+    <jb-sheet [(open)]="filtersOpen" title="Filter jobs">
       <div class="flex flex-col gap-4">
         <ng-container
           *ngTemplateOutlet="controls; context: { stacked: true }"
@@ -445,7 +444,7 @@ const DEFAULT_FILTERS: Filters = {
           jbButton="primary"
           (click)="filtersOpen.set(false)"
         >
-          Show {{ rows().length }} roles
+          Show {{ rows().length }} jobs
         </button>
       </div>
     </jb-sheet>
@@ -574,7 +573,7 @@ const DEFAULT_FILTERS: Filters = {
           (change)="set('source', $any($event.target).value)"
         >
           <option value="" [selected]="filters().source === ''">
-            All sources
+            All job sites
           </option>
           @for (src of sources(); track src) {
             <option [value]="src" [selected]="src === filters().source">
@@ -827,7 +826,7 @@ export class Roles {
   }
 
   open(r: RoleRow) {
-    void this.router.navigate(['/roles', r.id]);
+    void this.router.navigate(['/jobs', r.id]);
   }
 
   onKey(e: KeyboardEvent) {
@@ -912,7 +911,7 @@ export class Roles {
   async removeView(v: SavedViewRow) {
     const ok = await this.confirm.ask({
       title: `Delete the view “${v.name}”?`,
-      body: 'Only the saved filters go; no roles are touched.',
+      body: 'Only the saved filters go; no jobs are touched.',
       action: 'Delete view',
       danger: true,
     });

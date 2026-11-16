@@ -175,7 +175,7 @@ export function previewImport(text: string): ImportPreview {
       return;
     }
     if (!/^https?:\/\/\S+$/i.test(url)) {
-      skipped.push({ row, reason: 'No link to the posting' });
+      skipped.push({ row, reason: 'No link to the job post' });
       return;
     }
     const key = url.toLowerCase();

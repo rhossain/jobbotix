@@ -37,7 +37,7 @@ export function untilDay(iso: string, locale = 'en-GB'): string {
       >
         <h2 class="jb-section-title">Support access</h2>
         <p class="text-sm text-ink-muted">
-          The person who runs Jobbotix cannot see your roles or your resume. If
+          The person who runs Jobbotix cannot see your jobs or your resume. If
           you ask for help with a problem, you can open them for
           {{ days }} days. Your notes, letters and saved keys stay closed either
           way, and every look is recorded.

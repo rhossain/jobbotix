@@ -260,7 +260,7 @@ export class SupabaseRolesRepo extends RolesRepo {
     });
     if (error) throw await functionError(error);
     this.notes.report(data);
-    if (!data?.id) throw new Error(data?.error ?? 'Could not add the role');
+    if (!data?.id) throw new Error(data?.error ?? 'Could not add the job');
     await this.load();
     return { id: data.id, existed: data.existed };
   }
@@ -273,7 +273,7 @@ export class SupabaseRolesRepo extends RolesRepo {
       error?: string;
     }>('score-role', { body: { roleId: id } });
     if (error) throw await functionError(error);
-    if (!data?.role) throw new Error(data?.error ?? 'Could not score the role');
+    if (!data?.role) throw new Error(data?.error ?? 'Could not score the job');
     this.replace(data.role);
     return {
       score: data.role.score,
@@ -362,7 +362,7 @@ export class SupabaseSearchProfileRepo extends SearchProfileRepo {
       // The app is ahead of the server: one profile an account is still its rule.
       if (error.code === '23505')
         throw new Error(
-          'Several search profiles are not switched on yet on the server. Try again after the next update.',
+          'More than one search is not available yet. Try again after the next update.',
         );
       throw error;
     }
@@ -685,7 +685,7 @@ export class SupabaseVariantsRepo extends VariantsRepo {
     if (error) throw await functionError(error);
     this.notes.report(data);
     if (!data?.variant)
-      throw new Error(data?.error ?? 'Could not generate the variant');
+      throw new Error(data?.error ?? 'Could not create the tailored resume');
     return { ...data.variant, method: data.method, model: data.model };
   }
 
@@ -1485,7 +1485,7 @@ export class SupabaseInterviewsRepo extends InterviewsRepo {
     }
     const user = (await this.supabase.auth.getUser()).data.user;
     if (!user) throw new Error('Sign in first');
-    if (!input.role_id) throw new Error('Pick a role first');
+    if (!input.role_id) throw new Error('Pick a job first');
     const { data, error } = await this.supabase
       .from('interviews')
       .insert({ ...input, role_id: input.role_id, user_id: user.id })

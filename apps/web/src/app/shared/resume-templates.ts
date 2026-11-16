@@ -47,7 +47,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
   {
     id: 'classic',
     name: 'Classic',
-    blurb: 'Clean and neutral. Works for any role.',
+    blurb: 'Clean and neutral. Works for any job.',
     pro: false,
     photo: false,
     font: 'sans',
@@ -64,7 +64,7 @@ export const RESUME_TEMPLATES: ResumeTemplate[] = [
   {
     id: 'modern',
     name: 'Modern',
-    blurb: 'Blue headings and a strong name. Tech and product roles.',
+    blurb: 'Blue headings and a strong name. Tech and product jobs.',
     pro: true,
     photo: false,
     font: 'sans',

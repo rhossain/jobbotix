@@ -64,7 +64,7 @@ import { Button, EmptyState, FieldControl, Icon } from '../../ui';
               {{
                 sheet().method === 'ai'
                   ? 'by ' + (sheet().model || 'the model') + ' on your key'
-                  : 'from your resume and the posting (no model call)'
+                  : 'from your resume and the job post (no AI used)'
               }}
             </p>
           </div>

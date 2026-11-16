@@ -124,10 +124,10 @@ import { ThemeSwitch } from './theme-switch';
         >
           <p class="flex items-center gap-2 font-medium text-ink">
             <jb-icon name="clock" [size]="16" class="text-brand" />
-            Last run {{ r.at | relativeDay }}
+            Last search {{ r.at | relativeDay }}
           </p>
           <p class="mt-1 text-xs text-ink-muted">
-            {{ r.added }} added from {{ r.searched }} listings{{
+            {{ r.added }} added from {{ r.searched }} job posts{{
               r.runs > 1 ? ' in 24 hours' : ''
             }}
           </p>

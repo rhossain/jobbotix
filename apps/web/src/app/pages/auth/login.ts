@@ -21,7 +21,7 @@ import { AuthShell } from './auth-shell';
   template: `
     <jb-auth-shell
       heading="Sign in"
-      lead="Your roles, letters and notes are waiting."
+      lead="Your jobs, letters and notes are waiting."
     >
       <form
         [formGroup]="form"

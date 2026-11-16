@@ -54,7 +54,7 @@ const COLUMNS: RoleStatus[] = [
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <jb-page-header title="Board">
+    <jb-page-header title="Applications">
       <p lead class="mt-2 max-w-[var(--reading-max)] text-ink-muted">
         <span class="hidden md:inline"
           >Drag a card to change its status, or use the status on the
@@ -63,12 +63,12 @@ const COLUMNS: RoleStatus[] = [
         <span class="md:hidden"
           >Pick a column, then change a card's status from the card.</span
         >
-        Skipped roles stay out of the way under
+        Skipped jobs stay out of the way under
         <a
-          routerLink="/roles"
+          routerLink="/jobs"
           [queryParams]="{ status: 'skipped' }"
           class="text-brand-ink underline"
-          >Roles</a
+          >Jobs</a
         >.
       </p>
       <div actions><jb-share-button kind="board" /></div>
@@ -78,10 +78,10 @@ const COLUMNS: RoleStatus[] = [
       <jb-empty-state
         class="mt-8"
         data-tour="board"
-        title="The board fills itself"
+        title="This page fills itself"
         icon="square-kanban"
       >
-        Each daily run adds new roles to the first column.
+        Each daily search adds new jobs to the first column.
       </jb-empty-state>
     } @else {
       <!-- Phones: one column at a time -->
@@ -89,7 +89,7 @@ const COLUMNS: RoleStatus[] = [
         <div
           class="-mx-[var(--gutter)] flex gap-2 overflow-x-auto px-[var(--gutter)] pb-1"
           role="tablist"
-          aria-label="Board columns"
+          aria-label="Application stages"
         >
           @for (col of columns; track col) {
             <button
@@ -192,7 +192,7 @@ const COLUMNS: RoleStatus[] = [
           <jb-match-ring [score]="r.score" size="xs" />
           <div class="min-w-0 flex-1">
             <a
-              [routerLink]="['/roles', r.id]"
+              [routerLink]="['/jobs', r.id]"
               class="block leading-snug font-semibold text-ink no-underline hover:underline"
               >{{ r.title }}</a
             >

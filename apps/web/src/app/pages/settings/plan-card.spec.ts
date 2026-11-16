@@ -23,7 +23,7 @@ describe('planCardView', () => {
       'Interview prep',
       'Company research',
       'Unlimited resume reviews',
-      'Several search profiles',
+      'More than one search',
       'Instant alerts',
       'Outcome insights',
       'Extra resume templates',

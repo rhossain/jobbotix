@@ -194,7 +194,7 @@ export const FEATURE_LABELS: Record<Feature, string> = {
   company_research: 'Company research',
   interview_prep: 'Interview prep',
   resume_review: 'Unlimited resume reviews',
-  multiple_profiles: 'Several search profiles',
+  multiple_profiles: 'More than one search',
   instant_alerts: 'Instant alerts',
   outcome_insights: 'Outcome insights',
   extra_templates: 'Extra resume templates',

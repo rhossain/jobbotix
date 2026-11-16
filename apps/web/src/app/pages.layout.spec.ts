@@ -31,9 +31,9 @@ interface PageCase {
 
 const SIGNED_IN: PageCase[] = [
   { name: 'Today', url: '/today' },
-  { name: 'Roles', url: '/roles' },
-  { name: 'Add a role', url: '/roles/new' },
-  { name: 'Role detail', url: '/roles/r-northwind' },
+  { name: 'Roles', url: '/jobs' },
+  { name: 'Add a role', url: '/jobs/new' },
+  { name: 'Role detail', url: '/jobs/r-northwind' },
   { name: 'Board', url: '/board' },
   { name: 'Insights', url: '/insights' },
   { name: 'AI usage', url: '/usage' },

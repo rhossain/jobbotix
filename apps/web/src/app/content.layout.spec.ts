@@ -110,7 +110,7 @@ describe('long, messy posting data', () => {
     });
   });
 
-  describe.each(['/today', '/roles', '/board', '/insights'])('%s', (url) => {
+  describe.each(['/today', '/jobs', '/board', '/insights'])('%s', (url) => {
     it.each([...PHONES, 'tablet'] as ViewportName[])(
       'fits at %s width',
       async (vp) => {
@@ -140,7 +140,7 @@ describe('long, messy posting data', () => {
   );
 
   it.each(PHONES)('fits every role tab at %s width', async (vp) => {
-    const { settle } = await renderApp('/roles/r-northwind', vp);
+    const { settle } = await renderApp('/jobs/r-northwind', vp);
     const tabs = [
       ...document.querySelectorAll<HTMLButtonElement>('[id^="role-tab-"]'),
     ];
@@ -164,7 +164,7 @@ describe('every tab of a role (sample data)', () => {
     'small laptop',
     'desktop',
   ] as ViewportName[])('fits at %s width', async (vp) => {
-    const { settle } = await renderApp('/roles/r-northwind', vp);
+    const { settle } = await renderApp('/jobs/r-northwind', vp);
     const tabs = [
       ...document.querySelectorAll<HTMLButtonElement>('[id^="role-tab-"]'),
     ];
@@ -185,7 +185,7 @@ describe('a brand-new account with no roles yet', () => {
     });
   });
 
-  describe.each(['/today', '/roles', '/board', '/insights'])('%s', (url) => {
+  describe.each(['/today', '/jobs', '/board', '/insights'])('%s', (url) => {
     it.each(PHONES)('fits at %s width', async (vp) => {
       await renderApp(url, vp);
       expectFits(`${url} (empty) at ${vp}`);

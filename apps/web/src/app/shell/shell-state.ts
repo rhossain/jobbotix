@@ -14,23 +14,23 @@ export interface NavItem {
 /** The four places used every day: bottom tab bar on phones, top of the sidebar. */
 export const PRIMARY_NAV: NavItem[] = [
   { label: 'Today', link: '/today', icon: 'sunrise', keys: 'g t' },
-  { label: 'Roles', link: '/roles', icon: 'list', keys: 'g r' },
-  { label: 'Board', link: '/board', icon: 'square-kanban', keys: 'g b' },
+  { label: 'Jobs', link: '/jobs', icon: 'list', keys: 'g r' },
+  { label: 'Applications', link: '/board', icon: 'square-kanban', keys: 'g b' },
   { label: 'Resume', link: '/resume', icon: 'file-text', keys: 'g e' },
 ];
 
 /** Set-up and review pages: under "More" on phones. */
 export const SECONDARY_NAV: NavItem[] = [
-  { label: 'People', link: '/people', icon: 'users', keys: 'g p' },
+  { label: 'Contacts', link: '/people', icon: 'users', keys: 'g p' },
   {
-    label: 'Search profile',
+    label: 'Job preferences',
     link: '/search',
     icon: 'sliders-horizontal',
     keys: 'g s',
   },
-  { label: 'Insights', link: '/insights', icon: 'chart-column', keys: 'g i' },
-  { label: 'Sources', link: '/sources', icon: 'compass', keys: 'g o' },
-  { label: 'Usage', link: '/usage', icon: 'gauge', keys: 'g u' },
+  { label: 'Progress', link: '/insights', icon: 'chart-column', keys: 'g i' },
+  { label: 'Job sites', link: '/sources', icon: 'compass', keys: 'g o' },
+  { label: 'AI usage', link: '/usage', icon: 'gauge', keys: 'g u' },
   { label: 'Admin', link: '/admin', icon: 'shield', adminOnly: true },
   { label: 'Settings', link: '/settings', icon: 'settings' },
 ];

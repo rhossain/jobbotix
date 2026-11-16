@@ -164,7 +164,7 @@ interface Section {
           </div>
         } @else {
           <p class="text-sm text-ink-muted">
-            The posting says little about the company beyond its name.
+            The job post says little about the company beyond its name.
           </p>
         }
 
@@ -283,7 +283,7 @@ export class CompanyPanel {
     const r = this.research();
     if (r.method !== 'ai')
       return r.sources.some((x) => x.title !== 'The posting')
-        ? 'from the posting and the company site.'
+        ? 'from the job post and the company site.'
         : 'from the posting.';
     const by = r.model || 'the model';
     return r.webSearch

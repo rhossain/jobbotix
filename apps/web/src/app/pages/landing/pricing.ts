@@ -27,11 +27,11 @@ interface CompareRow {
 /** Free against Pro, limited to what exists in the app today. */
 export const COMPARE: CompareRow[] = [
   {
-    what: 'Job sourcing, keyword scoring, tracker, board and daily digest',
+    what: 'Daily job search, match scores, application tracking and a daily email',
     free: true,
     pro: true,
   },
-  { what: 'Master resume with PDF export', free: true, pro: true },
+  { what: 'Your resume with PDF export', free: true, pro: true },
   { what: 'Interview tracker and contacts', free: true, pro: true },
   {
     what: 'AI scoring, cover letters, tailored resumes and screening answers on your own key (Gemini and Groq have free tiers)',
@@ -43,7 +43,7 @@ export const COMPARE: CompareRow[] = [
     free: `${PRICING.trialCredits} trial credits, once`,
     pro: `${PRICING.pro.monthlyCredits} credits every month`,
   },
-  { what: 'Interview prep sheet for a role', free: false, pro: true },
+  { what: 'Interview prep sheet for a job', free: false, pro: true },
   { what: 'Company research with web search', free: false, pro: true },
   {
     what: 'AI review of your resume',
@@ -54,19 +54,19 @@ export const COMPARE: CompareRow[] = [
     pro: 'As often as you like',
   },
   {
-    what: 'Search profiles, each matched every hour',
+    what: 'Searches, each checked every hour',
     free: `${PRICING.limits.free.searchProfiles}`,
     pro: `Up to ${PRICING.limits.pro.searchProfiles}`,
   },
   {
-    what: 'Email about new roles',
-    free: 'Daily digest',
-    pro: 'Daily digest, and at once when a role scores high',
+    what: 'Email about new jobs',
+    free: 'Daily email',
+    pro: 'Daily email, and at once when a job is a strong match',
   },
   {
-    what: 'Insights',
+    what: 'Progress',
     free: 'Weekly counts, funnel and timing',
-    pro: 'Plus what is getting replies: by source, score, timing and cover letter',
+    pro: 'Plus what is getting replies: by job site, match score, timing and cover letter',
   },
   {
     what: 'Resume templates, all one column and readable by ATS',
@@ -105,7 +105,7 @@ export const COMPARE: CompareRow[] = [
       </h1>
       <p class="mt-4 max-w-2xl text-lg text-ink-muted">
         The tracker, the job search and the scoring are free and stay free. Pro
-        adds interview prep, company research, several search profiles, instant
+        adds interview prep, company research, more than one search, instant
         alerts and outcome insights, with AI credits so none of it needs a key
         of your own.
       </p>
@@ -238,8 +238,8 @@ export const COMPARE: CompareRow[] = [
         <h2 class="text-xl font-semibold">What a credit buys</h2>
         <p class="mt-2 max-w-2xl text-sm text-ink-muted">
           A credit pays for AI work on Jobbotix's own AI account. Work done on
-          your own key costs no credits, and neither does scoring postings or
-          reading a posting you add.
+          your own key costs no credits, and neither does scoring job posts or
+          reading a job post you add.
         </p>
         <div class="mt-4 overflow-x-auto">
           <table class="w-full text-sm">
@@ -320,19 +320,19 @@ export class Pricing {
   protected readonly priced = CREDIT_PRICES.filter((p) => p.credits > 0);
 
   protected readonly freeLines = [
-    'Remote job postings found for you every few hours',
-    'Every posting scored against your search profile',
-    'Tracker, board, interviews, contacts and the daily digest',
-    'Master resume with PDF export',
+    'Remote jobs found for you every few hours',
+    'A match score for every job, from your job preferences',
+    'Application tracking, interviews, contacts and the daily email',
+    'Your resume with PDF export',
     'AI on your own key for scoring, letters, tailored resumes and answers; Gemini and Groq have free tiers',
-    `${PRICING.limits.free.searchProfiles === 1 ? 'One search profile' : `${PRICING.limits.free.searchProfiles} search profiles`} and ${PRICING.limits.free.resumeReviews === 1 ? 'one AI review' : `${PRICING.limits.free.resumeReviews} AI reviews`} of your resume`,
+    `${PRICING.limits.free.searchProfiles === 1 ? 'One search' : `${PRICING.limits.free.searchProfiles} searches`} and ${PRICING.limits.free.resumeReviews === 1 ? 'one AI review' : `${PRICING.limits.free.resumeReviews} AI reviews`} of your resume`,
     `${PRICING.trialCredits} trial credits to try AI without a key${PRO_ON_SALE ? '' : ', when Pro opens'}`,
   ];
   protected readonly proLines = [
     'Everything in Free',
     `${PRICING.pro.monthlyCredits} AI credits every month, no key needed`,
     'Interview prep sheets and company research with web search',
-    `Up to ${PRICING.limits.pro.searchProfiles} search profiles, and an email at once when a role scores high`,
+    `Up to ${PRICING.limits.pro.searchProfiles} searches, and an email at once when a job is a strong match`,
     'Outcome insights: what is getting replies',
     'AI resume reviews as often as you like, every resume template and Word export',
     `Top up when you need more: ${PRICING.topUp.credits} credits for ${usd(PRICING.topUp.usd)}`,
@@ -346,7 +346,7 @@ export class Pricing {
     },
     {
       q: 'I already have an account. Do I lose anything?',
-      a: `No. Accounts opened before ${PRICING.earlyBefore} keep interview prep, AI resume reviews and instant alerts on the Free plan. Several search profiles, outcome insights and Word export are new, and part of Pro for everyone.`,
+      a: `No. Accounts opened before ${PRICING.earlyBefore} keep interview prep, AI resume reviews and instant alerts on the Free plan. More than one search, outcome insights and Word export are new, and part of Pro for everyone.`,
     },
     {
       q: 'What happens when my credits run out?',

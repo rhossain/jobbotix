@@ -90,7 +90,7 @@ type Tab =
       <article [class.print:hidden]="tab() === 'resume'">
         <jb-back-link
           class="mb-5 hidden md:inline-block"
-          link="/roles"
+          link="/jobs"
           label="Roles"
         />
 
@@ -144,7 +144,7 @@ type Tab =
               target="_blank"
               rel="noopener"
             >
-              Open posting <jb-icon name="arrow-up-right" [size]="17" />
+              Open job post <jb-icon name="arrow-up-right" [size]="17" />
             </a>
             <jb-share-button kind="role" [roleId]="r.id" />
             <jb-status-select [role]="r" />
@@ -159,7 +159,7 @@ type Tab =
           <div class="min-w-0">
             <jb-tabs
               prefix="role"
-              label="Role sections"
+              label="Job sections"
               [tabs]="tabs"
               [value]="tab()"
               (valueChange)="tab.set($any($event))"
@@ -181,8 +181,8 @@ type Tab =
                         <div class="min-w-0">
                           <h2 class="font-semibold text-ink">Not scored yet</h2>
                           <p class="mt-1 text-sm text-ink-muted">
-                            Score it against your search profile, the same way
-                            the morning run scores what it finds.
+                            Give it a match score from your job preferences, the
+                            same way the daily search does.
                           </p>
                         </div>
                         <button
@@ -193,7 +193,7 @@ type Tab =
                           [disabled]="scoring()"
                           (click)="rescore(r)"
                         >
-                          <jb-icon name="target" /> Score this role
+                          <jb-icon name="target" /> Score this job
                         </button>
                       </section>
                     }
@@ -222,8 +222,8 @@ type Tab =
                           <p class="mt-3 text-sm text-ink-muted">
                             {{
                               unscored()
-                                ? 'Score the role to see why it fits.'
-                                : 'The run gave no reasons for this one.'
+                                ? 'Score the job to see why it fits.'
+                                : 'No reasons were given for this one.'
                             }}
                           </p>
                         }
@@ -396,8 +396,8 @@ type Tab =
                           <pre class="jb-letter">{{ r.cover_letter }}</pre>
                         } @else {
                           <p class="text-sm text-ink-muted">
-                            No letter yet. Runs draft one for roles scoring 70
-                            or more; draft or write one here.
+                            No letter yet. One is drafted for jobs with a match
+                            score of 70 or more; draft or write one here.
                           </p>
                         }
                       </div>
@@ -454,8 +454,8 @@ type Tab =
                       @if (answers().length === 0) {
                         <p class="mt-3 text-sm text-ink-muted">
                           No screening questions yet. Paste the form's questions
-                          below as you meet them; runs add the ones they find in
-                          postings.
+                          below as you meet them; the ones found in job posts
+                          are added for you.
                         </p>
                       }
                       <dl class="mt-4 flex flex-col gap-5">
@@ -555,7 +555,7 @@ type Tab =
                   <div class="flex flex-col gap-5">
                     <section class="jb-card p-5">
                       <h2 class="font-semibold text-ink">
-                        Stack named in the posting
+                        Skills named in the job post
                       </h2>
                       @if (r.stack.length) {
                         <div class="mt-3 flex flex-wrap gap-1.5">
@@ -582,7 +582,7 @@ type Tab =
                     @if (r.posting_text) {
                       <section>
                         <h2 class="font-semibold text-ink">
-                          Posting text (snapshot)
+                          Text of the job post (saved copy)
                         </h2>
                         <pre
                           class="jb-letter mt-3 max-h-[32rem] max-w-none overflow-auto text-sm"
@@ -695,13 +695,13 @@ type Tab =
                 </dd>
                 @if (foundBy(); as name) {
                   <dt class="text-ink-muted">Found by</dt>
-                  <dd class="m-0 text-right text-ink">{{ name }} profile</dd>
+                  <dd class="m-0 text-right text-ink">{{ name }} search</dd>
                 }
               </dl>
               @if (health().badges.length) {
                 <ul
                   class="mt-4 flex flex-col gap-2 border-t border-line pt-3 text-sm"
-                  aria-label="Posting warnings"
+                  aria-label="Job post warnings"
                 >
                   @for (b of health().badges; track b.kind) {
                     <li class="flex gap-2">
@@ -743,11 +743,11 @@ type Tab =
         </div>
       </article>
     } @else if (repo.loaded()) {
-      <jb-empty-state title="Role not found" icon="briefcase">
+      <jb-empty-state title="Job not found" icon="briefcase">
         It may have been removed, or the link is from another account.
         <div actions>
-          <a jbButton routerLink="/roles"
-            ><jb-icon name="chevron-left" /> Back to Roles</a
+          <a jbButton routerLink="/jobs"
+            ><jb-icon name="chevron-left" /> Back to Jobs</a
           >
         </div>
       </jb-empty-state>
@@ -814,7 +814,7 @@ export class RoleDetail {
     { id: 'resume', label: 'Resume', icon: 'file-text' },
     { id: 'prep', label: 'Prep', icon: 'lightbulb' },
     { id: 'interviews', label: 'Interviews', icon: 'calendar' },
-    { id: 'posting', label: 'Posting', icon: 'briefcase' },
+    { id: 'posting', label: 'Job post', icon: 'briefcase' },
     { id: 'activity', label: 'Activity', icon: 'clock' },
   ];
   readonly tab = signal<Tab>('fit');
@@ -828,11 +828,11 @@ export class RoleDetail {
     const b = (this.role()?.score_breakdown ?? {}) as Record<string, unknown>;
     const by =
       b['method'] === 'ai'
-        ? 'Scored by the model on your key'
+        ? 'Scored by AI'
         : b['method'] === 'heuristic'
-          ? 'Scored by keyword rules'
-          : 'Scored by the morning run';
-    return b['added_by_hand'] ? `${by}, against your search profile` : by;
+          ? 'Scored by keywords'
+          : 'Scored by the daily search';
+    return b['added_by_hand'] ? `${by}, from your job preferences` : by;
   });
   readonly role = computed<RoleRow | undefined>(() =>
     this.repo.roles().find((r) => r.id === this.id()),
@@ -933,7 +933,7 @@ export class RoleDetail {
     if (wanted && this.tabs.some((t) => t.id === wanted))
       this.tab.set(wanted as Tab);
     inject(ShellState).usePageAction({
-      label: 'Open posting',
+      label: 'Open job post',
       icon: 'arrow-up-right',
       run: () => undefined,
       href: () => this.role()?.url ?? null,
@@ -999,7 +999,7 @@ export class RoleDetail {
       } else {
         await this.watchlist.follow(c.kind, c.slug, name);
         this.toast.success(
-          `Following ${name}. Its new roles are checked every hour.`,
+          `Following ${name}. Its new jobs are checked every hour.`,
         );
       }
       await this.refreshFollow(r);
@@ -1017,8 +1017,8 @@ export class RoleDetail {
         return `Moved from ${label(p['from'])} to ${label(p['to'])}`;
       case 'ingested':
         if (p['method'])
-          return `Found by Jobbotix${p['source'] ? ` on ${p['source']}` : ''}, scored ${p['score']}${p['method'] === 'ai' ? ' by the model' : ' on keywords'}`;
-        return `Found by the daily run${p['source'] ? ` on ${p['source']}` : ''}, scored ${p['score']}`;
+          return `Found by Jobbotix${p['source'] ? ` on ${p['source']}` : ''}, scored ${p['score']}${p['method'] === 'ai' ? ' by AI' : ' on keywords'}`;
+        return `Found by the daily search${p['source'] ? ` on ${p['source']}` : ''}, scored ${p['score']}`;
       case 'reminder':
         return `Reminder: in To apply for ${p['days']} days`;
       case 'generated':
@@ -1048,7 +1048,7 @@ export class RoleDetail {
       );
       if (res.aiError) this.toast.show(`Model step skipped: ${res.aiError}`);
     } catch (e) {
-      this.toast.show((e as Error).message || 'Could not score the role');
+      this.toast.show((e as Error).message || 'Could not score the job');
     } finally {
       this.scoring.set(false);
     }

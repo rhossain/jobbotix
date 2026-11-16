@@ -141,7 +141,7 @@ function download(name: string, type: string, body: string) {
                 <th class="py-2 pr-4">Plan</th>
                 <th class="py-2 pr-4">Credits</th>
                 <th class="py-2 pr-4">AI paid by</th>
-                <th class="py-2 pr-4">Roles</th>
+                <th class="py-2 pr-4">Jobs</th>
                 <th class="py-2 pr-4">AI calls, 30 days</th>
                 <th class="py-2 pr-4">Signed up</th>
                 <th class="py-2">Last active</th>

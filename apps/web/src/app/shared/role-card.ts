@@ -50,7 +50,7 @@ import { StatusSelect } from './status-select';
           class="text-base leading-snug font-semibold text-ink md:text-[1.0625rem]"
         >
           <a
-            [routerLink]="['/roles', role().id]"
+            [routerLink]="['/jobs', role().id]"
             class="no-underline after:absolute after:inset-0 after:rounded-card after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-offset-2 focus-visible:after:outline-[var(--line-focus)]"
             >{{ role().title }}</a
           >

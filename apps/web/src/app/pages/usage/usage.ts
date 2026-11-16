@@ -81,7 +81,7 @@ type Period = '7' | '30' | '90' | 'all';
         <p class="text-sm text-bad" role="alert">{{ error() }}</p>
       } @else if (!summary().total.calls) {
         <jb-empty-state title="No AI calls in this period" icon="gauge">
-          Scoring, letters, screening answers, interview prep and company
+          Match scores, letters, screening answers, interview prep and company
           research use a model once an AI provider is connected in Settings.
           Each call shows up here with its tokens and cost.
           <div actions>

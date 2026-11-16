@@ -51,8 +51,8 @@ const FIRST = 8;
   template: `
     <jb-back-link link="/today" label="Today" />
     <jb-page-header
-      title="Passed over"
-      lead="Postings the search looked at in the last 60 days and did not add, with the reason for each. Jobs of another kind are not kept."
+      title="Filtered out"
+      lead="Job posts the search saw in the last 60 days and did not add, with the reason for each. Jobs of a different kind from yours are not listed."
     />
 
     <div class="mt-6 flex flex-col gap-6 md:mt-8">
@@ -61,12 +61,12 @@ const FIRST = 8;
       } @else if (rows() === null) {
         <jb-skeleton shape="row" [count]="6" />
       } @else if (!rows()!.length) {
-        <jb-empty-state title="Nothing passed over yet" icon="inbox">
-          When the search rules a posting out, for its country, pay, level or a
-          low score, it is listed here with the reason.
+        <jb-empty-state title="Nothing filtered out yet" icon="inbox">
+          When the search leaves a job post out, for its country, pay, level or
+          a low score, it is listed here with the reason.
           <div actions>
             <a jbButton routerLink="/search"
-              ><jb-icon name="sliders-horizontal" /> Search profile</a
+              ><jb-icon name="sliders-horizontal" /> Job preferences</a
             >
           </div>
         </jb-empty-state>
@@ -116,7 +116,7 @@ const FIRST = 8;
                 >
                   <div class="min-w-0">
                     <p class="break-words font-medium text-ink">
-                      {{ r.title || 'Untitled posting' }}
+                      {{ r.title || 'Untitled job post' }}
                     </p>
                     <p class="break-words text-sm text-ink-muted">
                       {{ r.company || 'Unknown company' }} ·
@@ -142,7 +142,7 @@ const FIRST = 8;
                       <a
                         jbButton
                         size="sm"
-                        routerLink="/roles/new"
+                        routerLink="/jobs/new"
                         [queryParams]="{ url: r.url }"
                         [attr.aria-label]="
                           'Add to my roles: ' + r.title + ' at ' + r.company
@@ -172,7 +172,7 @@ const FIRST = 8;
           Too much ruled out? Countries, pay, level and contract types are set
           in your
           <a class="text-brand-ink underline" routerLink="/search"
-            >search profile</a
+            >job preferences</a
           >.
         </p>
       }

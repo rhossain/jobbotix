@@ -85,10 +85,10 @@ const OTHER = '__other';
     >
       <h2 class="jb-section-title">AI connections</h2>
       <p class="text-sm text-ink-muted">
-        Jobbotix scores every new role on keywords at no cost. Connect an AI
-        provider with your own key and it also re-scores the strongest matches
-        each run and drafts letters, answers and prep inside the app. Gemini and
-        Groq have free tiers that need no card.
+        Jobbotix gives every new job a match score at no cost. Connect an AI
+        provider with your own key and it also takes a closer look at the best
+        matches and writes letters, answers and interview prep for you. Gemini
+        and Groq have free tiers that need no card.
       </p>
 
       @if (repo.connections().length) {
@@ -179,7 +179,7 @@ const OTHER = '__other';
                     type="button"
                     jbButton="ghost"
                     size="sm"
-                    title="Runs four short jobs on this key: scoring, reading a posting, tailoring a resume and a cover letter"
+                    title="Tries four short tasks with this key: a match score, reading a job post, tailoring a resume and a cover letter"
                     [busy]="busy() === 'check:' + c.id"
                     [disabled]="!!busy()"
                     (click)="check(c)"
@@ -226,7 +226,7 @@ const OTHER = '__other';
               </div>
               @if (busy() === 'check:' + c.id) {
                 <p class="text-xs text-ink-muted" role="status">
-                  Scoring a sample posting, reading it, tailoring a sample
+                  Scoring a sample job post, reading it, tailoring a sample
                   resume and writing a letter. This takes up to a minute.
                 </p>
               }
@@ -271,9 +271,9 @@ const OTHER = '__other';
                       }
                     </ul>
                     <p class="text-xs text-ink-muted">
-                      Run on a made-up resume and posting; the calls count
-                      toward your usage. A job that fails here falls back to a
-                      local draft in the app.
+                      Uses a made-up resume and job post; the calls count toward
+                      your usage. A task that fails here falls back to a local
+                      draft in the app.
                     </p>
                   }
                 </div>
@@ -583,7 +583,7 @@ export class AiConnections {
     const ok = await this.confirm.ask({
       title: `Remove ${name}?`,
       body: last
-        ? 'The stored key is deleted. In-app generation falls back to local drafts until you connect a provider again. Your scheduled runs keep scoring on keywords.'
+        ? 'The stored key is deleted. In-app generation falls back to local drafts until you connect a provider again. Jobs still get a basic match score.'
         : 'The stored key is deleted. Your other connections keep working.',
       action: 'Remove',
       danger: true,

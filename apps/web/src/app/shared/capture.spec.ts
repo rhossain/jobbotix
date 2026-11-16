@@ -60,7 +60,7 @@ describe('bookmarklet', () => {
     expect(b.startsWith('javascript:')).toBe(true);
     const src = decodeURIComponent(b.slice('javascript:'.length));
     expect(src).toContain('"https://jobbotix.com"');
-    expect(src).toContain('/roles/new?via=bookmarklet&url=');
+    expect(src).toContain('/jobs/new?via=bookmarklet&url=');
     expect(() => new Function(src)).not.toThrow();
   });
 });

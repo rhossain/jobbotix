@@ -53,7 +53,7 @@ import {
   template: `
     <jb-page-header
       title="Settings"
-      lead="Your account, appearance, AI connections and the keys your scheduled runs use."
+      lead="Your account, how Jobbotix looks, your AI connections and your data."
     >
       <div actions>
         <button type="button" jbButton (click)="tour.start()">
@@ -82,7 +82,7 @@ import {
           <label class="flex flex-col gap-1 text-sm">
             <span
               >Timezone
-              <span class="text-ink-muted">(for the digest hour)</span></span
+              <span class="text-ink-muted">(for the daily email)</span></span
             >
             <input
               id="st-tz"
@@ -210,12 +210,12 @@ import {
 
       <!-- Ingest keys -->
       <section class="jb-card flex flex-col gap-3 p-5 md:p-6">
-        <h2 class="jb-section-title">Ingest keys</h2>
+        <h2 class="jb-section-title">Access keys</h2>
         <p class="text-sm text-ink-muted">
-          Each key lets one scheduled task post results under your account.
-          Create one from
+          Only needed if you set up your own automated search. Each key lets one
+          task add jobs to your account. Create one from
           <a routerLink="/search" class="text-brand-ink underline"
-            >Search profile</a
+            >Job preferences</a
           >; revoke it here if it leaks.
         </p>
         @if (repo.ingestKeys().length === 0) {
@@ -355,8 +355,8 @@ export class Settings {
 
   async revoke(id: string) {
     const ok = await this.confirm.ask({
-      title: 'Revoke this ingest key?',
-      body: 'Any scheduled task using it stops posting results until you give it a new key.',
+      title: 'Revoke this access key?',
+      body: 'Any task using it stops adding jobs until you give it a new key.',
       action: 'Revoke key',
       danger: true,
     });

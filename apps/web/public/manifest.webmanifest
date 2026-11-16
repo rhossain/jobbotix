@@ -31,7 +31,7 @@
     }
   ],
   "share_target": {
-    "action": "/roles/new",
+    "action": "/jobs/new",
     "method": "GET",
     "params": {
       "title": "title",

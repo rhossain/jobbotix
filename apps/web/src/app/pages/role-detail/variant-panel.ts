@@ -51,21 +51,21 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (!resumes.master()) {
-      <jb-empty-state title="No master resume yet" icon="file-text">
-        Tailored variants start from your master resume.
+      <jb-empty-state title="Add your resume first" icon="file-text">
+        A tailored resume starts from your own resume.
         <div actions>
           <a jbButton="primary" routerLink="/resume"
-            ><jb-icon name="pencil" /> Write your master resume</a
+            ><jb-icon name="pencil" /> Add my resume</a
           >
         </div>
       </jb-empty-state>
     } @else if (!variant()) {
       <jb-empty-state
-        title="No tailored resume for this role yet"
+        title="No tailored resume for this job yet"
         icon="sparkles"
       >
-        Jobbotix proposes changes to your master resume for this posting, and
-        you accept or reject each one.
+        Jobbotix suggests changes to your resume for this job, and you accept or
+        reject each one.
         <div actions class="flex flex-wrap items-center gap-3">
           <button
             type="button"
@@ -219,7 +219,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
             <h3 class="font-semibold text-ink">Keyword check</h3>
             <jb-bar-row
               class="mt-3"
-              label="Posting keywords present"
+              label="Keywords from the job post"
               [value]="rep.coverage"
               [max]="100"
               [display]="rep.coverage + '% of ' + rep.keywords.length"
@@ -245,7 +245,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
             </div>
             @if (rep.missing.length) {
               <p class="mt-3 text-xs text-ink-muted">
-                Struck-through terms are in the posting but not in this resume.
+                Crossed-out words are in the job post but not in this resume.
                 Add the ones that are true for you; never the others.
               </p>
             }
@@ -260,7 +260,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
             </h3>
             @if (changes().length === 0) {
               <p class="text-sm text-ink-muted">
-                Nothing to change: the master already fits this posting.
+                Nothing to change: your resume already fits this job.
               </p>
             }
             @for (c of changes(); track c.id) {
@@ -538,7 +538,7 @@ export class VariantPanel {
     try {
       await this.variants.saveDiff(v.id, this.diff(), this.applied());
       this.variant.set(await this.variants.approve(v.id));
-      this.toast.show('Variant approved');
+      this.toast.show('Tailored resume approved');
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not approve');
     } finally {

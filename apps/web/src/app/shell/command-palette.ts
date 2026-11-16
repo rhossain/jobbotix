@@ -53,7 +53,7 @@ interface Command {
           <input
             #input
             class="h-14 min-w-0 flex-1 border-0 bg-transparent text-base text-ink outline-none placeholder:text-ink-faint"
-            placeholder="Search roles, pages and actions"
+            placeholder="Search jobs, pages and actions"
             role="combobox"
             aria-autocomplete="list"
             aria-controls="jb-palette-list"
@@ -187,10 +187,10 @@ export class CommandPalette {
       {
         id: 'add-role',
         group: 'Actions',
-        label: 'Add a role from a posting',
+        label: 'Add a job from its link',
         icon: 'plus',
         keys: 'n',
-        run: go('/roles/new'),
+        run: go('/jobs/new'),
       },
       {
         id: 'theme',
@@ -237,7 +237,7 @@ export class CommandPalette {
         label: r.title,
         detail: r.company,
         icon: 'briefcase',
-        run: () => this.router.navigate(['/roles', r.id]),
+        run: () => this.router.navigate(['/jobs', r.id]),
       }));
     return [...roles, ...base];
   });

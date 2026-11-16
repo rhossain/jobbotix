@@ -22,7 +22,7 @@ import { Button, Icon } from '../../ui';
   template: `
     <section class="jb-card p-4 md:p-5" aria-labelledby="role-people-h">
       <div class="flex items-center justify-between gap-2">
-        <h2 id="role-people-h" class="font-semibold text-ink">People</h2>
+        <h2 id="role-people-h" class="font-semibold text-ink">Contacts</h2>
         <button
           type="button"
           jbButton="ghost"

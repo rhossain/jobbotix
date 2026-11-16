@@ -79,11 +79,11 @@ interface Reminder {
       </p>
       <p lead class="mt-2 max-w-[var(--reading-max)] text-ink-muted md:text-lg">
         @if (run(); as r) {
-          {{ runPhrase() }} reviewed {{ r.searched }} listings and added
+          {{ runPhrase() }} looked at {{ r.searched }} job posts and added
           <b class="font-semibold text-ink">{{ r.added }}</b>
           worth a look;
           <a class="text-brand-ink underline" routerLink="/passed-over"
-            >{{ r.excluded }} were excluded</a
+            >{{ r.excluded }} were filtered out</a
           >{{ passedOver() }}.
           @if (r.aiCheck; as c) {
             The AI check read {{ c.looked }} uncertain
@@ -95,21 +95,18 @@ interface Reminder {
           @if (r.aiTrouble; as t) {
             <span class="mt-1 block text-sm text-warn">
               The AI step did not finish in {{ t.runs }}
-              {{ t.runs === 1 ? 'run' : 'runs' }}, so the rules decided alone{{
-                t.reason ? ': ' + t.reason : ''
-              }}.
+              {{ t.runs === 1 ? 'search' : 'searches' }}, so your preferences
+              decided alone{{ t.reason ? ': ' + t.reason : '' }}.
             </span>
           }
         } @else {
-          Nothing has been searched yet. Jobbotix checks job boards several
-          times a day; new roles appear here within the hour.
+          Nothing has been searched yet. Jobbotix checks job sites several times
+          a day; new jobs appear here within the hour.
         }
       </p>
       <div actions class="hidden gap-2 md:flex">
-        <a jbButton routerLink="/roles/new"
-          ><jb-icon name="plus" /> Add a role</a
-        >
-        <a jbButton="primary" routerLink="/roles"> Open all roles </a>
+        <a jbButton routerLink="/jobs/new"><jb-icon name="plus" /> Add a job</a>
+        <a jbButton="primary" routerLink="/jobs"> Open all jobs </a>
       </div>
     </jb-page-header>
 
@@ -147,7 +144,7 @@ interface Reminder {
                   </span>
                   <p class="min-w-0 flex-1 text-sm text-ink-muted">
                     <a
-                      [routerLink]="['/roles', x.role.id]"
+                      [routerLink]="['/jobs', x.role.id]"
                       [queryParams]="{ tab: 'interviews' }"
                       class="font-semibold text-ink no-underline hover:underline"
                       >{{ label(x.iv) }}</a
@@ -180,7 +177,7 @@ interface Reminder {
                   <a
                     jbButton="primary"
                     class="flex-1 md:flex-none"
-                    [routerLink]="['/roles', x.role.id]"
+                    [routerLink]="['/jobs', x.role.id]"
                     [queryParams]="{
                       tab: x.kind === 'upcoming' ? 'prep' : 'interviews',
                     }"
@@ -285,7 +282,7 @@ interface Reminder {
                       </span>
                       <p class="min-w-0 flex-1 text-sm text-ink-muted">
                         <a
-                          [routerLink]="['/roles', r.role.id]"
+                          [routerLink]="['/jobs', r.role.id]"
                           class="font-semibold text-ink no-underline hover:underline"
                           >{{ r.role.title }}</a
                         >
@@ -311,7 +308,7 @@ interface Reminder {
                         <a
                           jbButton="primary"
                           class="flex-1 md:flex-none"
-                          [routerLink]="['/roles', r.role.id]"
+                          [routerLink]="['/jobs', r.role.id]"
                           >Apply now</a
                         >
                       }
@@ -338,7 +335,7 @@ interface Reminder {
             id="new-heading"
             class="flex items-center gap-2 text-lg font-semibold text-ink"
           >
-            New roles
+            New jobs
             @if (repo.loaded()) {
               <span class="jb-count">{{ fresh().length }}</span>
             }
@@ -351,15 +348,18 @@ interface Reminder {
           @if (!repo.loaded()) {
             <jb-skeleton shape="card" [count]="3" />
           } @else if (fresh().length === 0) {
-            <jb-empty-state title="Nothing new since the last run" icon="inbox">
-              The next run adds roles here, highest score first. Roles you have
-              already triaged are under Roles and Board.
+            <jb-empty-state
+              title="Nothing new since the last search"
+              icon="inbox"
+            >
+              The next search adds jobs here, best match first. Jobs you have
+              already sorted are under Jobs and Applications.
               <div actions>
                 <a jbButton routerLink="/board"
-                  ><jb-icon name="square-kanban" /> Open the board</a
+                  ><jb-icon name="square-kanban" /> Open Applications</a
                 >
-                <a jbButton="ghost" routerLink="/roles/new"
-                  ><jb-icon name="plus" /> Add a role</a
+                <a jbButton="ghost" routerLink="/jobs/new"
+                  ><jb-icon name="plus" /> Add a job</a
                 >
               </div>
             </jb-empty-state>
@@ -455,7 +455,7 @@ export class Today {
 
   async swipeStart(r: Reminder) {
     if (r.kind !== 'follow_up') {
-      await this.router.navigate(['/roles', r.role.id]);
+      await this.router.navigate(['/jobs', r.role.id]);
       return;
     }
     if (await copyText(this.followUp(r)))
@@ -480,12 +480,12 @@ export class Today {
     const r = this.run();
     const at = r?.at;
     if (!at) return '';
-    if (r.runs > 1) return `In the last 24 hours, ${r.runs} runs`;
+    if (r.runs > 1) return `In the last 24 hours, ${r.runs} searches`;
     const rel = relativeDay(at);
     const time = clockTime(new Date(at));
-    if (rel === 'today') return `Today's ${time} run`;
-    if (rel === 'yesterday') return `Yesterday's ${time} run`;
-    return `The run ${rel}`;
+    if (rel === 'today') return `Today's ${time} search`;
+    if (rel === 'yesterday') return `Yesterday's ${time} search`;
+    return `The search ${rel}`;
   });
 
   /** ", 8 of them a close match that scored low. 440 were another kind of job" when the run reports it. */

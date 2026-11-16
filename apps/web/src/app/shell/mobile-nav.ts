@@ -87,9 +87,9 @@ import { Tour } from './tour';
         }
       } @else if (showAdd()) {
         <a
-          routerLink="/roles/new"
+          routerLink="/jobs/new"
           class="grid size-11 place-items-center rounded-full text-ink no-underline active:bg-sunken"
-          aria-label="Add a role"
+          aria-label="Add a job"
         >
           <jb-icon name="plus" [size]="22" />
         </a>
@@ -198,6 +198,7 @@ export class TopBar {
       justify-content: center;
       gap: 2px;
       width: 100%;
+      min-width: 0;
       height: var(--tabbar-h);
       border: 0;
       background: none;
@@ -215,8 +216,13 @@ export class TopBar {
       transition: background-color var(--dur-base) var(--motion-ease);
     }
     .label {
+      /* Longer names ("Applications") shorten on the narrowest phones. */
+      max-width: 100%;
+      overflow: hidden;
       font-size: 0.6875rem;
       font-weight: 500;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .tab.is-active {
       color: var(--brand-ink);

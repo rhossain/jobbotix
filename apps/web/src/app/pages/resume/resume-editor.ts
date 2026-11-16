@@ -86,9 +86,10 @@ const csv = (s: string) =>
   },
   template: `
     <section class="flex flex-col gap-4 print:hidden">
-      <jb-page-header title="Master resume" data-tour="resume">
+      <jb-page-header title="My resume" data-tour="resume">
         <p lead class="mt-2 max-w-[var(--reading-max)] text-ink-muted">
-          The source every tailored variant starts from.
+          Your main resume. Every tailored resume and cover letter starts from
+          it.
           <span class="whitespace-nowrap" [class.text-warn]="words() > 650"
             >{{ words() }} words</span
           >
@@ -584,8 +585,8 @@ const csv = (s: string) =>
                 <input
                   jbInput
                   class="jb-input mt-2"
-                  placeholder="Stack, comma-separated"
-                  aria-label="Stack, comma-separated"
+                  placeholder="Skills and tools, comma-separated"
+                  aria-label="Skills and tools, comma-separated"
                   [id]="'r-proj-stack-' + i"
                   [value]="p.stack.join(', ')"
                   (change)="setProj(i, 'stack', $any($event.target).value)"
@@ -771,7 +772,7 @@ const csv = (s: string) =>
       </div>
 
       <p class="text-xs text-ink-muted">
-        Tailored variants on each role start from whatever is saved here.
+        The tailored resume for each job starts from whatever is saved here.
       </p>
     </section>
 
@@ -1068,7 +1069,7 @@ export class ResumeEditor {
     try {
       await this.repo.saveMaster(this.d());
       this.saved.set(JSON.stringify(this.d()));
-      this.toast.success('Saved as the current master');
+      this.toast.success('Resume saved');
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not save');
     } finally {

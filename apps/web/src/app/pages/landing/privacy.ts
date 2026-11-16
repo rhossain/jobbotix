@@ -22,7 +22,7 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
       <ul class="mt-2 list-disc space-y-1 pl-5">
         <li>Your account: email, display name, timezone.</li>
         <li>
-          Your search profile: the roles, stacks and rules you set, and your
+          Your search profile: the jobs, stacks and rules you set, and your
           scoring weights.
         </li>
         <li>
@@ -127,14 +127,14 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
           Never your keys or what was sent.
         </li>
         <li>
-          <span class="font-medium">Activity:</span> how many roles you track by
+          <span class="font-medium">Activity:</span> how many jobs you track by
           status and when your runs happened, to see whether the service is
           working for you. Counts only.
         </li>
       </ul>
       <p class="mt-2">
-        The admin cannot see your roles, resume, letters, answers or notes. If
-        you ask for help, you can open your roles and master resume to the admin
+        The admin cannot see your jobs, resume, letters, answers or notes. If
+        you ask for help, you can open your jobs and master resume to the admin
         for 7 days from Settings, under Support access; it closes by itself, and
         your notes and letters stay closed even then. Every time the admin opens
         an account or changes something on it, that is recorded. The admin can

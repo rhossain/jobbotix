@@ -44,9 +44,9 @@ import { LEGAL, PRO_ON_SALE } from './legal';
           It finds, scores and drafts your applications. You press send.
         </h1>
         <p class="mt-6 max-w-xl text-lg text-ink-muted">
-          Every morning Jobbotix searches the remote job boards, scores each
-          posting against what you actually want, and writes the cover letter
-          and screening answers for the good ones. It never submits anything for
+          Every day Jobbotix searches the remote job sites, scores each job
+          against what you actually want, and writes the cover letter and
+          screening answers for the good ones. It never submits anything for
           you.
         </p>
         <div class="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -74,7 +74,7 @@ import { LEGAL, PRO_ON_SALE } from './legal';
           Good morning
         </p>
         <p class="mt-1 text-sm text-ink-muted">
-          Today's 06:45 run reviewed 47 listings and added 3 worth a look.
+          Today's 06:45 search looked at 47 job posts and added 3 worth a look.
         </p>
         <ul class="mt-5 flex flex-col gap-2.5">
           @for (r of sample; track r.title) {
@@ -184,7 +184,7 @@ import { LEGAL, PRO_ON_SALE } from './legal';
             The search, the scoring and the tracker are free, and AI drafting
             works on a key of your own. Pro is {{ monthly }} a month, or
             {{ quarterly }} for three months, and adds interview prep, company
-            research, several search profiles, instant alerts and AI credits so
+            research, more than one search, instant alerts and AI credits so
             none of it needs a key.
             @if (!onSale) {
               Pro is not on sale yet.
@@ -224,7 +224,7 @@ import { LEGAL, PRO_ON_SALE } from './legal';
             </h2>
             <p class="mt-2 text-ink-muted">
               Jobbotix is opening in small steps. Leave your email and the kind
-              of role you are after; invites go out in order.
+              of job you are after; invites go out in order.
             </p>
             <p class="mt-3 text-sm text-ink-muted">
               Have a code?
@@ -320,13 +320,13 @@ export class Landing {
   /** What Jobbotix is, said plainly for a visitor and for a reviewer. */
   readonly is = [
     'A web app for one job seeker. You are the only customer.',
-    'It gathers remote postings from public job boards and company career pages into a list only you can see, and links each one back to where it was published.',
-    'It scores them against your search profile, tracks your applications and interviews, and drafts resumes, letters and answers from your own resume for you to edit.',
+    'It gathers remote jobs from public job sites and company career pages into a list only you can see, and links each one back to where it was published.',
+    'It scores them against what you are looking for, tracks your applications and interviews, and drafts resumes, letters and answers from your own resume for you to edit.',
   ];
   readonly isNot = [
     {
       lead: 'Not a job board.',
-      rest: 'Employers and recruiters cannot post, pay or advertise here, and no listings are sold.',
+      rest: 'Employers and recruiters cannot post, pay or advertise here, and no job posts are sold.',
     },
     {
       lead: 'Not an auto-applier.',
@@ -361,11 +361,11 @@ export class Landing {
   readonly steps = [
     {
       title: 'Searches at 06:45',
-      body: 'Your scheduled run reads the remote boards and skips what you have ruled out.',
+      body: 'The daily search reads the remote job sites and skips what you have ruled out.',
     },
     {
-      title: 'Scores every posting',
-      body: 'A 0–100 match against your profile, with the reasons it fits and what to watch.',
+      title: 'Scores every job',
+      body: 'A 0–100 match with what you want, with the reasons it fits and what to watch.',
     },
     {
       title: 'Drafts the paperwork',

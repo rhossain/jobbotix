@@ -67,8 +67,8 @@ const MAX_PROFILES = 5;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-page-header
-      title="Search profile"
-      lead="What Jobbotix looks for. New postings from every source are matched against this profile each hour; saving a change re-checks the last 30 days over the next few hours."
+      title="Job preferences"
+      lead="Tell Jobbotix what kind of job you want. It checks new job posts against these choices every hour. When you save a change, the last 30 days are checked again over the next few hours."
     />
     <section class="mt-8 flex flex-col gap-6">
       @if (!repo.loaded()) {
@@ -77,7 +77,7 @@ const MAX_PROFILES = 5;
         @if (repo.profile()) {
           <nav
             class="jb-card flex flex-col gap-3 p-4 text-sm md:flex-row md:items-center md:justify-between md:px-5"
-            aria-label="Your search profiles"
+            aria-label="Your searches"
           >
             <ul class="flex min-w-0 flex-wrap items-center gap-1.5">
               @for (p of repo.profiles(); track p.id; let i = $index) {
@@ -101,7 +101,7 @@ const MAX_PROFILES = 5;
               @if (isNew()) {
                 <li>
                   <span class="jb-chip" aria-pressed="true" aria-current="true"
-                    >New profile</span
+                    >New search</span
                   >
                 </li>
               }
@@ -114,7 +114,7 @@ const MAX_PROFILES = 5;
               [disabled]="isNew()"
               (click)="addProfile()"
             >
-              <jb-icon name="plus" /> Add a profile
+              <jb-icon name="plus" /> Add another search
             </button>
           </nav>
           @if (repo.profiles().length > searchedCount()) {
@@ -126,8 +126,8 @@ const MAX_PROFILES = 5;
             class="jb-card flex flex-col gap-3 p-5 text-sm md:flex-row md:items-center md:justify-between"
           >
             <p class="text-ink-muted">
-              Fill target roles, stacks, seniority and country from your master
-              resume. Nothing is saved until you press Save.
+              Fill in job titles, skills, level and country from your resume.
+              Nothing is saved until you press Save.
             </p>
             <button
               type="button"
@@ -148,7 +148,7 @@ const MAX_PROFILES = 5;
         >
           @if (isNew() || repo.profiles().length > 1) {
             <div class="flex flex-col gap-1 text-sm md:col-span-2">
-              <label for="sp-name">Profile name</label>
+              <label for="sp-name">Name of this search</label>
               <input
                 id="sp-name"
                 type="text"
@@ -159,24 +159,24 @@ const MAX_PROFILES = 5;
               />
               <p class="text-xs text-ink-muted">
                 @if (isNew()) {
-                  A further search with its own roles, stacks and rules, matched
-                  every hour next to the others. It starts from your main
-                  profile's country and rules; nothing is added until you press
-                  Add profile.
+                  A second search with its own job titles, skills and choices,
+                  checked every hour next to the others. It starts from your
+                  main search's country and choices; nothing is added until you
+                  press Add search.
                 } @else {
-                  Each profile is matched every hour. A role is filed once, by
-                  the first profile that finds it.
+                  Each search is checked every hour. A job is added once, by the
+                  first search that finds it.
                 }
               </p>
             </div>
           }
           <div class="flex flex-col gap-1 text-sm">
             <label for="sp-roles"
-              >Target roles
+              >Job titles you want
               <span class="text-ink-muted">(best first)</span></label
             >
             @if (roleList().length) {
-              <ul class="flex flex-wrap gap-1.5" aria-label="Your target roles">
+              <ul class="flex flex-wrap gap-1.5" aria-label="Your job titles">
                 @for (r of roleList(); track r; let i = $index) {
                   <li
                     class="inline-flex items-center gap-0.5 rounded-full border border-line py-0.5 pl-3 pr-1 text-sm text-ink"
@@ -247,12 +247,12 @@ const MAX_PROFILES = 5;
             </div>
             <p class="text-xs text-ink-muted">
               Employers name the same job in different ways. The preview uses
-              the last 14 days of listings and saves nothing. With an AI
-              provider connected in Settings, titles the rules are unsure about
-              are also checked by AI each hour. Postings the search already
-              ruled out are listed under
+              the last 14 days of job posts and saves nothing. With an AI
+              provider connected in Settings, titles Jobbotix is unsure about
+              are also checked by AI each hour. Job posts the search already
+              left out are listed under
               <a routerLink="/passed-over" class="text-brand-ink underline"
-                >Passed over</a
+                >Filtered out</a
               >.
             </p>
             @if (previewError()) {
@@ -265,10 +265,10 @@ const MAX_PROFILES = 5;
               >
                 <p class="text-ink">
                   <b class="font-semibold">{{ x.wouldFile }}</b> of
-                  {{ x.pool }} listings would be added to your roles.
-                  {{ x.notRelevant }} were another kind of job,
-                  {{ previewRuledOut() }} were ruled out by your settings and
-                  {{ x.lowScore }} scored under {{ x.threshold }}.
+                  {{ x.pool }} job posts would be added to your jobs.
+                  {{ x.notRelevant }} were a different kind of job,
+                  {{ previewRuledOut() }} were left out by your choices below
+                  and {{ x.lowScore }} scored under {{ x.threshold }}.
                 </p>
                 @for (w of x.warnings; track w) {
                   <p class="mt-1 text-xs text-warn">{{ w }}</p>
@@ -290,8 +290,8 @@ const MAX_PROFILES = 5;
                 } @else {
                   <p class="mt-2 text-xs text-ink-muted">
                     Nothing strong enough in the last 14 days. Try "Suggest
-                    other job titles", or check the settings below that rule
-                    listings out.
+                    other job titles", or check the choices below that leave job
+                    posts out.
                   </p>
                 }
                 @if (x.excluded.length) {
@@ -310,7 +310,7 @@ const MAX_PROFILES = 5;
                   </ul>
                 }
                 <p class="mt-3 text-xs text-ink-muted">
-                  Sources with matches: {{ previewSources() }}.
+                  Job sites with matches: {{ previewSources() }}.
                 </p>
               </div>
             }
@@ -328,7 +328,7 @@ const MAX_PROFILES = 5;
                 @if (s.known) {
                   <p class="mt-1 text-xs text-ink-muted">
                     Already searched under these names too. Add one only to rank
-                    it as a role of its own.
+                    it as a job title of its own.
                   </p>
                 } @else if (s.titles.length) {
                   <p class="mt-1 text-xs text-ink-muted">
@@ -346,7 +346,7 @@ const MAX_PROFILES = 5;
                         type="button"
                         class="rounded-full border border-line px-3 py-2 text-xs text-ink hover:bg-sunken disabled:opacity-50"
                         [disabled]="hasRole(t)"
-                        [attr.aria-label]="'Add ' + t + ' to target roles'"
+                        [attr.aria-label]="'Add ' + t + ' to your job titles'"
                         (click)="addRole(t)"
                       >
                         {{ hasRole(t) ? '✓' : '+' }} {{ t }}
@@ -359,7 +359,7 @@ const MAX_PROFILES = 5;
           </div>
           <label class="flex flex-col gap-1 text-sm">
             <span
-              >Stacks you work in
+              >Your skills
               <span class="text-ink-muted"
                 >(one per line, primary first)</span
               ></span
@@ -391,7 +391,7 @@ const MAX_PROFILES = 5;
             >
             <label class="flex flex-col gap-1">
               <span
-                >Skip roles limited to these regions
+                >Skip jobs limited to these regions
                 <span class="text-ink-muted">(comma-separated)</span></span
               >
               <input
@@ -432,7 +432,7 @@ const MAX_PROFILES = 5;
               />
             </label>
             <p class="text-ink-muted">
-              Roles open only to certain countries or regions are kept when they
+              Jobs open only to certain countries or regions are kept when they
               include one of these; the rest are skipped with the reason shown.
             </p>
           </fieldset>
@@ -445,7 +445,7 @@ const MAX_PROFILES = 5;
                 type="checkbox"
                 formControlName="visaRequired"
               />
-              Roles needing residency, work authorization or a visa</label
+              Jobs needing residency, work authorization or a visa</label
             >
             <label class="flex items-center gap-2"
               ><input
@@ -453,18 +453,18 @@ const MAX_PROFILES = 5;
                 type="checkbox"
                 formControlName="nonEnglish"
               />
-              Roles needing a language other than English</label
+              Jobs needing a language other than English</label
             >
             <label class="flex items-center gap-2"
               ><input id="sp-hybrid" type="checkbox" formControlName="hybrid" />
-              On-site or hybrid roles</label
+              On-site or hybrid jobs</label
             >
             <label class="flex items-center gap-2"
               ><input id="sp-junior" type="checkbox" formControlName="junior" />
-              Junior and mid-level roles</label
+              Junior and mid-level jobs</label
             >
             <label class="flex items-center gap-2">
-              Postings older than
+              Job posts older than
               <input
                 id="sp-days"
                 type="number"
@@ -519,9 +519,9 @@ const MAX_PROFILES = 5;
               a year
             </div>
             <p class="-mt-1 text-xs text-ink-muted">
-              Postings that state less are left out; hourly, daily and monthly
+              Job posts that state less are left out; hourly, daily and monthly
               rates are counted as yearly, other currencies at approximate
-              rates. Postings with no pay stated are kept.
+              rates. Job posts with no pay stated are kept.
             </p>
             <label class="flex items-center gap-2">
               Minimum seniority
@@ -538,11 +538,11 @@ const MAX_PROFILES = 5;
           </fieldset>
 
           <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
-            <legend class="jb-section-title mb-2">Digest</legend>
+            <legend class="jb-section-title mb-2">Emails</legend>
             @if (!isMain()) {
               <p class="text-ink-muted">
-                The morning digest covers every profile and follows the settings
-                on your main profile.
+                The daily email covers every search and follows the settings on
+                your main search.
               </p>
             } @else {
               <label class="flex items-center gap-2">
@@ -551,7 +551,7 @@ const MAX_PROFILES = 5;
                   type="checkbox"
                   formControlName="digestEnabled"
                 />
-                Email me a morning digest
+                Send me a daily email with new jobs
               </label>
               <label class="flex items-center gap-2">
                 at
@@ -568,7 +568,7 @@ const MAX_PROFILES = 5;
               <div
                 class="flex flex-wrap items-center gap-1.5"
                 role="group"
-                aria-label="Digest days"
+                aria-label="Days to send the daily email"
               >
                 <span class="mr-1">on</span>
                 @for (d of weekdays; track d.n) {
@@ -583,7 +583,7 @@ const MAX_PROFILES = 5;
                 }
               </div>
               <label class="flex items-center gap-2">
-                Only roles scoring at least
+                Only jobs with a match score of at least
                 <input
                   id="sp-digest-min"
                   type="number"
@@ -595,16 +595,16 @@ const MAX_PROFILES = 5;
                 />
               </label>
               <p class="text-ink-muted">
-                The run itself still records every role; this only shapes the
+                Every job is still added to your list; this only changes the
                 email.
               </p>
             }
             <label class="mt-2 flex flex-wrap items-center gap-2">
-              Email me right away when a new role
+              Email me right away when a new job
               @if (repo.profiles().length > 1 || isNew()) {
-                from this profile
+                from this search
               }
-              scores at least
+              has a match score of at least
               <input
                 id="sp-alert-min"
                 type="number"
@@ -618,8 +618,8 @@ const MAX_PROFILES = 5;
             </label>
             @if (canAlert()) {
               <p class="text-ink-muted">
-                Leave it empty for no instant alerts. Checked every hour, as new
-                roles are filed.
+                Leave it empty for no instant emails. Checked every hour, as new
+                jobs are added.
               </p>
             } @else {
               <jb-upgrade-note feature="instant_alerts" />
@@ -632,7 +632,7 @@ const MAX_PROFILES = 5;
             <legend
               class="jb-section-title mb-2 flex w-full items-center justify-between gap-3"
             >
-              Scoring
+              Match score
               <button
                 type="button"
                 class="jb-btn jb-btn-ghost jb-btn-sm"
@@ -642,8 +642,8 @@ const MAX_PROFILES = 5;
               </button>
             </legend>
             <p class="text-ink-muted">
-              Points each signal adds to a posting's score. Penalties are
-              negative. The run follows these numbers.
+              How many points each thing adds to a job's match score. Negative
+              numbers take points away.
             </p>
             <div
               class="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2"
@@ -675,7 +675,7 @@ const MAX_PROFILES = 5;
               [attr.aria-busy]="saving() ? 'true' : null"
               [disabled]="form.pristine || saving()"
             >
-              {{ isNew() ? 'Add profile' : 'Save profile' }}
+              {{ isNew() ? 'Add search' : 'Save' }}
             </button>
             @if (isNew()) {
               <button type="button" jbButton="ghost" (click)="cancelNew()">
@@ -699,7 +699,7 @@ const MAX_PROFILES = 5;
                   [disabled]="saving()"
                   (click)="deleteProfile()"
                 >
-                  <jb-icon name="trash" /> Delete this profile
+                  <jb-icon name="trash" /> Delete this search
                 </button>
               }
             }
@@ -711,7 +711,9 @@ const MAX_PROFILES = 5;
             class="flex flex-wrap items-center justify-between gap-3"
             data-tour="search-prompt"
           >
-            <h2 class="jb-section-title">Scheduled-task prompt</h2>
+            <h2 class="jb-section-title">
+              Your own automated search (optional)
+            </h2>
             <div class="flex flex-wrap gap-2">
               <button
                 type="button"
@@ -720,7 +722,7 @@ const MAX_PROFILES = 5;
                 [disabled]="keyBusy()"
                 (click)="newKey()"
               >
-                <jb-icon name="key-round" /> New ingest key
+                <jb-icon name="key-round" /> New access key
               </button>
               <button
                 type="button"
@@ -732,13 +734,14 @@ const MAX_PROFILES = 5;
             </div>
           </div>
           <p class="text-sm text-ink-muted">
-            Paste this into a Claude scheduled task that runs every morning. It
-            searches, scores, drafts and posts the results here.
+            Jobbotix already searches for you. If you also use Claude, paste
+            this into a Claude task that repeats every morning; it searches too
+            and adds what it finds here.
             @if (ingestKey()) {
-              Your new ingest key is shown once below; it is already in the
+              Your new access key is shown once below; it is already in the
               prompt.
             } @else {
-              Create an ingest key first; the prompt uses it to post results
+              Create an access key first; the prompt uses it to add results
               under your account.
             }
           </p>
@@ -748,7 +751,7 @@ const MAX_PROFILES = 5;
             >
               <p
                 class="min-w-0 flex-1 font-mono text-xs break-all text-ink"
-                aria-label="Ingest key"
+                aria-label="Access key"
               >
                 {{ ingestKey() }}
               </p>
@@ -756,7 +759,7 @@ const MAX_PROFILES = 5;
                 [text]="ingestKey()"
                 label="Copy key"
                 size="sm"
-                confirm="Ingest key copied"
+                confirm="Access key copied"
               />
             </div>
             <p class="text-xs text-signal-ink">
@@ -771,7 +774,7 @@ const MAX_PROFILES = 5;
           <p class="text-xs text-ink-muted">
             Results arrive on
             <a routerLink="/today" class="text-brand-ink underline">Today</a>.
-            The run never submits applications.
+            It never sends applications for you.
           </p>
         </section>
       }
@@ -1049,7 +1052,7 @@ export class SearchProfile {
   /** The prompt follows the saved profile, not unsaved edits, so what you copy is what runs. */
   readonly prompt = computed(() => {
     const p = this.current() ?? this.repo.profile();
-    if (!p) return 'Save a search profile to generate the prompt.';
+    if (!p) return 'Save your job preferences to create the prompt.';
     const me = this.auth.profile();
     return renderSearchPrompt(p, {
       about: `${me?.name || 'The candidate'} (${me?.email ?? ''}), based in ${me?.timezone ?? 'their timezone'}. Primary stack: ${p.stacks[0] ?? 'see below'}.`,
@@ -1107,7 +1110,7 @@ export class SearchProfile {
       return true;
     return this.confirm.ask({
       title: 'Leave without saving?',
-      body: 'The changes to this profile have not been saved.',
+      body: 'Your changes have not been saved.',
       action: 'Leave',
       cancel: 'Stay',
     });
@@ -1173,9 +1176,9 @@ export class SearchProfile {
     const p = this.current();
     if (!p || p.active || this.saving()) return;
     const ok = await this.confirm.ask({
-      title: `Delete the profile "${p.name}"?`,
-      body: 'It is no longer searched. The roles it found stay in your tracker.',
-      action: 'Delete profile',
+      title: `Delete the search "${p.name}"?`,
+      body: 'It stops searching. The jobs it found stay in your list.',
+      action: 'Delete search',
       danger: true,
     });
     if (!ok) return;
@@ -1184,7 +1187,7 @@ export class SearchProfile {
       await this.repo.remove(p.id);
       this.reset();
       this.selected.set(null);
-      this.toast.show('Profile deleted');
+      this.toast.show('Search deleted');
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not delete');
     } finally {
@@ -1249,7 +1252,7 @@ export class SearchProfile {
     }
     const target_roles = splitLines(v.targetRoles);
     if (this.isNew() && !target_roles.length && !splitLines(v.stacks).length) {
-      this.toast.show('Add a target role or a stack first');
+      this.toast.show('Add a job title or a skill first');
       return;
     }
     this.saving.set(true);
@@ -1301,10 +1304,10 @@ export class SearchProfile {
       if (this.isNew()) {
         const made = await this.repo.create(input);
         this.selected.set(made.id);
-        this.toast.show('Profile added. It is matched within the hour.');
+        this.toast.show('Search added. It is checked within the hour.');
       } else {
         await this.repo.save(input, this.current()?.id);
-        this.toast.show('Search profile saved');
+        this.toast.show('Job preferences saved');
       }
       this.form.markAsPristine();
       this.savedAt.set(Date.now());
@@ -1321,7 +1324,7 @@ export class SearchProfile {
     try {
       this.ingestKey.set(await this.repo.createIngestKey('Daily job search'));
       this.toast.show(
-        'Ingest key created. Copy the prompt now; the key is not shown again.',
+        'Access key created. Copy the prompt now; the key is not shown again.',
       );
     } catch {
       this.toast.show('Could not create a key');

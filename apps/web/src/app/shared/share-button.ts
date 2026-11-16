@@ -23,8 +23,8 @@ import { Toast } from './toast';
         [disabled]="busy()"
         [title]="
           kind() === 'board'
-            ? 'Copy a read-only link to your board for a mentor'
-            : 'Copy a read-only link to this role for a mentor'
+            ? 'Copy a read-only link to your applications for a mentor'
+            : 'Copy a read-only link to this job for a mentor'
         "
         (click)="share()"
       >

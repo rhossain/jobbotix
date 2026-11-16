@@ -28,8 +28,8 @@ type Health = 'ok' | 'failing' | 'needs-key' | 'off' | 'waiting';
 const REACH: Record<string, string> = { arbeitnow: 'Europe' };
 
 const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
-  board: 'Job board',
-  aggregator: 'Aggregator',
+  board: 'Job site',
+  aggregator: 'Job search site',
   ats: 'Company careers',
   community: 'Community',
   capture: 'Added by you',
@@ -50,15 +50,15 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-page-header
-      title="Sources"
-      lead="Where Jobbotix looks for roles. Active sources are read four times a day, and every role links back to the board it came from."
+      title="Job sites"
+      lead="The places Jobbotix searches for you. Each one is checked several times a day, and every job links back to where it was found."
     />
 
     <section class="jb-card mt-8 p-5 text-sm" aria-labelledby="follow-h">
       <h2 id="follow-h" class="font-semibold text-ink">Companies you follow</h2>
       <p class="mt-1 text-ink-muted">
-        Jobbotix checks their careers pages every hour, so their roles reach you
-        before the boards pick them up. Follow from a role page, or paste a
+        Jobbotix checks their careers pages every hour, so their jobs reach you
+        before the job sites pick them up. Follow from a job page, or paste a
         careers link from Greenhouse, Lever, Ashby, Workable, Recruitee or
         Personio.
       </p>
@@ -104,8 +104,8 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
                   {{ atsLabel[f.company.ats_kind] }}
                   @if (f.company.last_polled_at) {
                     · {{ f.company.open_roles }} open
-                    {{ f.company.open_roles === 1 ? 'role' : 'roles' }} ·
-                    checked {{ f.company.last_polled_at | relativeDay }}
+                    {{ f.company.open_roles === 1 ? 'job' : 'jobs' }} · checked
+                    {{ f.company.last_polled_at | relativeDay }}
                   } @else {
                     · first check within the hour
                   }
@@ -139,14 +139,14 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
       } @else if (sources() === null) {
         <jb-skeleton shape="tile" [count]="4" />
       } @else if (!sources()!.length) {
-        <jb-empty-state title="No sources yet" icon="compass">
-          Sources appear here once the sourcing migrations are applied.
+        <jb-empty-state title="No job sites yet" icon="compass">
+          Job sites will appear here shortly.
         </jb-empty-state>
       } @else {
         <p class="text-sm text-ink-muted">
           {{ activeCount() }} active
-          {{ activeCount() === 1 ? 'source' : 'sources' }} · {{ lastNew() }} new
-          postings in their latest runs
+          {{ activeCount() === 1 ? 'job site' : 'job sites' }} ·
+          {{ lastNew() }} new job posts in their latest checks
           @if (!homeCountry()) {
             ·
             <a
@@ -154,7 +154,7 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
               class="underline decoration-line underline-offset-2 hover:text-brand-ink"
               >Set your country</a
             >
-            so country-limited roles can be matched
+            so country-limited jobs can be matched
           }
         </p>
 
@@ -197,8 +197,8 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
                   @case ('waiting') {
                     <span
                       class="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-ink-muted"
-                      ><jb-icon name="clock" [size]="14" /> First run
-                      pending</span
+                      ><jb-icon name="clock" [size]="14" /> Not checked
+                      yet</span
                     >
                   }
                   @default {
@@ -215,7 +215,7 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
                   <span class="tabular-nums text-ink">{{
                     s.last_fetched
                   }}</span>
-                  postings,
+                  job posts,
                   <span class="tabular-nums text-ink">{{ s.last_new }}</span>
                   new
                 </p>
@@ -270,7 +270,7 @@ export class SourcesPage {
       .list()
       .then((rows) => this.sources.set(rows))
       .catch((e: Error) =>
-        this.error.set(e.message || 'Could not load the sources'),
+        this.error.set(e.message || 'Could not load the job sites'),
       );
     void this.loadFollows();
   }

@@ -116,7 +116,7 @@ export class SetupChecklist {
       {
         id: 'resume',
         label: 'Add your resume',
-        why: 'Import a PDF or Word file; letters, tailored resumes and the profile below all start from it.',
+        why: 'Import a PDF or Word file; cover letters, tailored resumes and your job preferences all start from it.',
         link: '/resume',
         action: 'Add resume',
         done: !!this.resumes.master(),
@@ -124,15 +124,15 @@ export class SetupChecklist {
       {
         id: 'profile',
         label: 'Say what you are looking for',
-        why: 'Target roles and stacks decide which postings reach you. Search profile can fill them from your resume.',
+        why: 'The job titles and skills you add decide which jobs reach you. Job preferences can fill them in from your resume.',
         link: '/search',
-        action: 'Set profile',
+        action: 'Set preferences',
         done: !!p && p.target_roles.length > 0 && p.stacks.length > 0,
       },
       {
         id: 'country',
         label: 'Say where you can work from',
-        why: 'Roles open only to some countries are kept when yours is one of them.',
+        why: 'Jobs open only to some countries are kept when yours is one of them.',
         link: '/search',
         action: 'Set country',
         done: !!p?.home_country,
@@ -140,7 +140,7 @@ export class SetupChecklist {
       {
         id: 'key',
         label: 'Connect an AI provider',
-        why: 'Model scoring, letters and research run on your own key; Gemini and Groq have free tiers. Without one Jobbotix uses local templates.',
+        why: 'AI gives smarter match scores, letters and company research; Gemini and Groq are free to start. Without it Jobbotix uses simple templates.',
         link: '/settings',
         action: 'Connect',
         done:

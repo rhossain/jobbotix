@@ -23,18 +23,18 @@ export class Shortcuts {
 
   readonly list: Shortcut[] = [
     { keys: 'g t', label: 'Go to Today' },
-    { keys: 'g r', label: 'Go to Roles' },
-    { keys: 'g b', label: 'Go to Board' },
+    { keys: 'g r', label: 'Go to Jobs' },
+    { keys: 'g b', label: 'Go to Applications' },
     { keys: 'g e', label: 'Go to Resume' },
-    { keys: 'g p', label: 'Go to People' },
-    { keys: 'g s', label: 'Go to Search profile' },
-    { keys: 'g i', label: 'Go to Insights' },
-    { keys: 'g o', label: 'Go to Sources' },
+    { keys: 'g p', label: 'Go to Contacts' },
+    { keys: 'g s', label: 'Go to Job preferences' },
+    { keys: 'g i', label: 'Go to Progress' },
+    { keys: 'g o', label: 'Go to Job sites' },
     { keys: 'g u', label: 'Go to AI usage' },
-    { keys: 'n', label: 'Add a role' },
-    { keys: '/', label: 'Focus the search box on Roles' },
-    { keys: 'x', label: 'Select the focused role on Roles' },
-    { keys: '⌘ K', label: 'Search roles, pages and actions (Ctrl K)' },
+    { keys: 'n', label: 'Add a job' },
+    { keys: '/', label: 'Focus the search box on Jobs' },
+    { keys: 'x', label: 'Select the focused job on Jobs' },
+    { keys: '⌘ K', label: 'Search jobs, pages and actions (Ctrl K)' },
     { keys: '[', label: 'Collapse or expand the sidebar' },
     { keys: '?', label: 'Show these shortcuts' },
     { keys: 'Esc', label: 'Close dialogs and panels' },
@@ -73,7 +73,7 @@ export class Shortcuts {
       this.pendingG = 0;
       const to: Record<string, string> = {
         t: '/today',
-        r: '/roles',
+        r: '/jobs',
         b: '/board',
         e: '/resume',
         p: '/people',
@@ -99,7 +99,7 @@ export class Shortcuts {
         return;
       case 'n':
         e.preventDefault();
-        void this.router.navigateByUrl('/roles/new');
+        void this.router.navigateByUrl('/jobs/new');
         return;
       case '/': {
         const box = this.doc.getElementById('roles-q');
@@ -109,7 +109,7 @@ export class Shortcuts {
         } else {
           e.preventDefault();
           void this.router
-            .navigateByUrl('/roles')
+            .navigateByUrl('/jobs')
             .then(() =>
               setTimeout(() => this.doc.getElementById('roles-q')?.focus(), 50),
             );

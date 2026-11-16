@@ -47,11 +47,11 @@ const WEEKS = 8;
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-page-header
-      title="Insights"
+      title="Progress"
       [lead]="
         'The last ' +
         weeks +
-        ' weeks of your search, from the roles and status changes in the tracker.'
+        ' weeks of your search, from your jobs and how they moved.'
       "
     />
 
@@ -66,12 +66,12 @@ const WEEKS = 8;
         <jb-skeleton shape="line" [count]="6" />
       } @else if (repo.roles().length === 0) {
         <jb-empty-state title="Nothing to measure yet" icon="chart-column">
-          Once roles land and you move them through the board, this page shows
+          Once jobs land and you move them through Applications, this page shows
           how many you apply to each week, how often you hear back, and where
           time goes.
           <div actions>
-            <a jbButton="primary" routerLink="/roles/new"
-              ><jb-icon name="plus" /> Add a role</a
+            <a jbButton="primary" routerLink="/jobs/new"
+              ><jb-icon name="plus" /> Add a job</a
             >
           </div>
         </jb-empty-state>
@@ -108,7 +108,7 @@ const WEEKS = 8;
             tone="signal"
           />
           <jb-stat
-            label="In the tracker"
+            label="Jobs saved"
             [value]="repo.roles().length"
             [sub]="foundThisWeek() + ' found this week'"
           />
@@ -121,7 +121,7 @@ const WEEKS = 8;
           </h2>
           @if (!canOutcomes()) {
             <p class="mt-1 text-sm text-ink-muted">
-              Your applications split by where the role came from, its match
+              Your applications split by where the job came from, its match
               score, how soon you applied and whether a cover letter went with
               it, with how many of each led to an interview.
             </p>
@@ -130,14 +130,15 @@ const WEEKS = 8;
             @let o = outcomes();
             @if (o.applied === 0) {
               <p class="mt-1 text-sm text-ink-muted">
-                Nothing applied to yet. Once you move roles to Applied, this
-                shows which sources, scores and habits lead to interviews.
+                Nothing applied to yet. Once you move jobs to Applied, this
+                shows which job sites, match scores and habits lead to
+                interviews.
               </p>
             } @else {
               <p class="mt-1 text-sm text-ink-muted">
                 {{ o.applied }}
-                {{ o.applied === 1 ? 'application' : 'applications' }} in your
-                tracker, {{ o.interviews }} of them reached an interview.
+                {{ o.applied === 1 ? 'application' : 'applications' }} so far,
+                {{ o.interviews }} of them reached an interview.
                 @if (o.applied < 8) {
                   These are early numbers: with so few, one answer moves a
                   percentage a long way.
@@ -224,7 +225,7 @@ const WEEKS = 8;
             <p class="flex gap-4 text-xs text-ink-muted">
               <span class="inline-flex items-center gap-1.5"
                 ><span class="size-2.5 rounded-sm bg-line-strong"></span>Found
-                by runs</span
+                for you</span
               >
               <span class="inline-flex items-center gap-1.5"
                 ><span class="size-2.5 rounded-sm bg-brand"></span>Applied</span
@@ -269,7 +270,7 @@ const WEEKS = 8;
 
         <div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
           <section class="jb-card p-5 md:p-6">
-            <h2 class="text-lg font-semibold text-ink">Where roles are</h2>
+            <h2 class="text-lg font-semibold text-ink">Where jobs are</h2>
             <div class="mt-4 flex flex-col gap-3">
               @for (f of i.funnel; track f.status) {
                 <jb-bar-row
@@ -302,7 +303,7 @@ const WEEKS = 8;
               }
             </div>
             <p class="mt-4 text-xs text-ink-muted">
-              If most roles sit under 70, tighten the search profile; if most
+              If most jobs sit under 70, tighten your job preferences; if most
               sit at 85 and up, the weights are too generous to be useful.
             </p>
           </section>
@@ -315,23 +316,23 @@ const WEEKS = 8;
             </h2>
             @if (!m.enough) {
               <p class="mt-2 text-sm text-ink-muted">
-                Shown once at least two people's runs have landed, so nothing
-                here can point at one person. For now this is your own
-                {{ m.roles }} roles: {{ m.ai_share }}% mention AI-assisted work,
+                Shown once at least two people have jobs here, so nothing here
+                can point at one person. For now this is your own
+                {{ m.roles }} jobs: {{ m.ai_share }}% mention AI-assisted work,
                 {{ m.contract_share }}% are contracts, median score
                 {{ m.median_score }}.
               </p>
             } @else {
               <p class="mt-1 text-sm text-ink-muted">
-                {{ m.roles }} postings found by {{ m.users }} people; counts
-                only, nobody's rows. {{ m.ai_share }}% mention AI-assisted work,
+                {{ m.roles }} jobs found for {{ m.users }} people; counts only,
+                nobody's rows. {{ m.ai_share }}% mention AI-assisted work,
                 {{ m.contract_share }}% are contracts, median score
                 {{ m.median_score }}.
               </p>
               <div class="mt-5 grid gap-8 md:grid-cols-2">
                 <div>
                   <h3 class="text-sm font-semibold text-ink">
-                    Most-asked stacks
+                    Most-asked skills
                   </h3>
                   <div class="mt-3 flex flex-col gap-3">
                     @for (st of m.stacks; track st.name) {
@@ -365,8 +366,8 @@ const WEEKS = 8;
           <h2 class="text-lg font-semibold text-ink">Time in each status</h2>
           @if (i.dwell.length === 0) {
             <p class="mt-2 text-sm text-ink-muted">
-              No status changes recorded yet. Move a role on the board and this
-              fills in.
+              No status changes recorded yet. Move a job in Applications and
+              this fills in.
             </p>
           } @else {
             <div class="mt-4 overflow-x-auto">
@@ -379,7 +380,7 @@ const WEEKS = 8;
                     <th class="py-2 pr-4 text-right font-medium">
                       Mean days before moving on
                     </th>
-                    <th class="py-2 text-right font-medium">Roles</th>
+                    <th class="py-2 text-right font-medium">Jobs</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -405,8 +406,8 @@ const WEEKS = 8;
                   class="mt-4 flex items-start gap-2 rounded-control bg-warn-tint px-3 py-2.5 text-sm text-warn"
                 >
                   <jb-icon name="clock" [size]="17" class="mt-px" />
-                  Shortlisted roles wait {{ sd }} days on average before you
-                  act. Postings close; aim for under three.
+                  Shortlisted jobs wait {{ sd }} days on average before you act.
+                  Job posts close; aim for under three.
                 </p>
               }
             }

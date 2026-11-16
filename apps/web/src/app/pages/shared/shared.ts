@@ -79,7 +79,7 @@ import { EmptyState, Icon, MatchRing, Skeleton } from '../../ui';
             </div>
             @if (r.url) {
               <a [href]="r.url" target="_blank" rel="noopener" class="jb-btn"
-                >Open posting <jb-icon name="arrow-up-right" [size]="16"
+                >Open job post <jb-icon name="arrow-up-right" [size]="16"
               /></a>
             }
           </header>
@@ -112,7 +112,7 @@ import { EmptyState, Icon, MatchRing, Skeleton } from '../../ui';
           </div>
           @if (r.stack.length) {
             <section class="mt-6">
-              <h2 class="jb-section-title">Stack</h2>
+              <h2 class="jb-section-title">Skills</h2>
               <div class="mt-2 flex flex-wrap gap-1.5">
                 @for (s of r.stack; track s) {
                   <span class="jb-tag">{{ s }}</span>
@@ -128,7 +128,7 @@ import { EmptyState, Icon, MatchRing, Skeleton } from '../../ui';
           }
           @if (r.posting_text) {
             <section class="mt-6">
-              <h2 class="jb-section-title">Posting</h2>
+              <h2 class="jb-section-title">Job post</h2>
               <pre class="jb-letter mt-2 max-h-96 overflow-auto">{{
                 r.posting_text
               }}</pre>
@@ -136,10 +136,10 @@ import { EmptyState, Icon, MatchRing, Skeleton } from '../../ui';
           }
         } @else {
           <h1 class="mt-2 text-2xl font-semibold tracking-tight">
-            {{ v.owner }}'s job board
+            {{ v.owner }}'s applications
           </h1>
           <p class="mt-1 text-sm text-ink-muted">
-            {{ v.roles.length }} roles, best match first. Skipped roles are not
+            {{ v.roles.length }} jobs, best match first. Skipped jobs are not
             shown.
           </p>
           <div class="jb-card mt-4 overflow-x-auto p-5">
@@ -147,7 +147,7 @@ import { EmptyState, Icon, MatchRing, Skeleton } from '../../ui';
               <thead class="text-left text-xs text-ink-muted">
                 <tr>
                   <th class="py-2 pr-4">Score</th>
-                  <th class="py-2 pr-4">Role</th>
+                  <th class="py-2 pr-4">Job</th>
                   <th class="py-2 pr-4">Status</th>
                   <th class="py-2 pr-4">Type</th>
                   <th class="py-2">Moved</th>

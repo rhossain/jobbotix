@@ -19,7 +19,7 @@ export class RoleMover {
     try {
       await this.repo.setStatus(role.id, to);
     } catch {
-      this.toast.error('Could not move the role');
+      this.toast.error('Could not move the job');
       return false;
     }
     this.toast.show(`${role.company} moved to ${ROLE_STATUS_LABELS[to]}`, {
@@ -47,11 +47,11 @@ export class RoleMover {
     const moved = todo.filter((_, i) => results[i].status === 'fulfilled');
     if (moved.length < todo.length)
       this.toast.error(
-        `Could not move ${todo.length - moved.length} of ${todo.length} roles`,
+        `Could not move ${todo.length - moved.length} of ${todo.length} jobs`,
       );
     if (!moved.length) return 0;
     this.toast.show(
-      `${moved.length} ${moved.length === 1 ? 'role' : 'roles'} moved to ${ROLE_STATUS_LABELS[to]}`,
+      `${moved.length} ${moved.length === 1 ? 'job' : 'jobs'} moved to ${ROLE_STATUS_LABELS[to]}`,
       {
         action: {
           label: 'Undo',

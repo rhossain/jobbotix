@@ -24,19 +24,19 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     route: '/today',
     title: 'Welcome to Jobbotix',
-    body: 'Jobbotix runs one loop: every morning a search finds remote roles and scores them, you read the good ones here, apply yourself, and track where each one stands. This tour shows where each part lives. It takes about a minute.',
+    body: 'Jobbotix searches job sites for you every day and gives each job a match score. You read the best ones here, apply yourself, and keep track of where each application stands. This tour shows where each part lives. It takes about a minute.',
   },
   {
     route: '/search',
     target: 'search-profile',
     title: '1. Say what you are looking for',
-    body: 'Start here. List your target roles and stacks, set the remote rules and what to skip, then press Save profile. The morning search follows these choices and scores every posting against them.',
+    body: 'Start here. Add the job titles you want and your skills, say where you can work and what to leave out, then press Save. Every search follows these choices.',
   },
   {
     route: '/search',
     target: 'search-prompt',
-    title: '2. Set up the morning search',
-    body: 'Press New ingest key, then Copy prompt: the key goes into the prompt and lets the run post to your account. Paste the prompt into a Claude scheduled task that runs every morning. Each run searches the job boards, scores what it finds, drafts letters for the best matches and sends the results here.',
+    title: '2. Optional: add your own automated search',
+    body: 'Jobbotix already searches for you, so most people can skip this. If you use Claude, press New access key, then Copy prompt, and paste the prompt into a Claude task that repeats every morning. It adds what it finds to your jobs.',
   },
   {
     route: '/resume',
@@ -48,23 +48,23 @@ export const TOUR_STEPS: readonly TourStep[] = [
     route: '/today',
     target: 'today-summary',
     title: 'Each morning, start on Today',
-    body: 'This line says what the last run found. Below it: follow-ups waiting on you, then new roles with the best match first.',
+    body: 'This line says what the latest search found. Below it: follow-ups waiting on you, then new jobs with the best match first.',
   },
   {
     route: '/today',
     target: 'today-new',
-    title: 'Review the new roles',
-    body: 'The ring is the match score out of 100. Open a role to see why it fits, the drafted cover letter and screening answers, a tailored resume and interview prep. Mark the ones you want as To apply.',
+    title: 'Review the new jobs',
+    body: 'The ring is the match score out of 100. Open a job to see why it fits, the drafted cover letter and screening answers, a tailored resume and interview prep. Mark the ones you want as To apply.',
     phoneBody:
-      'The ring is the match score out of 100. Tap a role for why it fits, the drafted letter and answers, a tailored resume and prep. Swipe a role right to mark it To apply, or left to skip it.',
+      'The ring is the match score out of 100. Tap a job for why it fits, the drafted letter and answers, a tailored resume and prep. Swipe a job right to mark it To apply, or left to skip it.',
   },
   {
-    route: '/roles',
+    route: '/jobs',
     target: 'roles-search',
-    title: 'Every role in one list',
-    body: 'Search, filter and sort everything the runs have found, and save filters as views. Found a role yourself? Use Add role and paste its link.',
+    title: 'Every job in one list',
+    body: 'Search, filter and sort every job found for you, and save filters you use often. Found a job yourself? Use Add job and paste its link.',
     phoneBody:
-      'Search, filter and sort everything the runs have found. Found a role yourself? Tap + at the top and paste its link.',
+      'Search, filter and sort every job found for you. Found a job yourself? Tap + at the top and paste its link.',
   },
   {
     route: '/board',
@@ -78,14 +78,14 @@ export const TOUR_STEPS: readonly TourStep[] = [
     route: '/settings',
     target: 'settings-ai',
     title: 'Optional: connect an AI provider',
-    body: 'Jobbotix scores roles on keywords and drafts from templates without one. Connect your own key here for model scoring and model-written drafts: Gemini and Groq have free tiers, and an Anthropic key is billed to you per call.',
+    body: 'Jobbotix works without AI. Connect an AI provider here for smarter match scores and better-written letters: Gemini and Groq are free to start, and Anthropic charges you for what you use.',
   },
   {
     route: '/today',
     title: 'You are set',
-    body: 'Fill in your search profile, set up the morning task and add your resume; the first roles arrive after the next run. Take this tour again any time from Settings or the command menu (⌘K).',
+    body: 'Fill in your job preferences and add your resume; your first jobs arrive within a few hours. Take this tour again any time from Settings.',
     phoneBody:
-      'Fill in your search profile, set up the morning task and add your resume; the first roles arrive after the next run. Take this tour again any time from More or Settings.',
+      'Fill in your job preferences and add your resume; your first jobs arrive within a few hours. Take this tour again any time from More or Settings.',
   },
 ];
 

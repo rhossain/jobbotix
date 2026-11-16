@@ -107,7 +107,7 @@ describe('previewImport', () => {
       }),
     ]);
     expect(p.skipped.map((s) => [s.row, s.reason])).toEqual([
-      [4, 'No link to the posting'],
+      [4, 'No link to the job post'],
       [5, 'No company or title'],
       [6, 'Same link as an earlier row'],
     ]);

@@ -76,7 +76,7 @@ describe('app shell', () => {
   beforeEach(() => resetStorage());
 
   it.each(NAMES)('shows the right navigation at %s width', async (vp) => {
-    await renderApp('/roles', vp);
+    await renderApp('/jobs', vp);
     expectShellFor(VIEWPORTS[vp].width);
   });
 
@@ -145,7 +145,7 @@ describe('app shell', () => {
   );
 
   it('keeps the phone top bar pinned while the page scrolls', async () => {
-    await renderApp('/roles', 'phone');
+    await renderApp('/jobs', 'phone');
     window.scrollTo(0, 600);
     await new Promise((r) => requestAnimationFrame(() => r(null)));
     expect(Math.round(box('jb-top-bar').top)).toBeLessThanOrEqual(0);
@@ -191,7 +191,7 @@ describe('overlays on a small phone', () => {
   });
 
   it('opens a confirm dialog inside the screen', async () => {
-    const { settle } = await renderApp('/roles', 'small phone');
+    const { settle } = await renderApp('/jobs', 'small phone');
     void TestBed.inject(Confirm).ask({
       title: 'Delete this role and everything drafted for it?',
       body: 'This removes the cover letter, the resume variant and the notes. It cannot be undone.',

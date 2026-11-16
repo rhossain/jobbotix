@@ -56,7 +56,7 @@ import {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <jb-back-link link="/people" label="People" />
+    <jb-back-link link="/people" label="Contacts" />
     @if (contact(); as c) {
       <header
         class="mt-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between"
@@ -132,7 +132,7 @@ import {
                   (change)="roleId.set($any($event.target).value || null)"
                 >
                   <option value="" [selected]="!roleId()">
-                    No particular role
+                    No particular job
                   </option>
                   @for (r of linkedRoles(); track r.id) {
                     <option [value]="r.id" [selected]="r.id === roleId()">
@@ -349,14 +349,14 @@ import {
           </section>
 
           <section class="jb-card p-4 md:p-5" aria-labelledby="roles-h">
-            <h2 id="roles-h" class="font-semibold text-ink">Roles</h2>
+            <h2 id="roles-h" class="font-semibold text-ink">Jobs</h2>
             @if (linkedRoles().length) {
               <ul class="mt-3 flex flex-col gap-2 text-sm">
                 @for (r of linkedRoles(); track r.id) {
                   <li class="flex items-start justify-between gap-2">
                     <a
                       class="min-w-0 text-ink underline decoration-line underline-offset-2 hover:text-brand-ink"
-                      [routerLink]="['/roles', r.id]"
+                      [routerLink]="['/jobs', r.id]"
                       >{{ r.title }}
                       <span class="text-ink-muted">at {{ r.company }}</span></a
                     >
@@ -376,16 +376,16 @@ import {
               </ul>
             } @else {
               <p class="mt-1 text-sm text-ink-muted">
-                Not linked to a role yet.
+                Not linked to a job yet.
               </p>
             }
             @if (linkable().length) {
               <select
                 class="jb-input mt-3"
-                aria-label="Link a role"
+                aria-label="Link a job"
                 (change)="linkRole($any($event.target))"
               >
-                <option value="">Link a role…</option>
+                <option value="">Link a job…</option>
                 @for (r of linkable(); track r.id) {
                   <option [value]="r.id">
                     {{ r.title }} at {{ r.company }}
@@ -543,7 +543,7 @@ export class PersonPage {
     try {
       await this.repo.link(roleId, this.id());
     } catch {
-      this.toast.show('Could not link the role');
+      this.toast.show('Could not link the job');
     }
   }
 
@@ -551,7 +551,7 @@ export class PersonPage {
     try {
       await this.repo.unlink(roleId, this.id());
     } catch {
-      this.toast.show('Could not unlink the role');
+      this.toast.show('Could not unlink the job');
     }
   }
 
@@ -635,7 +635,7 @@ export class PersonPage {
     if (!c) return;
     const ok = await this.confirm.ask({
       title: `Delete ${c.name}?`,
-      body: 'Their activity goes with them. Roles are not touched.',
+      body: 'Their activity goes with them. Jobs are not touched.',
       action: 'Delete person',
       danger: true,
     });

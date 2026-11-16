@@ -1,4 +1,5 @@
-import { Route } from '@angular/router';
+import { inject } from '@angular/core';
+import { RedirectFunction, Route, Router } from '@angular/router';
 import { environment } from '../environments/environment';
 import {
   adminGuard,
@@ -7,6 +8,19 @@ import {
   landingGuard,
   unsavedChangesGuard,
 } from './core/guards';
+
+/**
+ * Jobs used to live under /roles. Emails already sent, saved bookmarklets and
+ * installed share targets still point there, so the old address forwards to
+ * the new one and keeps its query string (?url=…&text=…).
+ */
+const toJobs =
+  (...path: string[]): RedirectFunction =>
+  ({ params, queryParams, fragment }) =>
+    inject(Router).createUrlTree(
+      ['/jobs', ...path.map((p) => (p === ':id' ? params['id'] : p))],
+      { queryParams, fragment: fragment ?? undefined },
+    );
 
 export const appRoutes: Route[] = [
   {
@@ -53,59 +67,62 @@ export const appRoutes: Route[] = [
     title: 'Today · Jobbotix',
   },
   {
-    path: 'roles',
+    path: 'jobs',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/roles/roles').then((m) => m.Roles),
-    title: 'Roles · Jobbotix',
+    title: 'Jobs · Jobbotix',
   },
   {
-    path: 'roles/new',
+    path: 'jobs/new',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/add-role/add-role').then((m) => m.AddRole),
-    title: 'Add a role · Jobbotix',
+    title: 'Add a job · Jobbotix',
   },
   {
-    path: 'roles/:id',
+    path: 'jobs/:id',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/role-detail/role-detail').then((m) => m.RoleDetail),
-    title: 'Role · Jobbotix',
+    title: 'Job · Jobbotix',
   },
+  { path: 'roles', pathMatch: 'full', redirectTo: toJobs() },
+  { path: 'roles/new', redirectTo: toJobs('new') },
+  { path: 'roles/:id', redirectTo: toJobs(':id') },
   {
     path: 'passed-over',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/passed-over/passed-over').then((m) => m.PassedOverPage),
-    title: 'Passed over · Jobbotix',
+    title: 'Filtered out · Jobbotix',
   },
   {
     path: 'people',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/people/people').then((m) => m.PeoplePage),
-    title: 'People · Jobbotix',
+    title: 'Contacts · Jobbotix',
   },
   {
     path: 'people/:id',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/people/person').then((m) => m.PersonPage),
-    title: 'Person · Jobbotix',
+    title: 'Contact · Jobbotix',
   },
   {
     path: 'sources',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/sources/sources').then((m) => m.SourcesPage),
-    title: 'Sources · Jobbotix',
+    title: 'Job sites · Jobbotix',
   },
   {
     path: 'insights',
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/insights/insights').then((m) => m.InsightsPage),
-    title: 'Insights · Jobbotix',
+    title: 'Progress · Jobbotix',
   },
   {
     path: 'usage',
@@ -126,7 +143,7 @@ export const appRoutes: Route[] = [
     canDeactivate: [unsavedChangesGuard],
     loadComponent: () =>
       import('./pages/resume/resume-editor').then((m) => m.ResumeEditor),
-    title: 'Master resume · Jobbotix',
+    title: 'My resume · Jobbotix',
   },
   {
     path: 'search',
@@ -135,13 +152,13 @@ export const appRoutes: Route[] = [
       import('./pages/search-profile/search-profile').then(
         (m) => m.SearchProfile,
       ),
-    title: 'Search profile · Jobbotix',
+    title: 'Job preferences · Jobbotix',
   },
   {
     path: 'board',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/board/board').then((m) => m.Board),
-    title: 'Board · Jobbotix',
+    title: 'Applications · Jobbotix',
   },
   {
     path: 'login',

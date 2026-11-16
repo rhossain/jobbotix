@@ -19,7 +19,7 @@ export interface ErrorReport {
 
 const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
-/** "/roles/2f0c…/x" → "/roles/:id/x", so one bug on many roles is one group. */
+/** "/jobs/2f0c…/x" → "/jobs/:id/x", so one bug on many roles is one group. */
 export function normalisePath(path: string): string {
   return path
     .split(/[?#]/)[0]

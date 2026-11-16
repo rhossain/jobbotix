@@ -86,7 +86,7 @@ const LIMITS = {
                 ></div>
               </div>
               <p class="mt-2 text-xs text-ink-muted">
-                {{ t.roles }} roles · {{ t.events }} events
+                {{ t.roles }} jobs · {{ t.events }} events
               </p>
             </li>
             <li class="jb-card p-5 text-sm">
@@ -181,7 +181,7 @@ const LIMITS = {
                 <tr>
                   <th class="py-2 pr-4">User</th>
                   <th class="py-2 pr-4">Joined</th>
-                  <th class="py-2 pr-4">Roles</th>
+                  <th class="py-2 pr-4">Jobs</th>
                   <th class="py-2 pr-4">Applied</th>
                   <th class="py-2 pr-4">Last run</th>
                   <th class="py-2 pr-4">Runs / 30d</th>

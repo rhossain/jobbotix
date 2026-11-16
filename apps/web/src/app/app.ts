@@ -33,7 +33,7 @@ import { Button, Confirm, ConfirmHost, Icon, ToastHost } from './ui';
 
 /** Detail pages and where their back chevron goes on phones. */
 const PARENTS: [RegExp, { link: string; label: string }][] = [
-  [/^\/roles\/.+/, { link: '/roles', label: 'Roles' }],
+  [/^\/jobs\/.+/, { link: '/jobs', label: 'Jobs' }],
   [/^\/admin\/.+/, { link: '/admin', label: 'Admin' }],
 ];
 
@@ -95,7 +95,7 @@ export class App {
     () => PARENTS.find(([re]) => re.test(this.url()))?.[1] ?? null,
   );
   protected readonly showAdd = computed(() =>
-    ['/today', '/roles', '/board'].includes(this.url()),
+    ['/today', '/jobs', '/board'].includes(this.url()),
   );
   protected readonly moreActive = computed(() =>
     SECONDARY_NAV.some((i) => this.url().startsWith(i.link)),

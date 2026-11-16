@@ -35,7 +35,7 @@ import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-page-header
-      title="People"
+      title="Contacts"
       lead="Recruiters, hiring managers and people who can refer you. Set a date to get back to each one and Today reminds you."
     >
       <div actions>
@@ -49,8 +49,8 @@ import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
       <div class="mt-8"><jb-skeleton shape="card" [count]="3" /></div>
     } @else if (!repo.contacts().length) {
       <div class="mt-8">
-        <jb-empty-state title="No people yet" icon="users">
-          Add the recruiter who wrote to you, the hiring manager on a posting,
+        <jb-empty-state title="No contacts yet" icon="users">
+          Add the recruiter who wrote to you, the hiring manager on a job post,
           or a former colleague at a company you like. Jobbotix drafts the
           message, logs what you sent and tells you when to follow up.
           <div actions>
@@ -132,7 +132,7 @@ import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
                   }
                 </span>
                 @if (roleCount().get(c.id); as n) {
-                  <span>{{ n }} {{ n === 1 ? 'role' : 'roles' }}</span>
+                  <span>{{ n }} {{ n === 1 ? 'job' : 'jobs' }}</span>
                 }
               </p>
             </a>

@@ -39,12 +39,12 @@ const today = () => new Date().toISOString().slice(0, 10);
     >
       <h2 id="data-h" class="jb-section-title">Your data</h2>
       <p class="text-sm text-ink-muted">
-        Download your roles for a spreadsheet, or everything in your account
+        Download your jobs for a spreadsheet, or everything in your account
         (roles, resumes, letters, interviews, people, settings) as one file.
       </p>
       <div class="flex flex-wrap gap-2">
         <button type="button" jbButton (click)="exportCsv()">
-          <jb-icon name="download" /> Roles (CSV)
+          <jb-icon name="download" /> Jobs (CSV)
         </button>
         <button
           type="button"
@@ -57,11 +57,11 @@ const today = () => new Date().toISOString().slice(0, 10);
         </button>
       </div>
 
-      <h3 class="mt-3 font-semibold text-ink">Import roles</h3>
+      <h3 class="mt-3 font-semibold text-ink">Import jobs</h3>
       <p class="text-sm text-ink-muted">
         A CSV from a spreadsheet, Huntr or Teal. Jobbotix finds the company,
         title, link, status, location, pay and notes columns by name; rows
-        without a link are skipped, and roles you already have are left alone.
+        without a link are skipped, and jobs you already have are left alone.
       </p>
       <label class="w-fit">
         <span class="jb-btn cursor-pointer"
@@ -78,7 +78,7 @@ const today = () => new Date().toISOString().slice(0, 10);
         <div class="rounded-control border border-line p-4 text-sm">
           <p class="font-medium text-ink">
             {{ fileName() }}: {{ p.roles.length }}
-            {{ p.roles.length === 1 ? 'role' : 'roles' }} to import{{
+            {{ p.roles.length === 1 ? 'job' : 'jobs' }} to import{{
               p.skipped.length ? ', ' + p.skipped.length + ' skipped' : ''
             }}
           </p>
@@ -127,7 +127,7 @@ const today = () => new Date().toISOString().slice(0, 10);
               (click)="runImport()"
             >
               Import {{ p.roles.length }}
-              {{ p.roles.length === 1 ? 'role' : 'roles' }}
+              {{ p.roles.length === 1 ? 'job' : 'jobs' }}
             </button>
             <button type="button" jbButton="ghost" (click)="preview.set(null)">
               Cancel
@@ -145,7 +145,7 @@ const today = () => new Date().toISOString().slice(0, 10);
         Delete your account
       </h2>
       <p class="text-sm text-ink-muted">
-        Removes your account and everything in it straight away: roles, resumes,
+        Removes your account and everything in it straight away: jobs, resumes,
         letters, interviews, people, keys and your saved AI keys. It cannot be
         undone; download your data first if you want a copy.
       </p>

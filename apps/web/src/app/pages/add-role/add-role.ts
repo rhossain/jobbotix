@@ -45,12 +45,12 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
     <div class="mx-auto max-w-2xl">
       <jb-back-link
         class="mb-4 hidden md:inline-block"
-        link="/roles"
+        link="/jobs"
         label="Roles"
       />
       <jb-page-header
-        title="Add a role"
-        lead="Paste the posting's link. Jobbotix reads the page, fills in company, title, stack and pay, and scores it against your search profile. You can fix anything on the role's page afterwards."
+        title="Add a job"
+        lead="Paste the link to the job post. Jobbotix reads the page, fills in company, title, skills and pay, and gives it a match score from your job preferences. You can fix anything on the job's page afterwards."
       />
 
       <form
@@ -59,7 +59,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
         class="jb-card mt-6 flex flex-col gap-5 p-5 md:mt-8 md:p-7"
         novalidate
       >
-        <jb-field label="Posting URL" [error]="urlError()">
+        <jb-field label="Link to the job post" [error]="urlError()">
           <input
             jbInput
             id="add-url"
@@ -74,12 +74,12 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
           />
         </jb-field>
         <jb-field
-          label="Posting text"
+          label="Text of the job post"
           [optional]="!demo"
           [hint]="
             demo
-              ? 'Demo mode cannot fetch pages, so paste the posting here (80 characters or more).'
-              : 'Paste it if the page blocks automated reading: select all on the posting, copy, paste.'
+              ? 'Demo mode cannot fetch pages, so paste the job post here (80 characters or more).'
+              : 'Paste it if the page blocks automated reading: select everything on the job post, copy, paste.'
           "
         >
           <textarea
@@ -89,7 +89,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
             rows="6"
             formControlName="text"
             class="max-h-[60dvh]"
-            placeholder="The full posting text"
+            placeholder="The full text of the job post"
           ></textarea>
         </jb-field>
 
@@ -125,7 +125,8 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
               [size]="18"
               class="animate-spin text-brand"
             />
-            Reading and scoring the posting. This can take up to 30 seconds.
+            Reading the job post and working out its match score. This can take
+            up to 30 seconds.
           </p>
         }
 
@@ -133,7 +134,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
           class="flex flex-col-reverse gap-3 border-t border-line pt-5 md:flex-row md:items-center md:justify-between"
         >
           <p class="text-xs text-ink-muted">
-            Scored the same way as the roles the morning run finds.
+            Scored the same way as the jobs the daily search finds.
           </p>
           <button
             type="submit"
@@ -142,7 +143,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
             [busy]="busy()"
             [disabled]="form.invalid || busy()"
           >
-            <jb-icon name="plus" /> Add role
+            <jb-icon name="plus" /> Add job
           </button>
         </div>
       </form>
@@ -158,8 +159,8 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
           <div>
             <h3 class="font-medium text-ink">On a computer</h3>
             <p class="mt-1 text-ink-muted">
-              Drag this button to your bookmarks bar. On any posting, click it:
-              the page's link and text come here and the role is added. It works
+              Drag this button to your bookmarks bar. On any job post, click it:
+              the page's link and text come here and the job is added. It works
               on pages behind a sign-in, such as LinkedIn.
             </p>
             <a
@@ -177,7 +178,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
             <h3 class="font-medium text-ink">On a phone</h3>
             <p class="mt-1 text-ink-muted">
               Install Jobbotix from your browser menu (Add to Home screen). Then
-              tap Share on any posting and pick Jobbotix: the role is added in
+              tap Share on any job post and pick Jobbotix: the job is added in
               one step. Share-to-app works on Android; on iPhone, copy the link
               and paste it here.
             </p>
@@ -260,7 +261,7 @@ export class AddRole {
     if (!this.urlTouched() || c.valid) return null;
     return c.value
       ? 'Use the full link, starting with https://'
-      : 'Paste the link to the posting';
+      : 'Paste the link to the job post';
   }
 
   readonly form = new FormGroup({
@@ -283,11 +284,11 @@ export class AddRole {
     try {
       const { url, text } = this.form.getRawValue();
       const result = await this.repo.addFromUrl(url.trim(), text.trim());
-      if (result.existed) this.toast.show('Already in your roles');
-      else this.toast.success('Role added');
-      await this.router.navigate(['/roles', result.id]);
+      if (result.existed) this.toast.show('Already in your jobs');
+      else this.toast.success('Job added');
+      await this.router.navigate(['/jobs', result.id]);
     } catch (e) {
-      this.error.set((e as Error).message || 'Could not add the role');
+      this.error.set((e as Error).message || 'Could not add the job');
     } finally {
       this.busy.set(false);
     }

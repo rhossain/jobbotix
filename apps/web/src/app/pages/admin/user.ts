@@ -285,9 +285,7 @@ export function cents(amount: number, currency = 'usd'): string {
             @if (search(); as x) {
               <p class="mt-4 text-sm text-ink">
                 Looking for
-                <strong>{{
-                  x.targetRoles.join(', ') || 'no target role'
-                }}</strong
+                <strong>{{ x.targetRoles.join(', ') || 'no job title' }}</strong
                 >. Searched on the boards as:
                 {{ x.searchTerms.join(', ') || 'nothing' }}.
               </p>
@@ -400,13 +398,13 @@ export function cents(amount: number, currency = 'usd'): string {
               }
             }
             <h3 class="mt-6 text-sm font-semibold text-ink">
-              Filed roles that no longer match
+              Filed jobs that no longer match
             </h3>
             <p class="mt-1 text-sm text-ink-muted">
-              Roles Jobbotix filed for this account that today's rules would
-              call another kind of job. Only roles they have not touched: still
-              New, no notes, nothing drafted. Moving them to Skipped deletes
-              nothing; they can move any of them back.
+              Jobs Jobbotix filed for this account that today's rules would call
+              another kind of job. Only jobs they have not touched: still New,
+              no notes, nothing drafted. Moving them to Skipped deletes nothing;
+              they can move any of them back.
             </p>
             <div class="mt-3 flex flex-wrap gap-2">
               <button
@@ -437,10 +435,10 @@ export function cents(amount: number, currency = 'usd'): string {
             @if (stale(); as st) {
               <p class="mt-3 text-sm text-ink" role="status">
                 @if (st.applied) {
-                  Moved {{ st.count }} of {{ st.checked }} untouched roles to
+                  Moved {{ st.count }} of {{ st.checked }} untouched jobs to
                   Skipped.
                 } @else {
-                  {{ st.count }} of {{ st.checked }} untouched roles no longer
+                  {{ st.count }} of {{ st.checked }} untouched jobs no longer
                   match.
                 }
               </p>
@@ -485,7 +483,7 @@ export function cents(amount: number, currency = 'usd'): string {
               stay closed. Reading this tab is recorded.
             </p>
             @if (!d.content?.roles?.length) {
-              <p class="mt-3 text-sm text-ink-muted">No roles.</p>
+              <p class="mt-3 text-sm text-ink-muted">No jobs.</p>
             } @else {
               <ul class="mt-3 divide-y divide-line text-sm">
                 @for (r of d.content!.roles; track $index) {
@@ -778,7 +776,7 @@ export class AdminUser {
     { id: 'search', label: 'Search results' },
     { id: 'activity', label: 'Activity' },
     ...(this.detail()?.content
-      ? [{ id: 'content' as const, label: 'Roles and resume' }]
+      ? [{ id: 'content' as const, label: 'Jobs and resume' }]
       : []),
   ]);
   readonly ids = computed(() => tabIds('admin-user', this.tab()));
@@ -844,7 +842,7 @@ export class AdminUser {
       .map(([status, n]) => `${n} ${status.replace('_', ' ')}`)
       .join(', ');
     return [
-      { label: 'Roles tracked', value: roles || 'None' },
+      { label: 'Jobs tracked', value: roles || 'None' },
       {
         label: 'Last scheduled run',
         value: a.last_run
@@ -1009,7 +1007,7 @@ export class AdminUser {
     const email = this.detail()?.account.email ?? '';
     const ok = await this.confirm.ask({
       title: `Delete ${email}?`,
-      body: 'The account and everything in it is removed straight away: roles, resumes, letters, keys. It cannot be undone.',
+      body: 'The account and everything in it is removed straight away: jobs, resumes, letters, keys. It cannot be undone.',
       action: 'Delete account',
       danger: true,
     });

@@ -329,7 +329,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
               class="jb-btn-primary"
               (click)="imported.emit({ sections: res.resume, mode: 'replace' })"
             >
-              Replace master with this
+              Replace my resume with this
             </button>
             <button
               type="button"

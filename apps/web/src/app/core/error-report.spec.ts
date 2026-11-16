@@ -4,8 +4,8 @@ import { isNoise, normalisePath, toReport } from './error-report';
 describe('normalisePath', () => {
   it('folds ids so one bug on many roles is one group', () => {
     expect(
-      normalisePath('/roles/2f0c6a1e-1b2c-4d5e-8f90-123456789abc?tab=prep'),
-    ).toBe('/roles/:id');
+      normalisePath('/jobs/2f0c6a1e-1b2c-4d5e-8f90-123456789abc?tab=prep'),
+    ).toBe('/jobs/:id');
     expect(normalisePath('/admin/42/x')).toBe('/admin/:n/x');
   });
 });
