@@ -35,8 +35,8 @@ const MAX_BYTES = 10 * 1024 * 1024;
           <h2 class="jb-section-title">Import a resume</h2>
           <p class="mt-1 text-sm text-ink-muted">
             Paste the text or pick a .docx, PDF or .txt. The file is opened in
-            your browser, and you review the result before it touches the
-            master.
+            your browser, and you review the result before it changes your
+            resume.
           </p>
         </div>
         <button
