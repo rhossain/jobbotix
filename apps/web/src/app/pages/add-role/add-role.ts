@@ -46,7 +46,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
       <jb-back-link
         class="mb-4 hidden md:inline-block"
         link="/jobs"
-        label="Roles"
+        label="Jobs"
       />
       <jb-page-header
         title="Add a job"

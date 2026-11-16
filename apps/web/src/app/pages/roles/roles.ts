@@ -97,7 +97,7 @@ const DEFAULT_FILTERS: Filters = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-pull-refresh [action]="refresh" />
-    <jb-page-header title="Roles">
+    <jb-page-header title="Jobs">
       <p lead class="mt-2 text-ink-muted">
         {{ rows().length }} of {{ repo.roles().length }} jobs<span
           class="hidden [@media(hover:hover)]:inline"

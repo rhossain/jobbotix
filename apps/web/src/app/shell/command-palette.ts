@@ -19,7 +19,7 @@ import { Tour } from './tour';
 
 interface Command {
   id: string;
-  group: 'Go to' | 'Actions' | 'Roles';
+  group: 'Go to' | 'Actions' | 'Jobs';
   label: string;
   detail?: string;
   icon: IconName;
@@ -233,7 +233,7 @@ export class CommandPalette {
       .slice(0, 6)
       .map<Command>((r) => ({
         id: 'role-' + r.id,
-        group: 'Roles',
+        group: 'Jobs',
         label: r.title,
         detail: r.company,
         icon: 'briefcase',

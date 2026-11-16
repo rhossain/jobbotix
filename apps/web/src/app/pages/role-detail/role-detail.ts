@@ -91,7 +91,7 @@ type Tab =
         <jb-back-link
           class="mb-5 hidden md:inline-block"
           link="/jobs"
-          label="Roles"
+          label="Jobs"
         />
 
         <!-- Hero -->
