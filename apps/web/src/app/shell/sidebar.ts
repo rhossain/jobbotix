@@ -8,11 +8,9 @@ import {
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { Auth } from '../core/auth';
-import { RolesRepo } from '../core/data/repos';
-import { RelativeDayPipe } from '../shared/format';
 import { Icon } from '../ui';
 import { Logo } from './logo';
-import { PRIMARY_NAV, SECONDARY_NAV, ShellState } from './shell-state';
+import { ShellState, navGroups } from './shell-state';
 import { ThemeSwitch } from './theme-switch';
 
 /**
@@ -21,14 +19,7 @@ import { ThemeSwitch } from './theme-switch';
  */
 @Component({
   selector: 'jb-sidebar',
-  imports: [
-    Icon,
-    Logo,
-    RelativeDayPipe,
-    RouterLink,
-    RouterLinkActive,
-    ThemeSwitch,
-  ],
+  imports: [Icon, Logo, RouterLink, RouterLinkActive, ThemeSwitch],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'jb-sidebar',
@@ -72,66 +63,42 @@ import { ThemeSwitch } from './theme-switch';
         </button>
       </div>
 
-      <ul class="mt-4 flex flex-col gap-0.5 px-3">
-        @for (item of primary; track item.link) {
-          <li>
-            <a
-              class="item"
-              [routerLink]="item.link"
-              routerLinkActive="is-active"
-              ariaCurrentWhenActive="page"
-              [attr.aria-label]="rail() ? item.label : null"
-              [title]="rail() ? item.label : ''"
-            >
-              <jb-icon [name]="item.icon" [size]="19" />
-              @if (!rail()) {
-                <span class="flex-1">{{ item.label }}</span>
-                <kbd class="keys">{{ item.keys }}</kbd>
-              }
-            </a>
-          </li>
+      @for (group of groups(); track group.id; let first = $first) {
+        @if (rail()) {
+          @if (!first) {
+            <div class="mx-5 my-3 h-px bg-line"></div>
+          }
+        } @else {
+          <h2 class="group-title" [class.mt-4]="first" [class.mt-5]="!first">
+            {{ group.label }}
+          </h2>
         }
-      </ul>
-
-      <div class="mx-6 my-4 h-px bg-line"></div>
-
-      <ul class="flex flex-col gap-0.5 px-3">
-        @for (item of secondary(); track item.link) {
-          <li>
-            <a
-              class="item"
-              [routerLink]="item.link"
-              routerLinkActive="is-active"
-              ariaCurrentWhenActive="page"
-              [attr.aria-label]="rail() ? item.label : null"
-              [title]="rail() ? item.label : ''"
-            >
-              <jb-icon [name]="item.icon" [size]="19" />
-              @if (!rail()) {
-                <span class="flex-1">{{ item.label }}</span>
-                @if (item.keys) {
-                  <kbd class="keys">{{ item.keys }}</kbd>
-                }
-              }
-            </a>
-          </li>
-        }
-      </ul>
-
-      @if (!rail() && run(); as r) {
-        <div
-          class="mx-3 mt-6 rounded-card border border-line bg-surface p-3.5 text-sm"
+        <ul
+          class="flex flex-col gap-0.5 px-3"
+          [class.mt-4]="rail() && first"
+          [attr.aria-label]="group.label"
         >
-          <p class="flex items-center gap-2 font-medium text-ink">
-            <jb-icon name="clock" [size]="16" class="text-brand" />
-            Last search {{ r.at | relativeDay }}
-          </p>
-          <p class="mt-1 text-xs text-ink-muted">
-            {{ r.added }} added from {{ r.searched }} job posts{{
-              r.runs > 1 ? ' in 24 hours' : ''
-            }}
-          </p>
-        </div>
+          @for (item of group.items; track item.link) {
+            <li>
+              <a
+                class="item"
+                [routerLink]="item.link"
+                routerLinkActive="is-active"
+                ariaCurrentWhenActive="page"
+                [attr.aria-label]="rail() ? item.label : null"
+                [title]="rail() ? item.label : ''"
+              >
+                <jb-icon [name]="item.icon" [size]="19" />
+                @if (!rail()) {
+                  <span class="flex-1">{{ item.label }}</span>
+                  @if (item.keys && shell.shortcutHints()) {
+                    <kbd class="keys">{{ item.keys }}</kbd>
+                  }
+                }
+              </a>
+            </li>
+          }
+        </ul>
       }
 
       <div class="mt-auto flex flex-col gap-3 border-t border-line p-3">
@@ -195,6 +162,13 @@ import { ThemeSwitch } from './theme-switch';
       overflow-y: auto;
       border-right: 1px solid var(--line);
       background: color-mix(in srgb, var(--surface) 55%, var(--surface-canvas));
+    }
+    .group-title {
+      margin-bottom: 0.25rem;
+      padding: 0 1.5rem;
+      color: var(--ink-faint);
+      font-size: 0.75rem;
+      font-weight: 600;
     }
     .item {
       display: flex;
@@ -285,16 +259,17 @@ import { ThemeSwitch } from './theme-switch';
 export class Sidebar {
   protected readonly shell = inject(ShellState);
   private readonly auth = inject(Auth);
-  private readonly roles = inject(RolesRepo);
 
   readonly rail = input(false);
   readonly signOut = output<void>();
 
-  protected readonly primary = PRIMARY_NAV;
-  protected readonly secondary = computed(() =>
-    SECONDARY_NAV.filter((i) => !i.adminOnly || this.auth.isAdmin()),
-  );
-  protected readonly run = this.roles.lastRun;
+  protected readonly groups = computed(() => {
+    const admin = this.auth.isAdmin();
+    return navGroups().map((g) => ({
+      ...g,
+      items: g.items.filter((i) => !i.adminOnly || admin),
+    }));
+  });
   protected readonly mod =
     typeof navigator !== 'undefined' && /Mac|iP/.test(navigator.platform)
       ? '⌘'

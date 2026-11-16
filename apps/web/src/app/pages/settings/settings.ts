@@ -19,6 +19,7 @@ import { LettersRepo, SettingsRepo } from '../../core/data/repos';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { Theme, type ThemePreference } from '../../core/theme';
+import { ShellState } from '../../shell/shell-state';
 import { Tour } from '../../shell/tour';
 import { AiConnections } from './ai-connections';
 import { DataPanel } from './data-panel';
@@ -132,6 +133,25 @@ import {
           [value]="theme.preference()"
           (valueChange)="theme.set($any($event))"
         />
+      </section>
+
+      <!-- Keyboard shortcuts: hidden on phones, which have no keyboard -->
+      <section class="jb-card hidden p-5 md:block md:p-6">
+        <label class="flex cursor-pointer items-start gap-3">
+          <input
+            type="checkbox"
+            class="mt-1"
+            [checked]="shell.shortcutHints()"
+            (change)="shell.setShortcutHints($any($event.target).checked)"
+          />
+          <span>
+            <span class="jb-section-title block">Show keyboard shortcuts</span>
+            <span class="mt-1 block text-sm text-ink-muted">
+              Shows the shortcut letters beside each menu item. The shortcuts
+              work either way; press ? to see them all.
+            </span>
+          </span>
+        </label>
       </section>
 
       <jb-ai-connections />
@@ -262,6 +282,7 @@ import {
 export class Settings {
   protected readonly theme = inject(Theme);
   protected readonly tour = inject(Tour);
+  protected readonly shell = inject(ShellState);
   private readonly confirm = inject(Confirm);
   protected readonly themes: TabItem<ThemePreference>[] = [
     { id: 'system', label: 'System', icon: 'monitor' },

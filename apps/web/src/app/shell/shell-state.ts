@@ -2,38 +2,133 @@ import { DOCUMENT } from '@angular/common';
 import { DestroyRef, Injectable, inject, signal } from '@angular/core';
 import type { IconName } from '../ui';
 
+export type NavGroupId = 'daily' | 'setup' | 'account';
+
 export interface NavItem {
   label: string;
   link: string;
   icon: IconName;
+  group: NavGroupId;
+  /** One of the four places on the phone tab bar. */
+  tab?: boolean;
   /** Keyboard shortcut shown beside the item, e.g. "g t". */
   keys?: string;
   adminOnly?: boolean;
 }
 
-/** The four places used every day: bottom tab bar on phones, top of the sidebar. */
-export const PRIMARY_NAV: NavItem[] = [
-  { label: 'Today', link: '/today', icon: 'sunrise', keys: 'g t' },
-  { label: 'Jobs', link: '/jobs', icon: 'list', keys: 'g r' },
-  { label: 'Applications', link: '/board', icon: 'square-kanban', keys: 'g b' },
-  { label: 'Resume', link: '/resume', icon: 'file-text', keys: 'g e' },
-];
-
-/** Set-up and review pages: under "More" on phones. */
-export const SECONDARY_NAV: NavItem[] = [
-  { label: 'Contacts', link: '/people', icon: 'users', keys: 'g p' },
+/** Every page in the menu, in menu order: what you use daily, then set-up, then the account. */
+const NAV: NavItem[] = [
+  {
+    label: 'Today',
+    link: '/today',
+    icon: 'sunrise',
+    group: 'daily',
+    tab: true,
+    keys: 'g t',
+  },
+  {
+    label: 'Jobs',
+    link: '/jobs',
+    icon: 'list',
+    group: 'daily',
+    tab: true,
+    keys: 'g r',
+  },
+  {
+    label: 'Applications',
+    link: '/board',
+    icon: 'square-kanban',
+    group: 'daily',
+    tab: true,
+    keys: 'g b',
+  },
+  {
+    label: 'Contacts',
+    link: '/people',
+    icon: 'users',
+    group: 'daily',
+    keys: 'g p',
+  },
+  {
+    label: 'Progress',
+    link: '/insights',
+    icon: 'chart-column',
+    group: 'daily',
+    keys: 'g i',
+  },
+  {
+    label: 'Resume',
+    link: '/resume',
+    icon: 'file-text',
+    group: 'setup',
+    tab: true,
+    keys: 'g e',
+  },
   {
     label: 'Job preferences',
     link: '/search',
     icon: 'sliders-horizontal',
+    group: 'setup',
     keys: 'g s',
   },
-  { label: 'Progress', link: '/insights', icon: 'chart-column', keys: 'g i' },
-  { label: 'Job sites', link: '/sources', icon: 'compass', keys: 'g o' },
-  { label: 'AI usage', link: '/usage', icon: 'gauge', keys: 'g u' },
-  { label: 'Admin', link: '/admin', icon: 'shield', adminOnly: true },
-  { label: 'Settings', link: '/settings', icon: 'settings' },
+  {
+    label: 'Job sites',
+    link: '/sources',
+    icon: 'compass',
+    group: 'setup',
+    keys: 'g o',
+  },
+  {
+    label: 'Filtered out',
+    link: '/passed-over',
+    icon: 'list-filter',
+    group: 'setup',
+  },
+  {
+    label: 'AI usage',
+    link: '/usage',
+    icon: 'gauge',
+    group: 'account',
+    keys: 'g u',
+  },
+  {
+    label: 'Admin',
+    link: '/admin',
+    icon: 'shield',
+    group: 'account',
+    adminOnly: true,
+  },
+  { label: 'Settings', link: '/settings', icon: 'settings', group: 'account' },
 ];
+
+/** The four places used every day: the bottom tab bar on phones. */
+export const PRIMARY_NAV: NavItem[] = NAV.filter((i) => i.tab);
+
+/** Everything else: under "More" on phones. */
+export const SECONDARY_NAV: NavItem[] = NAV.filter((i) => !i.tab);
+
+export interface NavGroup {
+  id: NavGroupId;
+  label: string;
+  items: NavItem[];
+}
+
+const GROUP_LABELS: Record<NavGroupId, string> = {
+  daily: 'Every day',
+  setup: 'Set up',
+  account: 'Account',
+};
+
+/** `items` under their headings, in menu order; groups left empty are dropped. */
+export function navGroups(items: NavItem[] = NAV): NavGroup[] {
+  return (Object.keys(GROUP_LABELS) as NavGroupId[])
+    .map((id) => ({
+      id,
+      label: GROUP_LABELS[id],
+      items: items.filter((i) => i.group === id),
+    }))
+    .filter((g) => g.items.length > 0);
+}
 
 /**
  * A page's main action, shown in the phone top bar (desktop shows the page's
@@ -53,6 +148,7 @@ export interface PageAction {
 }
 
 const COLLAPSE_KEY = 'jb-sidebar-collapsed';
+const HINTS_KEY = 'jb-shortcut-hints';
 
 /** UI state the shell, the shortcuts and the pages share. */
 @Injectable({ providedIn: 'root' })
@@ -65,7 +161,9 @@ export class ShellState {
   readonly moreOpen = signal(false);
   /** Set by the page on screen; cleared when it is destroyed. */
   readonly pageAction = signal<PageAction | null>(null);
-  readonly sidebarCollapsed = signal(readCollapsed());
+  readonly sidebarCollapsed = signal(readFlag(COLLAPSE_KEY));
+  /** Shortcut letters beside the menu items: off unless switched on in Settings. */
+  readonly shortcutHints = signal(readFlag(HINTS_KEY));
   readonly online = signal(
     typeof navigator === 'undefined' ? true : navigator.onLine,
   );
@@ -102,18 +200,27 @@ export class ShellState {
   toggleSidebar() {
     const next = !this.sidebarCollapsed();
     this.sidebarCollapsed.set(next);
-    try {
-      localStorage.setItem(COLLAPSE_KEY, next ? '1' : '0');
-    } catch {
-      /* storage unavailable: the choice lasts for this tab */
-    }
+    writeFlag(COLLAPSE_KEY, next);
+  }
+
+  setShortcutHints(on: boolean) {
+    this.shortcutHints.set(on);
+    writeFlag(HINTS_KEY, on);
   }
 }
 
-function readCollapsed(): boolean {
+function readFlag(key: string): boolean {
   try {
-    return localStorage.getItem(COLLAPSE_KEY) === '1';
+    return localStorage.getItem(key) === '1';
   } catch {
     return false;
+  }
+}
+
+function writeFlag(key: string, on: boolean) {
+  try {
+    localStorage.setItem(key, on ? '1' : '0');
+  } catch {
+    /* storage unavailable: the choice lasts for this tab */
   }
 }

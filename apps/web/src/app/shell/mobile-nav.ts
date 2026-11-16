@@ -14,7 +14,12 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { Auth } from '../core/auth';
 import { Button, Icon, Sheet } from '../ui';
 import { Logo } from './logo';
-import { PRIMARY_NAV, SECONDARY_NAV, ShellState } from './shell-state';
+import {
+  PRIMARY_NAV,
+  SECONDARY_NAV,
+  ShellState,
+  navGroups,
+} from './shell-state';
 import { ThemeSwitch } from './theme-switch';
 import { Tour } from './tour';
 
@@ -287,25 +292,34 @@ export class TabBar {
         </span>
       </div>
 
-      <ul class="mt-3 flex flex-col">
-        @for (item of items(); track item.link) {
-          <li>
-            <a
-              [routerLink]="item.link"
-              class="row"
-              (click)="shell.moreOpen.set(false)"
-            >
-              <jb-icon [name]="item.icon" [size]="20" class="text-ink-muted" />
-              <span class="flex-1">{{ item.label }}</span>
-              <jb-icon
-                name="chevron-right"
-                [size]="18"
-                class="text-ink-faint"
-              />
-            </a>
-          </li>
-        }
-      </ul>
+      @for (group of groups(); track group.id) {
+        <h3 class="mt-4 px-1 text-xs font-semibold text-ink-faint">
+          {{ group.label }}
+        </h3>
+        <ul class="flex flex-col" [attr.aria-label]="group.label">
+          @for (item of group.items; track item.link) {
+            <li>
+              <a
+                [routerLink]="item.link"
+                class="row"
+                (click)="shell.moreOpen.set(false)"
+              >
+                <jb-icon
+                  [name]="item.icon"
+                  [size]="20"
+                  class="text-ink-muted"
+                />
+                <span class="flex-1">{{ item.label }}</span>
+                <jb-icon
+                  name="chevron-right"
+                  [size]="18"
+                  class="text-ink-faint"
+                />
+              </a>
+            </li>
+          }
+        </ul>
+      }
 
       <button type="button" class="row" (click)="tour.start()">
         <jb-icon name="compass" [size]="20" class="text-ink-muted" />
@@ -358,8 +372,8 @@ export class MoreSheet {
   private readonly auth = inject(Auth);
   readonly signOut = output<void>();
 
-  protected readonly items = computed(() =>
-    SECONDARY_NAV.filter((i) => !i.adminOnly || this.auth.isAdmin()),
+  protected readonly groups = computed(() =>
+    navGroups(SECONDARY_NAV.filter((i) => !i.adminOnly || this.auth.isAdmin())),
   );
   protected readonly email = computed(() => this.auth.user()?.email ?? '');
   protected readonly name = computed(
