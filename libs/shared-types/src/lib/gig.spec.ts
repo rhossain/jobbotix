@@ -254,7 +254,7 @@ describe('proposals', () => {
       headline: 'Senior Frontend Engineer',
     },
     summary: 'Frontend engineer with 12 years of experience.',
-    skills: [{ label: 'Frontend', items: ['Angular', 'TypeScript', 'RxJS'] }],
+    skills: [{ name: 'Frontend', items: ['Angular', 'TypeScript', 'RxJS'] }],
     experience: [
       {
         ...emptyResume().experience[0],
