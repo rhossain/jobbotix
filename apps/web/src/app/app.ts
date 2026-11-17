@@ -7,7 +7,6 @@ import {
   inject,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { SwUpdate, type VersionReadyEvent } from '@angular/service-worker';
 import {
   NavigationEnd,
   Router,
@@ -16,12 +15,12 @@ import {
   type ActivatedRouteSnapshot,
 } from '@angular/router';
 import { filter, map } from 'rxjs';
+import { AppUpdate } from './core/app-update';
 import { Auth } from './core/auth';
 import { SessionWatch } from './core/session-watch';
 import { Shortcuts } from './core/shortcuts';
 import { Theme } from './core/theme';
 import { Viewport } from './core/viewport';
-import { Toast } from './shared/toast';
 import { CommandPalette } from './shell/command-palette';
 import { Logo } from './shell/logo';
 import { MoreSheet, TabBar, TopBar } from './shell/mobile-nav';
@@ -67,7 +66,6 @@ export class App {
   protected readonly confirm = inject(Confirm);
   protected readonly tour = inject(Tour);
   private readonly router = inject(Router);
-  private readonly toast = inject(Toast);
   private readonly doc = inject(DOCUMENT);
   protected readonly title = 'Jobbotix';
 
@@ -115,8 +113,6 @@ export class App {
     inject(Shortcuts).install();
     inject(SessionWatch).start();
 
-    const win = this.doc.defaultView;
-
     // The toast stack sits above the phone tab bar while it is shown.
     effect(() => {
       this.doc.body.classList.toggle('jb-has-tabbar', this.auth.isSignedIn());
@@ -133,17 +129,7 @@ export class App {
       }
     });
 
-    const sw = inject(SwUpdate, { optional: true });
-    if (sw?.isEnabled) {
-      sw.versionUpdates
-        .pipe(filter((e): e is VersionReadyEvent => e.type === 'VERSION_READY'))
-        .subscribe(() =>
-          this.toast.show('A new version of Jobbotix is ready', {
-            ms: 60 * 60 * 1000,
-            action: { label: 'Reload', run: () => win?.location.reload() },
-          }),
-        );
-    }
+    inject(AppUpdate).start();
   }
 
   async signOut() {
