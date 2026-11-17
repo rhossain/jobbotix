@@ -179,6 +179,17 @@ export class SupabaseRolesRepo extends RolesRepo {
     this.replace(data);
   }
 
+  async setPostingText(id: string, text: string) {
+    const { data, error } = await this.supabase
+      .from('roles')
+      .update({ posting_text: text.trim().slice(0, 50_000) })
+      .eq('id', id)
+      .select('*')
+      .single();
+    if (error) throw error;
+    this.replace(data);
+  }
+
   async setCoverLetter(id: string, cover_letter: string) {
     const { data, error } = await this.supabase
       .from('roles')

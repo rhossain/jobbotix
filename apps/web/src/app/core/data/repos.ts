@@ -77,6 +77,11 @@ export abstract class RolesRepo {
   abstract setStatus(id: string, status: RoleStatus): Promise<void>;
   abstract setNotes(id: string, notes: string): Promise<void>;
   abstract setCoverLetter(id: string, body: string): Promise<void>;
+  /**
+   * Saves the text of the job post, pasted by the user, on a job that has
+   * none (one imported from a spreadsheet or from a LinkedIn archive).
+   */
+  abstract setPostingText(id: string, text: string): Promise<void>;
   abstract eventsFor(roleId: string): Promise<RoleEventRow[]>;
   /** All status_change events in the last `days`, oldest first. */
   abstract statusEvents(days: number): Promise<RoleEventRow[]>;

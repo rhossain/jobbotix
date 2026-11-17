@@ -361,6 +361,16 @@ export class MemoryRolesRepo extends RolesRepo {
     });
   }
 
+  async setPostingText(id: string, text: string) {
+    this.patch((s) => {
+      const role = s.roles.find((r) => r.id === id);
+      if (role) {
+        role.posting_text = text.trim().slice(0, 50_000);
+        role.updated_at = new Date().toISOString();
+      }
+    });
+  }
+
   async setCoverLetter(id: string, body: string) {
     this.patch((s) => {
       const role = s.roles.find((r) => r.id === id);

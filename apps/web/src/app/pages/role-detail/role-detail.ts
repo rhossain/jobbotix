@@ -15,6 +15,7 @@ import {
   ROLE_STATUS_LABELS,
   formatYearly,
   gigOf,
+  isLinkedInUrl,
   meetsMinimum,
   parseSalary,
   postingHealth,
@@ -61,6 +62,9 @@ import { wordCount } from '@jobbotix/shared-types';
 
 type Tab =
   'fit' | 'company' | 'resume' | 'prep' | 'interviews' | 'posting' | 'activity';
+
+/** Shortest pasted text that reads as a job post (extract-role's floor). */
+const POST_TEXT_MIN = 80;
 
 @Component({
   selector: 'jb-role-detail',
@@ -185,7 +189,60 @@ type Tab =
               @switch (tab()) {
                 @case ('fit') {
                   <div class="flex flex-col gap-5">
-                    @if (unscored()) {
+                    @if (needsPost()) {
+                      <section
+                        id="paste-post"
+                        class="jb-card flex flex-col gap-3 p-5"
+                        aria-labelledby="paste-post-h"
+                      >
+                        <h2 id="paste-post-h" class="font-semibold text-ink">
+                          Paste the job post to get a score
+                        </h2>
+                        <p class="text-sm text-ink-muted">
+                          This job came in without the text of its post.
+                          @if (onLinkedIn()) {
+                            Jobbotix does not open pages on LinkedIn, because
+                            LinkedIn does not allow it.
+                          }
+                          Open
+                          <a
+                            [href]="r.url"
+                            target="_blank"
+                            rel="noopener"
+                            class="text-brand-ink underline"
+                            >the job post</a
+                          >, select its text, copy it and paste it here.
+                          Jobbotix keeps it on the job and works out the match
+                          score from it.
+                        </p>
+                        <textarea
+                          id="paste-post-text"
+                          class="jb-input max-h-[60dvh] min-h-32"
+                          rows="6"
+                          placeholder="The full text of the job post"
+                          aria-labelledby="paste-post-h"
+                          [value]="postDraft()"
+                          (input)="postDraft.set($any($event.target).value)"
+                        ></textarea>
+                        @if (postError()) {
+                          <p class="text-sm text-bad" role="alert">
+                            {{ postError() }}
+                          </p>
+                        }
+                        <div>
+                          <button
+                            id="paste-post-save"
+                            type="button"
+                            jbButton="primary"
+                            [busy]="scoring()"
+                            [disabled]="scoring()"
+                            (click)="savePost(r)"
+                          >
+                            <jb-icon name="target" /> Save and score
+                          </button>
+                        </div>
+                      </section>
+                    } @else if (unscored()) {
                       <section
                         class="jb-card flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between"
                       >
@@ -887,6 +944,17 @@ export class RoleDetail {
     return tags;
   });
   readonly scoring = signal(false);
+  /**
+   * A job with no post text and no score yet: one imported from a
+   * spreadsheet or a LinkedIn archive. The user pastes the post to score it.
+   */
+  readonly needsPost = computed(() => {
+    const r = this.role();
+    return !!r && !this.gig() && !r.posting_text.trim() && this.unscored();
+  });
+  readonly onLinkedIn = computed(() => isLinkedInUrl(this.role()?.url ?? ''));
+  readonly postDraft = signal('');
+  readonly postError = signal('');
   /** Added by hand before scoring on add existed (or with no search profile then). */
   readonly unscored = computed(() => {
     const r = this.role();
@@ -1105,6 +1173,30 @@ export class RoleDetail {
   startEditLetter(r: RoleRow) {
     this.letterDraft.set(r.cover_letter);
     this.editingLetter.set(true);
+  }
+
+  /** Keeps the pasted post on the job, then scores the job from it. */
+  async savePost(r: RoleRow) {
+    if (this.scoring()) return;
+    const text = this.postDraft().trim();
+    if (text.length < POST_TEXT_MIN) {
+      this.postError.set(
+        `Paste the whole job post (${POST_TEXT_MIN} characters or more).`,
+      );
+      return;
+    }
+    this.postError.set('');
+    this.scoring.set(true);
+    try {
+      await this.repo.setPostingText(r.id, text);
+      this.postDraft.set('');
+    } catch (e) {
+      this.scoring.set(false);
+      this.postError.set((e as Error).message || 'Could not save the post');
+      return;
+    }
+    this.scoring.set(false);
+    await this.rescore(r);
   }
 
   async rescore(r: RoleRow) {
