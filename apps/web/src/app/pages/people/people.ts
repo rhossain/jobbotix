@@ -16,6 +16,7 @@ import {
 } from '@jobbotix/shared-types';
 import { PeopleRepo, RolesRepo } from '../../core/data/repos';
 import { ContactForm } from '../../shared/contact-form';
+import { LinkedInConnections } from '../../shared/linkedin-connections';
 import { RelativeDayPipe } from '../../shared/format';
 import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
 
@@ -26,6 +27,7 @@ import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
     Button,
     ContactForm,
     EmptyState,
+    LinkedInConnections,
     Icon,
     PageHeader,
     RelativeDayPipe,
@@ -141,6 +143,10 @@ import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
           <li class="text-sm text-ink-muted">Nobody matches.</li>
         }
       </ul>
+    }
+
+    @if (repo.loaded()) {
+      <jb-linkedin-connections />
     }
 
     <jb-contact-form [(open)]="adding" (saved)="opened($event)" />
