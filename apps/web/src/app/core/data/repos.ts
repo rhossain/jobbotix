@@ -82,6 +82,13 @@ export abstract class RolesRepo {
    * none (one imported from a spreadsheet or from a LinkedIn archive).
    */
   abstract setPostingText(id: string, text: string): Promise<void>;
+  /**
+   * Reads the post the user pasted for a job that has none: keeps the text
+   * on the job and fills the job's blanks (skills, location, pay, job type)
+   * from it, as Add a job does. `scored` says the job was scored as well;
+   * when it was not, score it with `rescore`.
+   */
+  abstract addPost(id: string, text: string): Promise<{ scored: boolean }>;
   abstract eventsFor(roleId: string): Promise<RoleEventRow[]>;
   /** All status_change events in the last `days`, oldest first. */
   abstract statusEvents(days: number): Promise<RoleEventRow[]>;

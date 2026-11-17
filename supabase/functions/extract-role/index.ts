@@ -1,6 +1,7 @@
 // POST /functions/v1/extract-role      (signed-in user, not an ingest key)
 //   Authorization: Bearer <user JWT>
 //   { "url": "https://..." }   or   { "url": "...", "text": "<pasted posting>" }
+//   { "roleId": "...", "text": "<pasted posting>" }   for a job already kept
 //
 // Fetches the posting (or takes pasted text), extracts the fields, and
 // inserts a role for the caller. With an AI connection the extraction is done
@@ -11,6 +12,11 @@
 // come from the shared store (extract-cache.ts). The role is then scored against the user's search profile the
 // same way the scheduled run scores what it finds (role-score.ts), so it
 // lands with a match score, reasons and things to watch.
+//
+// With `roleId` the post belongs to a job already in the pipeline that came
+// in without one (imported from a LinkedIn archive or a spreadsheet): the
+// text is kept on that job, what it says fills the job's blanks
+// (post-fill.ts), and the job is scored. No page is opened for it.
 //
 // LinkedIn and Upwork pages are never opened (open-page.ts). An Upwork link
 // is sent to add-gig. A LinkedIn link is taken only together with the post's
@@ -40,6 +46,7 @@ import {
   LINKEDIN_TEXT_MIN,
 } from '../_shared/linkedin.ts';
 import { openPage } from '../_shared/open-page.ts';
+import { fillFromPost, type StoredPost } from '../_shared/post-fill.ts';
 import { scoreRole, type RoleScoreFields } from '../_shared/role-score.ts';
 import { requireAiJob } from '../_shared/gate.ts';
 
@@ -67,13 +74,39 @@ Deno.serve(
       return json(401, { error: 'Session expired; sign in again' });
     const userId = userData.user.id;
 
-    let body: { url?: string; text?: string };
+    let body: { url?: string; text?: string; roleId?: string };
     try {
       body = await req.json();
     } catch {
       return json(400, { error: 'Body must be JSON' });
     }
-    const url = (body.url ?? '').trim();
+    const admin = serviceClient();
+
+    // The post of a job the caller already keeps, pasted by them.
+    const roleId = typeof body.roleId === 'string' ? body.roleId.trim() : '';
+    let kept: (StoredPost & { id: string; url: string }) | null = null;
+    if (roleId) {
+      const { data } = await admin
+        .from('roles')
+        .select(
+          'id, url, company, title, location, remote_scope, type, salary, stack, posted_at, posting_text, entry_kind',
+        )
+        .eq('id', roleId)
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (!data) return json(404, { error: 'That job was not found' });
+      if (data.entry_kind === 'gig')
+        return json(422, {
+          error: 'A job from Upwork is read on "Add from Upwork".',
+        });
+      if ((body.text ?? '').trim().length < 80)
+        return json(422, {
+          error: 'Paste the whole job post (80 characters or more).',
+        });
+      kept = data as StoredPost & { id: string; url: string };
+    }
+
+    const url = kept ? kept.url : (body.url ?? '').trim();
     if (!/^https?:\/\//i.test(url))
       return json(400, {
         error: 'Paste a link that starts with http:// or https://',
@@ -82,7 +115,7 @@ Deno.serve(
     // Upwork forbids reading its site by machine, so Jobbotix never opens an
     // Upwork page and never takes one in here: gigs go through add-gig, from
     // text the user pastes.
-    if (isUpworkUrl(url))
+    if (!kept && isUpworkUrl(url))
       return json(422, {
         error:
           'Jobs from Upwork are added with "Add from Upwork": paste the text of the job post there.',
@@ -130,7 +163,6 @@ Deno.serve(
       });
 
     // 2. Extract: the model on an AI connection, heuristics otherwise
-    const admin = serviceClient();
     const gate = await requireAiJob(admin, userId, 'extract');
     if (gate instanceof Response) return gate;
     let role: ExtractedRole = html
@@ -181,6 +213,54 @@ Deno.serve(
     const note = ai
       ? aiNote(ai, 'The posting was read without a model; check the fields.')
       : undefined;
+
+    // 3a. A job already kept: fill its blanks from the post, then score it.
+    if (kept) {
+      const filled = fillFromPost(kept, role, posted, method === 'ai');
+      let rescored: Partial<RoleScoreFields> = {};
+      let rescoredBy: 'heuristic' | 'ai' | null = null;
+      try {
+        const r = await scoreRole(admin, userId, filled, true);
+        if ('fields' in r) {
+          rescored = r.fields;
+          rescoredBy = r.method;
+        }
+      } catch {
+        /* the post is still worth keeping on the job unscored */
+      }
+      const save = (fields: Partial<StoredPost>) =>
+        admin
+          .from('roles')
+          .update({ ...fields, ...rescored })
+          .eq('id', kept.id)
+          .eq('user_id', userId);
+      let { error: saveError } = await save(filled);
+      // a replaced placeholder name can meet another job of the same name
+      if (saveError?.code === '23505') {
+        const { company: _c, title: _t, ...rest } = filled;
+        ({ error: saveError } = await save(rest));
+      }
+      if (saveError) return json(500, { error: saveError.message });
+      await admin.from('role_events').insert({
+        user_id: userId,
+        role_id: kept.id,
+        kind: 'note',
+        payload: {
+          text: `The job post was pasted in and read${method === 'ai' ? ' by AI' : ''}${
+            rescoredBy ? `; scored ${rescored.score}` : ''
+          }`,
+        },
+      });
+      return json(200, {
+        id: kept.id,
+        existed: true,
+        filled: true,
+        method,
+        scored: !!rescoredBy,
+        score: rescored.score ?? null,
+        aiNote: note,
+      });
+    }
 
     // 3. Insert (unique on user_id + url; a repeat returns the existing row)
     const { data: existing } = await admin

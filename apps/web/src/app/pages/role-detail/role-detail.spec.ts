@@ -74,6 +74,11 @@ describe('RoleDetail: a job that came in without its post', () => {
     (el.querySelector('#paste-post-save') as HTMLButtonElement).click();
     await settle();
     expect(current()?.posting_text).toBe(POST);
+    // read as Add a job reads it: the blanks of the job are filled
+    expect(current()?.location).toContain('Remote');
+    expect(current()?.stack).toContain('Angular');
+    expect(current()?.company).toBe('Vandelay');
+    expect(current()?.title).toBe('Latex Frontend Engineer');
     expect(rescore).toHaveBeenCalledTimes(1);
     // the post is on the job now, so the card is gone
     expect(el.querySelector('#paste-post')).toBeNull();

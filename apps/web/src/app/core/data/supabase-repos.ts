@@ -190,6 +190,30 @@ export class SupabaseRolesRepo extends RolesRepo {
     this.replace(data);
   }
 
+  async addPost(id: string, text: string) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      id?: string;
+      filled?: boolean;
+      scored?: boolean;
+      error?: string;
+    }>('extract-role', { body: { roleId: id, text } });
+    if (error || !data?.filled) {
+      // A server that does not read a pasted post into a kept job yet (or
+      // could not just now): the text is still kept, and the caller scores.
+      await this.setPostingText(id, text);
+      return { scored: false };
+    }
+    this.notes.report(data);
+    const { data: row, error: readError } = await this.supabase
+      .from('roles')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (readError) throw readError;
+    this.replace(row);
+    return { scored: !!data.scored };
+  }
+
   async setCoverLetter(id: string, cover_letter: string) {
     const { data, error } = await this.supabase
       .from('roles')

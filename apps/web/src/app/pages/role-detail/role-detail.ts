@@ -214,8 +214,9 @@ const POST_TEXT_MIN = 80;
                             class="text-brand-ink underline"
                             >the job post</a
                           >, select its text, copy it and paste it here.
-                          Jobbotix keeps it on the job and works out the match
-                          score from it.
+                          Jobbotix keeps it on the job, fills in the skills,
+                          location and pay it mentions, and works out the match
+                          score.
                         </p>
                         <textarea
                           id="paste-post-text"
@@ -1178,7 +1179,10 @@ export class RoleDetail {
     this.editingLetter.set(true);
   }
 
-  /** Keeps the pasted post on the job, then scores the job from it. */
+  /**
+   * Keeps the pasted post on the job, fills the job's blanks from it
+   * (skills, location, pay) and scores the job.
+   */
   async savePost(r: RoleRow) {
     if (this.scoring()) return;
     const text = this.postDraft().trim();
@@ -1190,8 +1194,9 @@ export class RoleDetail {
     }
     this.postError.set('');
     this.scoring.set(true);
+    let scored = false;
     try {
-      await this.repo.setPostingText(r.id, text);
+      ({ scored } = await this.repo.addPost(r.id, text));
       this.postDraft.set('');
     } catch (e) {
       this.scoring.set(false);
@@ -1199,7 +1204,10 @@ export class RoleDetail {
       return;
     }
     this.scoring.set(false);
-    await this.rescore(r);
+    if (scored) {
+      const now = this.role();
+      this.toast.show(now ? `Scored ${now.score}` : 'Scored');
+    } else await this.rescore(r);
   }
 
   async rescore(r: RoleRow) {

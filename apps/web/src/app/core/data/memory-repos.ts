@@ -371,6 +371,22 @@ export class MemoryRolesRepo extends RolesRepo {
     });
   }
 
+  async addPost(id: string, text: string) {
+    // Demo mode reads the post with the pattern reader, as Add a job does.
+    this.patch((s) => {
+      const role = s.roles.find((r) => r.id === id);
+      if (!role) return;
+      const read = heuristicExtract(role.url, `<title></title>${text}`);
+      role.posting_text = text.trim().slice(0, 50_000);
+      role.location ||= read.location;
+      role.remote_scope ||= read.location;
+      role.salary ||= read.salary;
+      if (!role.stack.length) role.stack = read.stack;
+      role.updated_at = new Date().toISOString();
+    });
+    return { scored: false };
+  }
+
   async setCoverLetter(id: string, body: string) {
     this.patch((s) => {
       const role = s.roles.find((r) => r.id === id);
