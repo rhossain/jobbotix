@@ -111,7 +111,16 @@ export class Auth {
       // meanwhile wait on the loading screen until the request ended.
       const { error } = await this.supabase.auth.getUser(session.access_token);
       if (error) {
-        if (accountGone(error)) why = 'removed';
+        if (accountGone(error)) {
+          // Suspending bans the account, which the server reports much like
+          // a deleted one. The profile row tells them apart: it is still
+          // there, marked suspended, and readable until the token runs out.
+          why = error.code === 'user_banned' ? 'suspended' : 'removed';
+          if (why === 'removed') {
+            await this.refreshProfile().catch(() => undefined);
+            if (this._profile()?.suspended_at) why = 'suspended';
+          }
+        }
       } else {
         // A suspended account still has its profile row; the admin's reason
         // for suspending stays between the admin and the account's email.
@@ -239,6 +248,10 @@ function friendly(message: string): string {
     return 'That invite code is not valid. Check it with the person who gave it to you.';
   if (m.includes('invalid login credentials'))
     return 'Email or password is wrong.';
+  if (m.includes('banned'))
+    return 'This account has been suspended. Write to support@jobbotix.com to ask about it.';
+  if (m.includes('not confirmed'))
+    return 'Confirm your email address first: open the link in the email we sent you, then sign in.';
   if (m.includes('already registered'))
     return 'An account with this email already exists. Sign in instead.';
   if (m.includes('password should be'))

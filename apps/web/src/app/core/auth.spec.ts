@@ -99,6 +99,22 @@ describe('Auth.verify', () => {
     expect(signOut).toHaveBeenCalledWith({ scope: 'local' });
   });
 
+  it('says suspended, not deleted, when the server reports a banned account', async () => {
+    const { auth } = await authWith({
+      userError: { status: 403, code: 'user_banned' },
+    });
+    expect(await auth.verify()).toBe('suspended');
+    expect(auth.isSignedIn()).toBe(false);
+  });
+
+  it('says suspended when the session is refused but the profile is marked suspended', async () => {
+    const { auth } = await authWith({
+      userError: { status: 403, code: 'session_not_found' },
+      profile: { id: 'u1', suspended_at: '2026-11-17T05:14:00Z' },
+    });
+    expect(await auth.verify()).toBe('suspended');
+  });
+
   it('signs this browser out when the account was suspended', async () => {
     const { auth } = await authWith({
       profile: { id: 'u1', suspended_at: '2026-11-16T12:00:00Z' },
