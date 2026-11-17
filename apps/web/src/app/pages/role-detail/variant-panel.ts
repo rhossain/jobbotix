@@ -165,6 +165,7 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
                 [busy]="exporting()"
                 (pdf)="downloadPdf()"
                 (word)="downloadDocx()"
+                (print)="printPdf()"
               />
               <button
                 type="button"
@@ -173,16 +174,6 @@ import { BarRow, Button, EmptyState, Icon, ScaledPage } from '../../ui';
                 (click)="acceptAll()"
               >
                 Accept all
-              </button>
-              <button
-                type="button"
-                jbButton="ghost"
-                iconOnly
-                aria-label="Print"
-                title="Print"
-                (click)="printPdf()"
-              >
-                <jb-icon name="printer" />
               </button>
             </div>
           </div>

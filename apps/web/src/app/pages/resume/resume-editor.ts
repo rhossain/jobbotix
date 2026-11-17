@@ -126,17 +126,8 @@ const csv = (s: string) =>
               [busy]="exporting()"
               (pdf)="downloadPdf()"
               (word)="downloadDocx()"
+              (print)="printPdf()"
             />
-            <button
-              type="button"
-              jbButton="ghost"
-              iconOnly
-              aria-label="Print"
-              title="Browser print dialog (choose Save as PDF)"
-              (click)="printPdf()"
-            >
-              <jb-icon name="printer" />
-            </button>
           }
           <button
             type="button"

@@ -19,7 +19,7 @@ describe('ExportMenu', () => {
     expect(items().length).toBe(0);
   });
 
-  it('opens to PDF and Word, and says which was chosen', () => {
+  it('opens to PDF, Word and Print, and says which was chosen', async () => {
     const { fixture, trigger, items } = setup();
     const picked: string[] = [];
     fixture.componentInstance.pdf.subscribe(() => picked.push('pdf'));
@@ -30,7 +30,7 @@ describe('ExportMenu', () => {
     expect(trigger.getAttribute('aria-expanded')).toBe('true');
     expect(
       items().map((i) => i.querySelector('span')?.textContent?.trim()),
-    ).toEqual(['PDF', 'Word (.docx)']);
+    ).toEqual(['PDF', 'Word (.docx)', 'Print']);
 
     items()[1].click();
     fixture.detectChanges();
@@ -41,6 +41,13 @@ describe('ExportMenu', () => {
     fixture.detectChanges();
     items()[0].click();
     expect(picked).toEqual(['word', 'pdf']);
+
+    fixture.componentInstance.print.subscribe(() => picked.push('print'));
+    trigger.click();
+    fixture.detectChanges();
+    items()[2].click();
+    await new Promise((r) => setTimeout(r));
+    expect(picked).toEqual(['word', 'pdf', 'print']);
   });
 
   it('closes on Escape and on a click elsewhere', () => {
@@ -53,7 +60,7 @@ describe('ExportMenu', () => {
 
     trigger.click();
     fixture.detectChanges();
-    expect(items().length).toBe(2);
+    expect(items().length).toBe(3);
     document.body.click();
     fixture.detectChanges();
     expect(items().length).toBe(0);

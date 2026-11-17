@@ -15,7 +15,7 @@ import { Button, Icon } from '../ui';
 const MENU_WIDTH = 256;
 
 /**
- * One "Export" button that opens a short menu: PDF or Word. Used wherever a
+ * One "Export" button that opens a short menu: PDF, Word or Print. Used wherever a
  * resume can be downloaded, so the two formats do not take two buttons.
  */
 @Component({
@@ -73,6 +73,15 @@ const MENU_WIDTH = 256;
             >To edit, or where a Word file is asked for</span
           >
         </button>
+        <button
+          type="button"
+          role="menuitem"
+          class="item"
+          (click)="pick('print')"
+        >
+          <span class="font-medium text-ink">Print</span>
+          <span class="text-ink-muted">Send it to your printer</span>
+        </button>
       </div>
     }
   `,
@@ -106,6 +115,7 @@ export class ExportMenu {
   readonly busy = input(false, { transform: booleanAttribute });
   readonly pdf = output<void>();
   readonly word = output<void>();
+  readonly print = output<void>();
 
   protected readonly open = signal(false);
   /** Hangs from the button's right edge when it would run off the screen. */
@@ -133,10 +143,12 @@ export class ExportMenu {
     if (refocus) this.trigger().nativeElement.focus();
   }
 
-  protected pick(kind: 'pdf' | 'word'): void {
+  protected pick(kind: 'pdf' | 'word' | 'print'): void {
     this.close(true);
     if (kind === 'pdf') this.pdf.emit();
-    else this.word.emit();
+    else if (kind === 'word') this.word.emit();
+    // After the menu has left the page, so it is not in the printout.
+    else setTimeout(() => this.print.emit());
   }
 
   protected outside(event: Event): void {

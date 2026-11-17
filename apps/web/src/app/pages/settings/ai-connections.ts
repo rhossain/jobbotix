@@ -125,10 +125,10 @@ const OTHER = '__other';
               </div>
               <p class="text-xs text-ink-muted">
                 @if (c.keyHint) {
-                  Key ending {{ c.keyHint }}, stored server-side and never shown
-                  again.
+                  Key ending {{ c.keyHint }}. Jobbotix keeps it safe and never
+                  shows it again.
                 } @else {
-                  Key stored server-side and never shown again.
+                  Jobbotix keeps your key safe and never shows it again.
                 }
                 @if (c.lastCheckedAt) {
                   Checked {{ c.lastCheckedAt | relativeDay }}.
