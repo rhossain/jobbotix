@@ -16,4 +16,10 @@ export const environment = {
    * (2026-11-17).
    */
   upworkGigs: true,
+  /**
+   * "Import from LinkedIn" in Settings (jobs and connections from the
+   * archive LinkedIn gives a member). Off until migration 0060
+   * (linkedin_connections) is deployed; turn it on then.
+   */
+  linkedinImport: false,
 };

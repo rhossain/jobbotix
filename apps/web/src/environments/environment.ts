@@ -19,4 +19,9 @@ export const environment = {
    * it). Needs migration 0057 and the add-gig function on the backend.
    */
   upworkGigs: true,
+  /**
+   * "Import from LinkedIn" in Settings. Needs migration 0060
+   * (linkedin_connections) on the backend.
+   */
+  linkedinImport: true,
 };

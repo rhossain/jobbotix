@@ -14,6 +14,7 @@ import {
   type ImportPreview,
 } from '../../shared/csv';
 import { Toast } from '../../shared/toast';
+import { environment } from '../../../environments/environment';
 import { Button, Icon } from '../../ui';
 import { LinkedInImport } from './linkedin-import';
 
@@ -138,7 +139,9 @@ const today = () => new Date().toISOString().slice(0, 10);
       }
     </section>
 
-    <jb-linkedin-import />
+    @if (linkedinImport) {
+      <jb-linkedin-import />
+    }
 
     <section
       class="jb-card flex flex-col gap-3 border-bad/40 p-5 md:p-6"
@@ -184,6 +187,8 @@ export class DataPanel {
   private readonly auth = inject(Auth);
   private readonly toast = inject(Toast);
   readonly statusLabels = ROLE_STATUS_LABELS;
+  /** Shown once the database has the table it saves to (migration 0060). */
+  readonly linkedinImport = environment.linkedinImport;
 
   readonly exporting = signal(false);
   readonly importing = signal(false);
