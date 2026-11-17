@@ -18,6 +18,8 @@ import {
 
 import { ResumesRepo, SettingsRepo } from '../../core/data/repos';
 import { Plan } from '../../core/plan';
+import { openLinkedInArchive } from '../../shared/linkedin-archive';
+import { readLinkedInExport } from '../../shared/linkedin-export';
 import { ModelPicker } from '../../shared/model-picker';
 import { Icon } from '../../ui';
 
@@ -34,9 +36,10 @@ const MAX_BYTES = 10 * 1024 * 1024;
         <div class="min-w-0 flex-1">
           <h2 class="jb-section-title">Import a resume</h2>
           <p class="mt-1 text-sm text-ink-muted">
-            Paste the text or pick a .docx, PDF or .txt. The file is opened in
-            your browser, and you review the result before it changes your
-            resume.
+            Paste the text or pick a .docx, PDF or .txt. You can also pick the
+            ZIP file LinkedIn sent you from "Get a copy of your data" to fill it
+            from your LinkedIn profile. The file is opened in your browser, and
+            you review the result before it changes your resume.
           </p>
         </div>
         <button
@@ -147,13 +150,15 @@ const MAX_BYTES = 10 * 1024 * 1024;
             } @else {
               <jb-icon name="upload" [size]="22" class="text-brand" />
               <span class="font-medium text-ink">Choose a file</span>
-              <span class="text-xs">or drop .docx, PDF or .txt here</span>
+              <span class="text-xs"
+                >or drop .docx, PDF, .txt or your LinkedIn ZIP here</span
+              >
             }
             <input
               id="ri-file"
               type="file"
               class="sr-only"
-              accept=".docx,.pdf,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
+              accept=".docx,.pdf,.txt,.md,.zip,application/pdf,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown"
               (change)="
                 onFile($any($event.target).files?.[0]);
                 $any($event.target).value = ''
@@ -428,6 +433,10 @@ export class ResumeImportPanel {
     this.error.set('');
     this.result.set(null);
     this.fileName.set(file.name);
+    if (/\.zip$/i.test(file.name)) {
+      await this.readLinkedIn(file);
+      return;
+    }
     this.busy.set(true);
     try {
       this.text.set(await readFile(file));
@@ -438,6 +447,50 @@ export class ResumeImportPanel {
       this.busy.set(false);
     }
     await this.parse();
+  }
+
+  /**
+   * Fills the result from the archive LinkedIn gives a member ("Get a copy
+   * of your data"): the profile, work history, education and skills files.
+   * Read in the browser, by the built-in reader only; nothing is sent
+   * anywhere, and LinkedIn is never contacted.
+   */
+  async readLinkedIn(file: File) {
+    this.busy.set(true);
+    this.aiError.set('');
+    try {
+      const opened = await openLinkedInArchive([
+        {
+          name: file.name,
+          size: file.size,
+          read: async () => new Uint8Array(await file.arrayBuffer()),
+        },
+      ]);
+      const resume = opened.problem
+        ? null
+        : readLinkedInExport(opened.files).resume;
+      if (!resume) {
+        this.error.set(
+          opened.problem && !/None of those files/.test(opened.problem)
+            ? opened.problem
+            : 'That ZIP file has no LinkedIn profile in it. Pick the file LinkedIn sent you from "Get a copy of your data", or a .docx, PDF or .txt resume.',
+        );
+        return;
+      }
+      this.text.set('');
+      this.localResult = {
+        resume,
+        warnings: [
+          'Read from your LinkedIn file. It has no phone number, and it lists all skills in one group: check both in the editor.',
+        ],
+      };
+      this.source.set('local');
+      this.result.set(this.localResult);
+    } catch {
+      this.error.set('That ZIP file could not be read.');
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   /**

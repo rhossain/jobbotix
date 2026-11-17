@@ -1,6 +1,7 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { emptyResume } from '@jobbotix/shared-types';
+import { strToU8, zipSync } from 'fflate';
 import { ResumesRepo, SettingsRepo } from '../../core/data/repos';
 import { Plan } from '../../core/plan';
 import { ResumeImportPanel } from './resume-import';
@@ -113,5 +114,67 @@ describe('ResumeImportPanel: how a resume is read', () => {
     await p.parse();
     expect(asked).toEqual([]);
     expect(p.source()).toBe('local');
+  });
+});
+
+describe('ResumeImportPanel: a LinkedIn file', () => {
+  const zipFile = (files: Record<string, string>) => {
+    const bytes = zipSync(
+      Object.fromEntries(
+        Object.entries(files).map(([n, t]) => [`Export/${n}`, strToU8(t)]),
+      ),
+    );
+    return {
+      name: 'Basic_LinkedInDataExport.zip',
+      size: bytes.length,
+      arrayBuffer: async () =>
+        bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.length),
+    } as unknown as File;
+  };
+
+  it('fills the result from the profile files, in the browser', async () => {
+    const { p, asked } = panel({});
+    p.mode.set('ai');
+    await p.onFile(
+      zipFile({
+        'Profile.csv':
+          'First Name,Last Name,Headline,Summary,Geo Location\nAlex,Morgan,Senior Frontend Engineer,Builds dashboards.,"Dhaka, Bangladesh"\n',
+        'Positions.csv':
+          'Company Name,Title,Description,Location,Started On,Finished On\nNorthwind,Senior Frontend Engineer,Rebuilt the dashboard.,Remote,Mar 2021,\n',
+        'Skills.csv': 'Name\nAngular\nTypeScript\n',
+        'messages.csv': 'FROM,TO,CONTENT\na,b,private',
+      }),
+    );
+    // read by the built-in reader even with AI picked: nothing is sent
+    expect(asked).toEqual([]);
+    expect(p.error()).toBe('');
+    expect(p.source()).toBe('local');
+    const r = p.result();
+    expect(r?.resume.contact.name).toBe('Alex Morgan');
+    expect(r?.resume.experience[0]).toMatchObject({
+      company: 'Northwind',
+      start: '2021-03',
+      end: '',
+    });
+    expect(r?.resume.skills).toEqual([
+      { name: 'Skills', items: ['Angular', 'TypeScript'] },
+    ]);
+    expect(r?.warnings[0]).toContain('Read from your LinkedIn file');
+    expect(JSON.stringify(r)).not.toContain('private');
+  });
+
+  it('says so when the ZIP holds no profile', async () => {
+    const { p } = panel({});
+    await p.onFile(zipFile({ 'notes.txt': 'hello' }));
+    expect(p.result()).toBeNull();
+    expect(p.error()).toContain('no LinkedIn profile');
+    await p.onFile(
+      zipFile({
+        'Connections.csv':
+          'First Name,Last Name,URL,Email Address,Company,Position,Connected On\nDana,W,,,Acme,EM,17 Nov 2025\n',
+      }),
+    );
+    expect(p.result()).toBeNull();
+    expect(p.error()).toContain('no LinkedIn profile');
   });
 });
