@@ -64,6 +64,43 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
         </li>
       </ul>
 
+      <h2 id="linkedin" class="mt-10 text-xl font-semibold">
+        Your LinkedIn file
+      </h2>
+      <p class="mt-2">
+        Jobbotix never signs in to LinkedIn and never opens one of its pages. If
+        you import the file LinkedIn gives you from "Get a copy of your data",
+        it is opened in your browser and is not uploaded. Only this is taken
+        from it, and only when you press Import:
+      </p>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        <li>
+          <span class="font-medium">Jobs you saved and applied to:</span> the
+          company, job title, link and day. They become ordinary jobs in your
+          account.
+        </li>
+        <li>
+          <span class="font-medium">Your connections,</span> if you leave that
+          box ticked: each person's name, company, job title, profile link and
+          the day you connected. Never their email address or phone number, even
+          where the file has one. These are other people's details, so only you
+          can see them; they are never shared, pooled across users or shown to
+          the admin, even with Support access. Settings → Your data → Delete my
+          LinkedIn connections removes them at once, and a new import takes the
+          place of the old list.
+        </li>
+        <li>
+          <span class="font-medium">Your profile,</span> work history, education
+          and skills, if you choose to fill your resume from them.
+        </li>
+      </ul>
+      <p class="mt-2">
+        Everything else in the file (messages, invitations, searches and the
+        rest) is never opened. The text of a job post you paste from LinkedIn
+        stays on your own job: it is left out of share links and is not reused
+        for anyone else.
+      </p>
+
       <h2 id="ai" class="mt-10 text-xl font-semibold">AI providers</h2>
       <p class="mt-2">
         Jobbotix calls a model only with a key you connected yourself in
