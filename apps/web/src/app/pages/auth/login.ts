@@ -15,11 +15,12 @@ import {
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
+import { EyeToggle } from './eye-toggle';
 import { emailHelp, focusFirstInvalid } from './field-help';
 
 @Component({
   selector: 'jb-login',
-  imports: [ReactiveFormsModule, RouterLink, AuthShell],
+  imports: [ReactiveFormsModule, RouterLink, AuthShell, EyeToggle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-auth-shell
@@ -69,25 +70,20 @@ import { emailHelp, focusFirstInvalid } from './field-help';
         </label>
         <label class="flex flex-col gap-1 text-sm">
           <span>Password</span>
-          <input
-            id="login-password"
-            [type]="show() ? 'text' : 'password'"
-            formControlName="password"
-            autocomplete="current-password"
-            class="jb-input"
-            [attr.aria-invalid]="tried() && form.controls.password.invalid"
-          />
+          <div class="relative">
+            <input
+              id="login-password"
+              [type]="show() ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="current-password"
+              class="jb-input pr-11"
+              [attr.aria-invalid]="tried() && form.controls.password.invalid"
+            />
+            <jb-eye-toggle [(shown)]="show" />
+          </div>
           @if (tried() && form.controls.password.invalid) {
             <span class="text-bad">Enter your password.</span>
           }
-        </label>
-        <label class="flex items-center gap-2 text-sm text-ink-muted">
-          <input
-            type="checkbox"
-            [checked]="show()"
-            (change)="show.set($any($event.target).checked)"
-          />
-          Show password
         </label>
         @if (error()) {
           <p class="text-sm text-bad" role="alert">

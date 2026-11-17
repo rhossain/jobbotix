@@ -48,10 +48,15 @@ describe('Login', () => {
     const { fixture, el } = setup();
     const password = el.querySelector('#login-password') as HTMLInputElement;
     expect(password.type).toBe('password');
-    const box = el.querySelector('input[type=checkbox]') as HTMLInputElement;
-    box.click();
+    const eye = el.querySelector('jb-eye-toggle button') as HTMLButtonElement;
+    expect(eye.getAttribute('aria-label')).toBe('Show password');
+    eye.click();
     fixture.detectChanges();
     expect(password.type).toBe('text');
+    expect(eye.getAttribute('aria-label')).toBe('Hide password');
+    eye.click();
+    fixture.detectChanges();
+    expect(password.type).toBe('password');
   });
 
   it('signs in once both boxes are filled', async () => {

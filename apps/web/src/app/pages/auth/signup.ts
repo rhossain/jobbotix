@@ -14,11 +14,12 @@ import {
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
+import { EyeToggle } from './eye-toggle';
 import { emailHelp, focusFirstInvalid } from './field-help';
 
 @Component({
   selector: 'jb-signup',
-  imports: [ReactiveFormsModule, RouterLink, AuthShell],
+  imports: [ReactiveFormsModule, RouterLink, AuthShell, EyeToggle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-auth-shell
@@ -84,27 +85,43 @@ import { emailHelp, focusFirstInvalid } from './field-help';
           <span
             >Password <span class="text-ink-muted">(8+ characters)</span></span
           >
-          <input
-            id="signup-password"
-            [type]="show() ? 'text' : 'password'"
-            formControlName="password"
-            autocomplete="new-password"
-            class="jb-input"
-            [attr.aria-invalid]="tried() && form.controls.password.invalid"
-          />
+          <div class="relative">
+            <input
+              id="signup-password"
+              [type]="show() ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="new-password"
+              class="jb-input pr-11"
+              [attr.aria-invalid]="tried() && form.controls.password.invalid"
+            />
+            <jb-eye-toggle [(shown)]="show" />
+          </div>
           @if (tried() && form.controls.password.invalid) {
             <span class="text-bad"
               >Choose a password with at least 8 characters.</span
             >
           }
         </label>
-        <label class="flex items-center gap-2 text-sm text-ink-muted">
-          <input
-            type="checkbox"
-            [checked]="show()"
-            (change)="show.set($any($event.target).checked)"
-          />
-          Show password
+        <label class="flex flex-col gap-1 text-sm">
+          <span>Type the password again</span>
+          <div class="relative">
+            <input
+              id="signup-confirm"
+              [type]="show() ? 'text' : 'password'"
+              formControlName="confirm"
+              autocomplete="new-password"
+              class="jb-input pr-11"
+              [attr.aria-invalid]="tried() && mismatch()"
+            />
+            <jb-eye-toggle [(shown)]="show" />
+          </div>
+          @if (tried() && mismatch()) {
+            <span class="text-bad">{{
+              form.controls.confirm.value
+                ? 'The two passwords are not the same. Type it again.'
+                : 'Type the password a second time, so a typing mistake is caught.'
+            }}</span>
+          }
         </label>
         @if (error()) {
           <p class="text-sm text-bad" role="alert">
@@ -168,7 +185,14 @@ export class Signup {
       nonNullable: true,
       validators: [Validators.required, Validators.minLength(8)],
     }),
+    confirm: new FormControl('', { nonNullable: true }),
   });
+
+  /** The second password box is empty or differs from the first. */
+  protected mismatch(): boolean {
+    const { password, confirm } = this.form.controls;
+    return confirm.value !== password.value || !confirm.value;
+  }
 
   constructor() {
     void this.auth.signupIsOpen().then((o) => this.open.set(o));
@@ -185,6 +209,12 @@ export class Signup {
           .querySelector<HTMLElement>('#signup-invite')
           ?.focus();
       else focusFirstInvalid(this.host.nativeElement);
+      return;
+    }
+    if (this.mismatch()) {
+      this.host.nativeElement
+        .querySelector<HTMLElement>('#signup-confirm')
+        ?.focus();
       return;
     }
     this.busy.set(true);

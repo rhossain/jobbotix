@@ -14,12 +14,13 @@ import {
 import { Router } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
+import { EyeToggle } from './eye-toggle';
 import { focusFirstInvalid } from './field-help';
 
 /** Landing page for the email link; Supabase puts a recovery session in the URL. */
 @Component({
   selector: 'jb-reset-password',
-  imports: [ReactiveFormsModule, AuthShell],
+  imports: [ReactiveFormsModule, AuthShell, EyeToggle],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-auth-shell heading="Choose a new password">
@@ -34,27 +35,22 @@ import { focusFirstInvalid } from './field-help';
             >New password
             <span class="text-ink-muted">(8+ characters)</span></span
           >
-          <input
-            id="reset-password"
-            [type]="show() ? 'text' : 'password'"
-            formControlName="password"
-            autocomplete="new-password"
-            class="jb-input"
-            [attr.aria-invalid]="tried() && password.invalid"
-          />
+          <div class="relative">
+            <input
+              id="reset-password"
+              [type]="show() ? 'text' : 'password'"
+              formControlName="password"
+              autocomplete="new-password"
+              class="jb-input pr-11"
+              [attr.aria-invalid]="tried() && password.invalid"
+            />
+            <jb-eye-toggle [(shown)]="show" />
+          </div>
           @if (tried() && password.invalid) {
             <span class="text-bad"
               >Choose a password with at least 8 characters.</span
             >
           }
-        </label>
-        <label class="flex items-center gap-2 text-sm text-ink-muted">
-          <input
-            type="checkbox"
-            [checked]="show()"
-            (change)="show.set($any($event.target).checked)"
-          />
-          Show password
         </label>
         @if (error()) {
           <p class="text-sm text-bad" role="alert">

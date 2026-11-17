@@ -81,6 +81,7 @@ const ICONS = [
   'newspaper',
   'users',
   'circle-play',
+  'eye-off',
 ];
 
 const out = {};
