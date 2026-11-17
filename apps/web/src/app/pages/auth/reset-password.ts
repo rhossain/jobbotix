@@ -52,6 +52,27 @@ import { focusFirstInvalid } from './field-help';
             >
           }
         </label>
+        <label class="flex flex-col gap-1 text-sm">
+          <span>Type the new password again</span>
+          <div class="relative">
+            <input
+              id="reset-confirm"
+              [type]="show() ? 'text' : 'password'"
+              formControlName="confirm"
+              autocomplete="new-password"
+              class="jb-input pr-11"
+              [attr.aria-invalid]="tried() && mismatch()"
+            />
+            <jb-eye-toggle [(shown)]="show" />
+          </div>
+          @if (tried() && mismatch()) {
+            <span class="text-bad">{{
+              form.controls.confirm.value
+                ? 'The two passwords are not the same. Type it again.'
+                : 'Type the password a second time, so a typing mistake is caught.'
+            }}</span>
+          }
+        </label>
         @if (error()) {
           <p class="text-sm text-bad" role="alert">
             {{ error() }}
@@ -77,7 +98,14 @@ export class ResetPassword {
       nonNullable: true,
       validators: [Validators.required, Validators.minLength(8)],
     }),
+    confirm: new FormControl('', { nonNullable: true }),
   });
+
+  /** The second password box is empty or differs from the first. */
+  protected mismatch(): boolean {
+    const { password, confirm } = this.form.controls;
+    return confirm.value !== password.value || !confirm.value;
+  }
   readonly password = this.form.controls.password;
   readonly busy = signal(false);
   readonly error = signal('');
@@ -90,6 +118,12 @@ export class ResetPassword {
     this.tried.set(true);
     if (this.password.invalid) {
       focusFirstInvalid(this.host.nativeElement);
+      return;
+    }
+    if (this.mismatch()) {
+      this.host.nativeElement
+        .querySelector<HTMLElement>('#reset-confirm')
+        ?.focus();
       return;
     }
     this.busy.set(true);
