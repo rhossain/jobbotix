@@ -254,7 +254,7 @@ export function researchPrompt(input: {
   webSearch: boolean;
 }): string {
   const how = input.webSearch
-    ? `Use web search. Prefer the company's own website and careers page, then Crunchbase, LinkedIn, press coverage, and employee reviews (Glassdoor, Blind, Reddit). Several searches are fine; stop once the fields are answered.`
+    ? `Use web search. Prefer the company's own website and careers page, then Crunchbase, press coverage, and employee reviews (Glassdoor, Blind, Reddit). Several searches are fine; stop once the fields are answered.`
     : `You cannot search the web. Use the posting and only what you reliably know about this company. If it is not a company you know well, leave fields empty rather than guess.`;
   return `Research the employer behind this job posting for a remote job seeker deciding whether to apply.
 
