@@ -106,26 +106,27 @@ export class Auth {
     if (left < 60_000) return null;
     let why: SessionEnded | null = null;
     try {
-      // With the token passed in, the client asks without holding its auth
-      // lock for the length of the request. Holding it made a page opened
-      // meanwhile wait on the loading screen until the request ended.
-      const { error } = await this.supabase.auth.getUser(session.access_token);
-      if (error) {
-        if (accountGone(error)) {
-          // Suspending bans the account, which the server reports much like
-          // a deleted one. The profile row tells them apart: it is still
-          // there, marked suspended, and readable until the token runs out.
-          why = error.code === 'user_banned' ? 'suspended' : 'removed';
-          if (why === 'removed') {
-            await this.refreshProfile().catch(() => undefined);
-            if (this._profile()?.suspended_at) why = 'suspended';
-          }
-        }
+      // The profile row first. A suspended account still has it, marked
+      // suspended, and this token can read it until it runs out. Asking the
+      // auth server first does not work: it refuses a suspended account in
+      // the same way as a deleted one, and the client may drop the session
+      // on that refusal, after which the row cannot be read at all.
+      const { data: row } = await this.supabase
+        .from('profiles')
+        .select('suspended_at')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      if (row?.suspended_at) {
+        why = 'suspended';
       } else {
-        // A suspended account still has its profile row; the admin's reason
-        // for suspending stays between the admin and the account's email.
-        await this.refreshProfile();
-        if (this._profile()?.suspended_at) why = 'suspended';
+        // With the token passed in, the client asks without holding its auth
+        // lock for the length of the request. Holding it made a page opened
+        // meanwhile wait on the loading screen until the request ended.
+        const { error } = await this.supabase.auth.getUser(
+          session.access_token,
+        );
+        if (error && accountGone(error))
+          why = error.code === 'user_banned' ? 'suspended' : 'removed';
       }
     } catch {
       return null; // offline, or the request did not get through

@@ -107,12 +107,13 @@ describe('Auth.verify', () => {
     expect(auth.isSignedIn()).toBe(false);
   });
 
-  it('says suspended when the session is refused but the profile is marked suspended', async () => {
-    const { auth } = await authWith({
+  it('reads the profile before asking the auth server, so a suspension is never taken for a deletion', async () => {
+    const { auth, getUser } = await authWith({
       userError: { status: 403, code: 'session_not_found' },
       profile: { id: 'u1', suspended_at: '2026-11-17T05:14:00Z' },
     });
     expect(await auth.verify()).toBe('suspended');
+    expect(getUser).not.toHaveBeenCalled();
   });
 
   it('signs this browser out when the account was suspended', async () => {
