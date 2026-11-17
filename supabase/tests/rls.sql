@@ -2278,4 +2278,68 @@ set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 delete from public.roles where entry_kind = 'gig';
 reset role; reset request.jwt.claim.sub;
 
+-- ---------------------------------------------------------------------------
+-- LinkedIn: a share link never carries a post the user pasted from LinkedIn
+-- ---------------------------------------------------------------------------
+do $$
+declare u text;
+begin
+  foreach u in array array[
+    'https://www.linkedin.com/jobs/view/4012345678',
+    'https://linkedin.com/jobs/view/1',
+    'http://bd.linkedin.com/jobs/view/senior-angular-engineer-1',
+    'https://WWW.LinkedIn.com/comm/jobs/view/1?trk=eml',
+    'https://www.linkedin.com./jobs/view/1',
+    'https://lnkd.in/gAbCdEf',
+    '  https://www.linkedin.com  '
+  ] loop
+    if not public.is_linkedin_url(u) then raise exception 'FAIL: % is not seen as LinkedIn', u; end if;
+  end loop;
+  foreach u in array array[
+    'https://boards.greenhouse.io/acme/jobs/1',
+    'https://notlinkedin.com/jobs/view/1',
+    'https://linkedin.com.example.org/jobs/view/1',
+    'https://example.org/?next=https://www.linkedin.com/jobs/view/1',
+    'https://linkedin.com@example.org/jobs/view/1',
+    'https://xlnkd.in/abc',
+    'linkedin.com/jobs/view/1',
+    ''
+  ] loop
+    if public.is_linkedin_url(u) then raise exception 'FAIL: % is taken for LinkedIn', u; end if;
+  end loop;
+  if public.is_linkedin_url(null) then raise exception 'FAIL: null is taken for LinkedIn'; end if;
+end $$;
+do $$
+declare li jsonb; short jsonb; other jsonb;
+begin
+  insert into public.roles (user_id, company, title, url, posting_text, cover_letter) values
+    ('11111111-1111-1111-1111-111111111111', 'Initech', 'Engineer',
+     'https://www.linkedin.com/jobs/view/4012345678', 'The pasted LinkedIn job post', 'My letter'),
+    ('11111111-1111-1111-1111-111111111111', 'Initrode', 'Engineer',
+     'https://lnkd.in/gAbCdEf', 'Another pasted LinkedIn job post', ''),
+    ('11111111-1111-1111-1111-111111111111', 'Hooli', 'Engineer',
+     'https://hooli.example/careers/1', 'A job post from a company site', '');
+  insert into public.shares (user_id, kind, role_id)
+  select user_id, 'role', id from public.roles where company in ('Initech', 'Initrode', 'Hooli');
+  select public.shared_view(s.token) into li from public.shares s join public.roles r on r.id = s.role_id
+   where r.company = 'Initech';
+  select public.shared_view(s.token) into short from public.shares s join public.roles r on r.id = s.role_id
+   where r.company = 'Initrode';
+  select public.shared_view(s.token) into other from public.shares s join public.roles r on r.id = s.role_id
+   where r.company = 'Hooli';
+  if li is null or li -> 'role' ->> 'posting_text' <> '' then
+    raise exception 'FAIL: a shared LinkedIn job carries its pasted post: %', li -> 'role' ->> 'posting_text';
+  end if;
+  if li -> 'role' ->> 'cover_letter' <> 'My letter' or li -> 'role' ->> 'url' not like '%linkedin.com%' then
+    raise exception 'FAIL: a shared LinkedIn job lost its letter or its link';
+  end if;
+  if short is null or short -> 'role' ->> 'posting_text' <> '' then
+    raise exception 'FAIL: a shared lnkd.in job carries its pasted post';
+  end if;
+  if other -> 'role' ->> 'posting_text' <> 'A job post from a company site' then
+    raise exception 'FAIL: a shared job from another site lost its posting text';
+  end if;
+  delete from public.roles where company in ('Initech', 'Initrode', 'Hooli');
+end $$;
+
 \echo RLS tests passed

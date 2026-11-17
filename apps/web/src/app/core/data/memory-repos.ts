@@ -22,6 +22,7 @@ import {
   GIG_TEXT_MIN,
   gigBudgetLine,
   gigOf,
+  isLinkedInUrl,
   heuristicGig,
   localProposal,
   normaliseGig,
@@ -2066,7 +2067,12 @@ export class MemorySharesRepo extends SharesRepo {
           cover_letter: r.cover_letter,
           found_at: r.found_at,
           // a share link is public: a gig's pasted Upwork post stays out
-          posting_text: gigOf(r) ? '' : r.posting_text.slice(0, 4000),
+          // as shared_view does: a post pasted from Upwork or LinkedIn is
+          // never republished through a public link
+          posting_text:
+            gigOf(r) || isLinkedInUrl(r.url)
+              ? ''
+              : r.posting_text.slice(0, 4000),
         },
       };
     }
