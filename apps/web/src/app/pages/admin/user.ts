@@ -1009,7 +1009,7 @@ export class AdminUser {
     const reason = this.suspendReason().trim();
     const ok = await this.confirm.ask({
       title: 'Suspend this account?',
-      body: 'They are signed out within the hour and cannot sign in again. AI calls, scheduled matching and the digest stop. Nothing is deleted, and you can lift it at any time.',
+      body: 'They are signed out within seconds and cannot sign in again. AI calls, scheduled matching and the digest stop. Nothing is deleted, and you can lift it at any time.',
       action: 'Suspend',
       danger: true,
     });
