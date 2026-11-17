@@ -155,7 +155,9 @@ type Tab =
               {{ gig() ? 'Open on Upwork' : 'Open job post' }}
               <jb-icon name="arrow-up-right" [size]="17" />
             </a>
-            <jb-share-button kind="role" [roleId]="r.id" />
+            @if (!gig()) {
+              <jb-share-button kind="role" [roleId]="r.id" />
+            }
             <jb-status-select [role]="r" />
           </div>
         </header>

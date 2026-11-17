@@ -63,4 +63,59 @@ describe('bookmarklet', () => {
     expect(src).toContain('/jobs/new?via=bookmarklet&url=');
     expect(() => new Function(src)).not.toThrow();
   });
+
+  it('passes only the link on Upwork and reads nothing from the page', () => {
+    const src = decodeURIComponent(
+      bookmarklet('https://jobbotix.com').slice('javascript:'.length),
+    );
+    const run = (hostname: string) => {
+      const opened: string[] = [];
+      let read = false;
+      const location = { hostname, href: `https://${hostname}/jobs/~01abc` };
+      const document = {
+        title: 'A job',
+        get body() {
+          read = true;
+          return { innerText: 'page text' };
+        },
+      };
+      const window = {
+        open: (url: string) => {
+          opened.push(url);
+          return { postMessage: () => undefined };
+        },
+      };
+      new Function(
+        'location',
+        'document',
+        'window',
+        'getSelection',
+        'setInterval',
+        'clearInterval',
+        src,
+      )(
+        location,
+        document,
+        window,
+        () => {
+          read = true;
+          return '';
+        },
+        () => 0,
+        () => undefined,
+      );
+      return { opened, read };
+    };
+    for (const host of ['www.upwork.com', 'upwork.com']) {
+      const r = run(host);
+      expect(r.read, host).toBe(false);
+      expect(r.opened[0], host).toContain('/jobs/upwork?url=');
+    }
+    // any other site, even one that only ends in the same letters, is read
+    for (const host of ['boards.greenhouse.io', 'notupwork.com']) {
+      const r = run(host);
+      expect(r.read, host).toBe(true);
+      expect(r.opened[0], host).toContain('/jobs/new?via=bookmarklet');
+    }
+  });
 });

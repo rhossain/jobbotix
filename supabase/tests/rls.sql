@@ -2249,6 +2249,32 @@ do $$ begin
     raise exception 'FAIL: A''s gig details were changed';
   end if;
 end $$;
+-- a share link is public, so a shared gig never carries the pasted job post
+update public.roles set posting_text = 'The pasted Upwork job post', cover_letter = 'My proposal'
+ where url like '%~01aaaaaaaaaaaaaaaa';
+insert into public.shares (user_id, kind, role_id)
+select '11111111-1111-1111-1111-111111111111', 'role', id from public.roles where url like '%~01aaaaaaaaaaaaaaaa';
+update public.roles set posting_text = 'A job post from a company site' where company = 'Acme';
+insert into public.shares (user_id, kind, role_id)
+select '11111111-1111-1111-1111-111111111111', 'role', id from public.roles where company = 'Acme';
+reset role; reset request.jwt.claim.sub;
+do $$
+declare gig jsonb; job jsonb;
+begin
+  select public.shared_view(s.token) into gig from public.shares s join public.roles r on r.id = s.role_id
+   where r.entry_kind = 'gig' order by s.created_at desc limit 1;
+  select public.shared_view(s.token) into job from public.shares s join public.roles r on r.id = s.role_id
+   where r.company = 'Acme' order by s.created_at desc limit 1;
+  if gig is null or gig -> 'role' ->> 'posting_text' <> '' then
+    raise exception 'FAIL: a shared gig carries its pasted job post: %', gig -> 'role' ->> 'posting_text';
+  end if;
+  if gig -> 'role' ->> 'cover_letter' <> 'My proposal' then raise exception 'FAIL: a shared gig lost its proposal'; end if;
+  if job -> 'role' ->> 'posting_text' <> 'A job post from a company site' then
+    raise exception 'FAIL: a shared job lost its posting text';
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 delete from public.roles where entry_kind = 'gig';
 reset role; reset request.jwt.claim.sub;
 

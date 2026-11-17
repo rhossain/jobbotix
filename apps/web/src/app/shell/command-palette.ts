@@ -16,6 +16,7 @@ import { Theme } from '../core/theme';
 import { Icon, type IconName } from '../ui';
 import { ALL_NAV, ShellState } from './shell-state';
 import { Tour } from './tour';
+import { environment } from '../../environments/environment';
 
 interface Command {
   id: string;
@@ -183,6 +184,17 @@ export class CommandPalette {
       keys: i.keys,
       run: go(i.link),
     }));
+    const addGig: Command[] = environment.upworkGigs
+      ? [
+          {
+            id: 'add-gig',
+            group: 'Actions',
+            label: 'Add a job from Upwork',
+            icon: 'plus',
+            run: go('/jobs/upwork'),
+          },
+        ]
+      : [];
     const actions: Command[] = [
       {
         id: 'add-role',
@@ -192,6 +204,7 @@ export class CommandPalette {
         keys: 'n',
         run: go('/jobs/new'),
       },
+      ...addGig,
       {
         id: 'theme',
         group: 'Actions',

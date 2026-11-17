@@ -2065,7 +2065,8 @@ export class MemorySharesRepo extends SharesRepo {
           status: r.status,
           cover_letter: r.cover_letter,
           found_at: r.found_at,
-          posting_text: r.posting_text.slice(0, 4000),
+          // a share link is public: a gig's pasted Upwork post stays out
+          posting_text: gigOf(r) ? '' : r.posting_text.slice(0, 4000),
         },
       };
     }
