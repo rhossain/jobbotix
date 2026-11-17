@@ -118,4 +118,76 @@ describe('bookmarklet', () => {
       expect(r.opened[0], host).toContain('/jobs/new?via=bookmarklet');
     }
   });
+
+  it('passes only the link on LinkedIn and reads nothing from the page', () => {
+    const src = decodeURIComponent(
+      bookmarklet('https://jobbotix.com').slice('javascript:'.length),
+    );
+    const run = (hostname: string) => {
+      const opened: string[] = [];
+      let read = false;
+      let posted = 0;
+      const location = {
+        hostname,
+        href: `https://${hostname}/jobs/view/4012345678`,
+      };
+      const document = {
+        get title() {
+          read = true;
+          return 'A job';
+        },
+        get body() {
+          read = true;
+          return { innerText: 'page text' };
+        },
+      };
+      const window = {
+        open: (url: string) => {
+          opened.push(url);
+          return { postMessage: () => posted++ };
+        },
+      };
+      new Function(
+        'location',
+        'document',
+        'window',
+        'getSelection',
+        'setInterval',
+        'clearInterval',
+        src,
+      )(
+        location,
+        document,
+        window,
+        () => {
+          read = true;
+          return 'selected text';
+        },
+        (fn: () => void) => {
+          fn();
+          return 0;
+        },
+        () => undefined,
+      );
+      return { opened, read, posted };
+    };
+    for (const host of [
+      'www.linkedin.com',
+      'linkedin.com',
+      'bd.linkedin.com',
+    ]) {
+      const r = run(host);
+      // not the page, not its title, not even what the user selected
+      expect(r.read, host).toBe(false);
+      expect(r.posted, host).toBe(0);
+      expect(r.opened, host).toEqual([
+        `https://jobbotix.com/jobs/new?url=${encodeURIComponent(`https://${host}/jobs/view/4012345678`)}`,
+      ]);
+    }
+    for (const host of ['notlinkedin.com', 'linkedin.com.example.org']) {
+      const r = run(host);
+      expect(r.read, host).toBe(true);
+      expect(r.opened[0], host).toContain('/jobs/new?via=bookmarklet');
+    }
+  });
 });

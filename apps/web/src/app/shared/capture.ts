@@ -68,15 +68,16 @@ export function acceptPosting(
 
 /**
  * The bookmarklet: opens Add role in a new tab and posts the page's link,
- * title and text to it (the selection when there is one), so pages behind a
- * sign-in such as LinkedIn work too. It retries for a few seconds while the
- * app loads; the app takes the first message only. Upwork is the exception:
- * there it passes the link alone and reads nothing.
+ * title and text to it (the selection when there is one), so a page behind a
+ * sign-in works too. It retries for a few seconds while the app loads; the
+ * app takes the first message only. Upwork and LinkedIn are the exceptions:
+ * there it passes the link alone and reads nothing, not even a selection.
  */
 export function bookmarklet(appOrigin: string): string {
   const target = JSON.stringify(appOrigin);
-  // On Upwork it sends the link only: Upwork does not allow a tool to read
-  // its pages, so the user pastes the text themselves on Add from Upwork.
-  const src = `(()=>{const o=${target};if(/(^|\\.)upwork\\.com$/i.test(location.hostname)){window.open(o+'/jobs/upwork?url='+encodeURIComponent(location.href),'jobbotix');return}const d={type:'jobbotix-posting',url:location.href,title:document.title,text:(String(getSelection())||document.body.innerText||'').slice(0,50000)};const w=window.open(o+'/jobs/new?via=bookmarklet&url='+encodeURIComponent(location.href),'jobbotix');if(!w){location.href=o+'/jobs/new?url='+encodeURIComponent(location.href);return}let n=0;const t=setInterval(()=>{try{w.postMessage(d,o)}catch(e){}if(++n>25)clearInterval(t)},400)})()`;
+  // On Upwork and on LinkedIn it sends the link only: neither allows a tool
+  // to read its pages, so the user pastes the text themselves (on Add from
+  // Upwork, or in "Text of the job post" on Add a job).
+  const src = `(()=>{const o=${target};if(/(^|\\.)upwork\\.com$/i.test(location.hostname)){window.open(o+'/jobs/upwork?url='+encodeURIComponent(location.href),'jobbotix');return}if(/(^|\\.)linkedin\\.com$/i.test(location.hostname)){window.open(o+'/jobs/new?url='+encodeURIComponent(location.href),'jobbotix');return}const d={type:'jobbotix-posting',url:location.href,title:document.title,text:(String(getSelection())||document.body.innerText||'').slice(0,50000)};const w=window.open(o+'/jobs/new?via=bookmarklet&url='+encodeURIComponent(location.href),'jobbotix');if(!w){location.href=o+'/jobs/new?url='+encodeURIComponent(location.href);return}let n=0;const t=setInterval(()=>{try{w.postMessage(d,o)}catch(e){}if(++n>25)clearInterval(t)},400)})()`;
   return `javascript:${encodeURIComponent(src)}`;
 }

@@ -5,6 +5,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DomSanitizer } from '@angular/platform-browser';
 import {
   FormControl,
@@ -13,7 +14,12 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { isUpworkUrl } from '@jobbotix/shared-types';
+import {
+  isLinkedInUrl,
+  isUpworkUrl,
+  LINKEDIN_PASTE_MESSAGE,
+  LINKEDIN_TEXT_MIN,
+} from '@jobbotix/shared-types';
 import { RolesRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
 import { acceptPosting, bookmarklet, readShared } from '../../shared/capture';
@@ -75,13 +81,37 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
             (blur)="urlTouched.set(true)"
           />
         </jb-field>
+        @if (linkedIn()) {
+          <p
+            id="add-linkedin"
+            class="flex items-start gap-2.5 rounded-control bg-sunken px-3.5 py-3 text-sm text-ink"
+            role="status"
+          >
+            <jb-icon name="info" [size]="18" class="mt-px shrink-0" />
+            <span>
+              This link is on LinkedIn. Jobbotix does not open LinkedIn pages,
+              because LinkedIn does not allow it. Open the job on LinkedIn,
+              select the text of the post, copy it and paste it below. The link
+              stays on the job.
+              @if (oldButton()) {
+                <span id="add-old-button" class="mt-1.5 block text-ink-muted">
+                  Your "Add to Jobbotix" bookmark is an older version. Drag the
+                  button at the bottom of this page to your bookmarks bar and
+                  delete the old one.
+                </span>
+              }
+            </span>
+          </p>
+        }
         <jb-field
           label="Text of the job post"
-          [optional]="!demo"
+          [optional]="!demo && !linkedIn()"
           [hint]="
             demo
               ? 'Demo mode cannot fetch pages, so paste the job post here (80 characters or more).'
-              : 'Paste it if Jobbotix cannot read the page: select everything on the job post, copy, paste.'
+              : linkedIn()
+                ? 'Needed for a LinkedIn link: paste the whole post (80 characters or more).'
+                : 'Paste it if Jobbotix cannot read the page: select everything on the job post, copy, paste.'
           "
         >
           <textarea
@@ -182,8 +212,10 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
             <h3 class="font-medium text-ink">On a computer</h3>
             <p class="mt-1 text-ink-muted">
               Drag this button to your bookmarks bar. On any job post, click it:
-              the page's link and text come here and the job is added. It works
-              on pages behind a sign-in, such as LinkedIn.
+              the page's link and text come here and the job is added. On
+              LinkedIn and Upwork it brings the link only, and you paste the
+              text of the post yourself, because those sites do not allow a tool
+              to read their pages.
             </p>
             <a
               class="mt-3 inline-flex items-center gap-2 rounded-control border border-line bg-sunken px-3 py-2 font-medium text-ink no-underline"
@@ -221,9 +253,23 @@ export class AddRole {
     bookmarklet(typeof location === 'undefined' ? '' : location.origin),
   );
 
+  /** The link in the box is on LinkedIn: the post's text has to be pasted. */
+  readonly linkedIn = signal(false);
+  /** A bookmark saved before LinkedIn was handled apart was used on LinkedIn. */
+  readonly oldButton = signal(false);
+
   constructor() {
+    this.form.controls.url.valueChanges
+      .pipe(takeUntilDestroyed())
+      .subscribe((url) => this.linkedIn.set(isLinkedInUrl(url)));
     const q = inject(ActivatedRoute).snapshot.queryParamMap;
-    if (q.get('via') === 'bookmarklet') {
+    // A bookmarklet saved before LinkedIn was handled apart still offers the
+    // page's text. It is never listened for: LinkedIn pages are never read.
+    // The user is asked to swap the bookmark for the current one.
+    const viaButton = q.get('via') === 'bookmarklet';
+    const onLinkedIn = isLinkedInUrl(q.get('url') ?? '');
+    this.oldButton.set(viaButton && onLinkedIn);
+    if (viaButton && !onLinkedIn) {
       this.form.controls.url.setValue(q.get('url') ?? '');
       this.receiveFromOpener();
       return;
@@ -235,8 +281,15 @@ export class AddRole {
     });
     if (!shared.url) return;
     this.form.setValue({ url: shared.url, text: shared.text });
+    // A LinkedIn link without the post's text waits for the user to paste it.
+    if (this.needsLinkedInText(shared.url, shared.text)) return;
     // shared from the phone: add it straight away
     if (this.form.valid) queueMicrotask(() => void this.submit());
+  }
+
+  /** A LinkedIn link whose post has not been pasted in yet. */
+  private needsLinkedInText(url: string, text: string): boolean {
+    return isLinkedInUrl(url.trim()) && text.trim().length < LINKEDIN_TEXT_MIN;
   }
 
   /** Waits up to 5 seconds for the bookmarklet's page text, then adds the role. */
@@ -262,6 +315,15 @@ export class AddRole {
         window.removeEventListener('message', onMessage);
         this.form.setValue({ url: m.url, text: '' });
         void this.submit();
+        return;
+      }
+      // The same for LinkedIn (a page that moved there after the click): the
+      // text is dropped unread and the user is asked to paste the post.
+      if (isLinkedInUrl(m.url)) {
+        done = true;
+        this.waiting.set(false);
+        window.removeEventListener('message', onMessage);
+        this.form.setValue({ url: m.url, text: '' });
         return;
       }
       const body = m.text.trim();
@@ -312,6 +374,17 @@ export class AddRole {
 
   async submit() {
     if (this.form.invalid || this.busy()) return;
+    // LinkedIn pages are never opened, so a LinkedIn link goes nowhere until
+    // the post's text is pasted in. Nothing is sent before that.
+    {
+      const { url, text } = this.form.getRawValue();
+      if (this.needsLinkedInText(url, text)) {
+        this.error.set(LINKEDIN_PASTE_MESSAGE);
+        if (typeof document !== 'undefined')
+          document.getElementById('add-text')?.focus();
+        return;
+      }
+    }
     this.busy.set(true);
     this.error.set('');
     try {
