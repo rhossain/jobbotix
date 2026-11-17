@@ -32,3 +32,4 @@ export * from './lib/admin';
 export * from './lib/excluded';
 export * from './lib/profiles';
 export * from './lib/gig';
+export * from './lib/linkedin';

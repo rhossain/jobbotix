@@ -12,9 +12,16 @@
 //
 // A stored extraction says what the posting says and which model read it,
 // never who added it. Entries older than MAX_AGE_DAYS are not used.
+//
+// A post from LinkedIn or Upwork is never stored here and never answered from
+// here (mayShareExtraction). Those sites do not let a tool read their pages,
+// so the text is always one the user pasted in themselves, and what one user
+// pasted must not go on to serve another user.
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { parseExtraction } from './extract.ts';
+import { isUpworkUrl } from './gig.ts';
+import { isLinkedInUrl } from './linkedin.ts';
 
 export const MAX_AGE_DAYS = 30;
 /** Rows older than this are deleted when a new one is written. */
@@ -25,6 +32,15 @@ const TEXT_CHARS = 30_000;
 export type Extraction = NonNullable<ReturnType<typeof parseExtraction>>;
 
 type Admin = Pick<SupabaseClient, 'from'>;
+
+/**
+ * Whether a posting at this address may use the shared store at all. False
+ * for LinkedIn and Upwork: their posts reach Jobbotix only as text a user
+ * pasted, and that stays in the user's own account.
+ */
+export function mayShareExtraction(url: string): boolean {
+  return !isLinkedInUrl(url) && !isUpworkUrl(url);
+}
 
 /** Query parameters that say where a visitor came from, not which posting it is. */
 const TRACKING =

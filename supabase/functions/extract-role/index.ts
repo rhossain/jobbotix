@@ -11,6 +11,10 @@
 // come from the shared store (extract-cache.ts). The role is then scored against the user's search profile the
 // same way the scheduled run scores what it finds (role-score.ts), so it
 // lands with a match score, reasons and things to watch.
+//
+// LinkedIn and Upwork pages are never opened (open-page.ts). An Upwork link
+// is sent to add-gig. A LinkedIn link is taken only together with the post's
+// text, pasted by the user; that text stays out of the shared store.
 
 import { aiNote, runAi } from '../_shared/ai.ts';
 import { createClient } from 'npm:@supabase/supabase-js@2';
@@ -18,6 +22,7 @@ import { json, serviceClient } from '../_shared/auth.ts';
 import { withCors } from '../_shared/cors.ts';
 import {
   extractionKey,
+  mayShareExtraction,
   readExtraction,
   writeExtraction,
 } from '../_shared/extract-cache.ts';
@@ -29,6 +34,12 @@ import {
   type ExtractedRole,
 } from '../_shared/extract.ts';
 import { isUpworkUrl } from '../_shared/gig.ts';
+import {
+  isLinkedInUrl,
+  LINKEDIN_PASTE_MESSAGE,
+  LINKEDIN_TEXT_MIN,
+} from '../_shared/linkedin.ts';
+import { openPage } from '../_shared/open-page.ts';
 import { scoreRole, type RoleScoreFields } from '../_shared/role-score.ts';
 import { requireAiJob } from '../_shared/gate.ts';
 
@@ -81,29 +92,36 @@ Deno.serve(
     // 1. Get the posting text
     let html = '';
     let text = (body.text ?? '').trim();
+
+    // LinkedIn does not allow software to open or read its pages, so a
+    // LinkedIn link is taken only with the post's text, pasted by the user.
+    if (isLinkedInUrl(url) && text.length < LINKEDIN_TEXT_MIN)
+      return json(422, { error: LINKEDIN_PASTE_MESSAGE, linkedin: true });
+
     if (!text) {
-      try {
-        const res = await fetch(url, {
-          headers: {
-            'user-agent':
-              'Mozilla/5.0 (compatible; Jobbotix/1.0; +https://jobbotix.com)',
-            accept: 'text/html,*/*',
-          },
-          redirect: 'follow',
-          signal: AbortSignal.timeout(15_000),
-        });
-        if (!res.ok)
-          return json(422, {
-            error: `That page could not be opened (error ${res.status}). Paste the text of the job post instead.`,
-          });
-        html = await res.text();
-        text = htmlToText(html);
-      } catch {
+      const page = await openPage(url);
+      if (!page.ok) {
+        // a short link or tracking link that leads to a site never opened
+        if (page.reason === 'no-read')
+          return page.site === 'linkedin'
+            ? json(422, {
+                error: `That link leads to LinkedIn. ${LINKEDIN_PASTE_MESSAGE}`,
+                linkedin: true,
+              })
+            : json(422, {
+                error:
+                  'That link leads to Upwork. Jobs from Upwork are added with "Add from Upwork": paste the text of the job post there.',
+                upwork: true,
+              });
         return json(422, {
           error:
-            'That page could not be opened. Paste the text of the job post instead.',
+            page.reason === 'status'
+              ? `That page could not be opened (error ${page.status}). Paste the text of the job post instead.`
+              : 'That page could not be opened. Paste the text of the job post instead.',
         });
       }
+      html = page.html;
+      text = htmlToText(html);
     }
     if (text.length < 80)
       return json(422, {
@@ -123,8 +141,10 @@ Deno.serve(
     let method: 'ai' | 'heuristic' = 'heuristic';
 
     // Read by a model before, for anyone? Then there is nothing to ask.
-    const key = await extractionKey(url, text);
-    const stored = await readExtraction(admin, key);
+    // Text pasted from LinkedIn is the exception: it is never stored for
+    // other users and never answered from what another user pasted.
+    const key = mayShareExtraction(url) ? await extractionKey(url, text) : null;
+    const stored = key ? await readExtraction(admin, key) : null;
     const ai = stored
       ? null
       : await runAi(
@@ -138,7 +158,7 @@ Deno.serve(
           { job: 'extract', parse: parseExtraction },
         );
     const parsed = stored ?? (ai?.ok ? ai.value : null);
-    if (ai?.ok)
+    if (ai?.ok && key)
       await writeExtraction(admin, key, ai.value, {
         provider: ai.provider,
         model: ai.model,

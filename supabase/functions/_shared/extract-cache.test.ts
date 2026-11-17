@@ -3,6 +3,7 @@ import {
   canonicalUrl,
   extractionKey,
   MAX_AGE_DAYS,
+  mayShareExtraction,
   readExtraction,
   writeExtraction,
   type Extraction,
@@ -233,5 +234,24 @@ Deno.test(
       NOW,
     );
     assertEquals(s.rows, {});
+  },
+);
+
+Deno.test(
+  'a post pasted from LinkedIn or Upwork never uses the shared store',
+  () => {
+    for (const url of [
+      'https://www.linkedin.com/jobs/view/4012345678',
+      'https://bd.linkedin.com/jobs/view/senior-angular-engineer-1',
+      'https://lnkd.in/gAbCdEf',
+      'https://www.upwork.com/jobs/~01aaaaaaaaaaaaaaaa',
+    ])
+      assertEquals(mayShareExtraction(url), false, url);
+    for (const url of [
+      'https://boards.greenhouse.io/acme/jobs/1',
+      'https://notlinkedin.com/jobs/view/1',
+      'https://example.org/?next=https://www.linkedin.com/jobs/view/1',
+    ])
+      assertEquals(mayShareExtraction(url), true, url);
   },
 );
