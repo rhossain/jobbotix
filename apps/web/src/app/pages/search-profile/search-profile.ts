@@ -38,6 +38,7 @@ import {
   type SearchProfileInput,
 } from '../../core/data/repos';
 import { Plan } from '../../core/plan';
+import { SearchRunner, awaitsSearch } from '../../core/search-runner';
 import { Toast } from '../../shared/toast';
 import { UpgradeNote } from '../../shared/upgrade-note';
 import { WatchHow } from '../../shared/watch-how';
@@ -72,7 +73,7 @@ const MAX_PROFILES = 5;
   template: `
     <jb-page-header
       title="Job preferences"
-      lead="Tell Jobbotix what kind of job you want. It checks new job posts against these choices every hour. When you save a change, the last 30 days are checked again over the next few hours."
+      lead="Tell Jobbotix what kind of job you want. When you save, it looks through the last 30 days of job posts right away, then checks new job posts against these choices every hour."
     >
       <jb-watch-how lead class="mt-2" guide="say-what-job-you-want" />
     </jb-page-header>
@@ -301,8 +302,8 @@ const MAX_PROFILES = 5;
                   <p class="mt-2 text-xs text-ink-muted">
                     Nothing strong enough in the last 14 days. If you have just
                     added a job title, Jobbotix has not looked for it yet: save,
-                    and check again in a few hours. Otherwise try "Suggest other
-                    job titles", or check question 4 and the choices below that
+                    and it looks right away. Otherwise try "Suggest other job
+                    titles", or check question 4 and the choices below that
                     leave job posts out.
                   </p>
                 }
@@ -787,7 +788,7 @@ const MAX_PROFILES = 5;
           }
 
           <div
-            class="flex items-center gap-3 border-t border-line pt-5 md:col-span-2"
+            class="flex flex-wrap items-center gap-3 border-t border-line pt-5 md:col-span-2"
           >
             <button
               type="submit"
@@ -809,6 +810,38 @@ const MAX_PROFILES = 5;
               >
                 <jb-icon name="circle-check" [size]="17" /> Saved
               </span>
+            }
+            <!-- What saving set off: the search runs now, not on the hour. -->
+            @if (search.running()) {
+              <p
+                class="order-last basis-full text-sm text-ink-muted"
+                role="status"
+              >
+                Looking for matching jobs in the last 30 days of job posts.
+                @if (search.searched() > 0) {
+                  {{ search.searched() }} checked so far,
+                  {{ search.added() }}
+                  {{ search.added() === 1 ? 'job' : 'jobs' }} found.
+                }
+              </p>
+            } @else if (searchedOnSave() && search.state() === 'finished') {
+              <p
+                class="order-last basis-full text-sm text-ink-muted"
+                role="status"
+              >
+                @if (search.added() > 0) {
+                  Search finished:
+                  <b class="font-semibold text-ink">{{ search.added() }}</b>
+                  new {{ search.added() === 1 ? 'job' : 'jobs' }}.
+                  <a routerLink="/today" class="text-brand-ink underline"
+                    >See them on Today</a
+                  >
+                } @else {
+                  Search finished: {{ search.searched() }} job posts checked and
+                  no new jobs matched. "Preview what this finds" above shows
+                  why, and Jobbotix keeps checking new job posts every hour.
+                }
+              </p>
             }
             @if (current(); as c) {
               @if (!c.active) {
@@ -946,6 +979,10 @@ export class SearchProfile {
   private readonly doc = inject(DOCUMENT);
   private readonly plan = inject(Plan);
   private readonly confirm = inject(Confirm);
+  /** Runs the search as soon as a save changes what is looked for. */
+  protected readonly search = inject(SearchRunner);
+  /** A save on this visit started a search; its result is shown by the button. */
+  protected readonly searchedOnSave = signal(false);
 
   /**
    * Which profile the form holds: one by id, 'new' for one not added yet,
@@ -1483,14 +1520,24 @@ export class SearchProfile {
             ? null
             : Math.min(100, Math.max(0, Number(v.alertMinScore) || 0)),
       };
-      if (this.isNew()) {
+      const added = this.isNew();
+      if (added) {
         const made = await this.repo.create(input);
         this.selected.set(made.id);
-        this.toast.show('Search added. It is checked within the hour.');
       } else {
         await this.repo.save(input, this.current()?.id);
-        this.toast.show('Job preferences saved');
       }
+      // A new search, or a change to what is looked for, is searched for now
+      // (the database clears the search's watermark on such a change).
+      const searching = this.repo.profiles().some(awaitsSearch);
+      if (searching) {
+        this.searchedOnSave.set(true);
+        void this.search.start();
+      }
+      const what = added ? 'Search added' : 'Job preferences saved';
+      this.toast.show(
+        searching ? `${what}. Looking for matching jobs now.` : what,
+      );
       this.form.markAsPristine();
       this.savedAt.set(Date.now());
     } catch (e) {

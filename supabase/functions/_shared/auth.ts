@@ -1,5 +1,6 @@
-// Resolves the bearer ingest key on a request to its owner. Shared by the
-// functions a user's scheduled task calls (ingest-roles, list-roles).
+// Who is calling: the owner of a bearer ingest key (the functions a user's
+// scheduled task calls: ingest-roles, list-roles), the schedule itself (the
+// cron secret), or a signed-in user of the web app (their JWT).
 
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 
@@ -52,4 +53,31 @@ export function requireCronSecret(req: Request): Response | null {
     .trim();
   if (!secret || bearer !== secret) return json(401, { error: 'Not allowed' });
   return null;
+}
+
+/** True when the request carries the cron secret (see requireCronSecret). */
+export function hasCronSecret(req: Request): boolean {
+  return requireCronSecret(req) === null;
+}
+
+/**
+ * The signed-in user behind a request from the web app (the bearer is their
+ * session JWT), or null when there is none or the session has ended.
+ */
+export async function signedInUserId(req: Request): Promise<string | null> {
+  const jwt = req.headers
+    .get('authorization')
+    ?.replace(/^Bearer\s+/i, '')
+    .trim();
+  if (!jwt) return null;
+  const asUser = createClient(
+    Deno.env.get('SUPABASE_URL')!,
+    Deno.env.get('SUPABASE_ANON_KEY')!,
+    {
+      global: { headers: { Authorization: `Bearer ${jwt}` } },
+      auth: { persistSession: false },
+    },
+  );
+  const { data } = await asUser.auth.getUser();
+  return data?.user?.id ?? null;
 }

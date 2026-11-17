@@ -77,9 +77,9 @@ export const TOUR_STEPS: readonly TourStep[] = [
   {
     route: '/today',
     title: 'You are set',
-    body: 'Fill in your job preferences and add your resume; your first jobs arrive within a few hours. Take this tour again any time from Settings.',
+    body: 'Fill in your job preferences and add your resume; Jobbotix starts looking for jobs as soon as you save them. Take this tour again any time from Settings.',
     phoneBody:
-      'Fill in your job preferences and add your resume; your first jobs arrive within a few hours. Take this tour again any time from More or Settings.',
+      'Fill in your job preferences and add your resume; Jobbotix starts looking for jobs as soon as you save them. Take this tour again any time from More or Settings.',
   },
 ];
 

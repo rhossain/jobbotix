@@ -550,6 +550,16 @@ export class MemorySearchProfileRepo extends SearchProfileRepo {
     this.extras.update((list) => list.filter((p) => p.id !== id));
   }
 
+  /** The demo has no pool to search: every search just counts as read. */
+  async searchNow() {
+    const last_matched_at = new Date().toISOString();
+    this.roles.patch((s) => {
+      s.profile = { ...s.profile, last_matched_at };
+    });
+    this.extras.update((list) => list.map((p) => ({ ...p, last_matched_at })));
+    return { done: true, busy: false, searched: 0, added: 0 };
+  }
+
   /** Demo postings, one or more for each kind of reason. */
   async passedOver() {
     const ago = (h: number) =>

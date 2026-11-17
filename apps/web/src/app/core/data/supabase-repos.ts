@@ -99,6 +99,7 @@ import {
   type AiCheckResult,
   type NewAiConnection,
   type ProAiPatch,
+  type SearchNowResult,
 } from './repos';
 
 /**
@@ -378,6 +379,25 @@ export class SupabaseSearchProfileRepo extends SearchProfileRepo {
     if (error) throw error;
     // The database promotes another profile when the main one goes.
     await this.load();
+  }
+
+  async searchNow(): Promise<SearchNowResult> {
+    const { data, error } = await this.supabase.functions.invoke<{
+      done?: boolean;
+      busy?: boolean;
+      searched?: number;
+      added?: number;
+      error?: string;
+    }>('match-postings', { body: {} });
+    if (error) throw await functionError(error);
+    if (typeof data?.done !== 'boolean')
+      throw new Error(data?.error ?? 'Could not start the search');
+    return {
+      done: data.done,
+      busy: data.busy === true,
+      searched: Number(data.searched) || 0,
+      added: Number(data.added) || 0,
+    };
   }
 
   async createIngestKey(label: string) {

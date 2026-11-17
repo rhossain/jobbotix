@@ -596,7 +596,7 @@ export function sampleSearchProfile(): SearchProfileRow {
     home_country: null,
     allowed_countries: [],
     remote_only: true,
-    last_matched_at: null,
+    last_matched_at: daysAgo(0),
     alert_min_score: null,
     active: true,
     created_at: daysAgo(30),

@@ -2134,4 +2134,50 @@ begin
   end if;
 end $$;
 
+-- A match run claims a profile (migration 0056): a second run is turned
+-- away, a stale claim is taken over, a change of rules takes the profile
+-- away from the run in flight, and only the service role may claim.
+do $$
+declare
+  sp uuid := (select id from public.search_profiles where user_id = '33333333-3333-3333-3333-333333333333' and active);
+  first uuid; again uuid;
+begin
+  first := public.claim_profile_match(sp);
+  if first is null then raise exception 'FAIL: a free profile could not be claimed'; end if;
+  if public.claim_profile_match(sp) is not null then raise exception 'FAIL: a claimed profile was claimed again'; end if;
+
+  -- the run writes its watermark only while it holds the claim
+  update public.search_profiles set last_matched_at = now() where id = sp and match_claim = first;
+  if not found then raise exception 'FAIL: the run holding the claim could not write its watermark'; end if;
+  if (select match_claim from public.search_profiles where id = sp) is distinct from first then
+    raise exception 'FAIL: writing the watermark dropped the claim';
+  end if;
+
+  -- the user changes what they are looking for mid-run
+  update public.search_profiles set home_country = case when home_country = 'BD' then 'AE' else 'BD' end where id = sp;
+  if (select match_claim from public.search_profiles where id = sp) is not null then
+    raise exception 'FAIL: changing the rules left the old run holding the profile';
+  end if;
+  update public.search_profiles set last_matched_at = now() where id = sp and match_claim = first;
+  if found then raise exception 'FAIL: a run under the old rules wrote its watermark over the cleared one'; end if;
+  if (select last_matched_at from public.search_profiles where id = sp) is not null then
+    raise exception 'FAIL: the watermark did not stay cleared for the re-match';
+  end if;
+
+  -- a run that died: its claim is taken over once it is stale
+  again := public.claim_profile_match(sp);
+  if again is null then raise exception 'FAIL: the profile was not free after the rules changed'; end if;
+  update public.search_profiles set match_claimed_at = now() - interval '10 minutes' where id = sp;
+  if public.claim_profile_match(sp) is not distinct from again then raise exception 'FAIL: a stale claim was not taken over'; end if;
+  update public.search_profiles set match_claim = null, match_claimed_at = null where id = sp;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  perform public.claim_profile_match((select id from public.search_profiles limit 1));
+  raise exception 'FAIL: a signed-in user could claim a profile';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

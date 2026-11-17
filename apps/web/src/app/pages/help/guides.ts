@@ -50,7 +50,7 @@ export const GUIDES: Guide[] = [
       'Question 3: choose the country you live in. You can add other countries you can work for.',
       'Question 4: choose remote jobs only, or on-site and hybrid jobs too.',
       'More options holds pay, job type and emails. The usual choices are already set, so you can skip it.',
-      'Press Save. Jobbotix checks new job posts against your choices every hour.',
+      'Press Save. Jobbotix looks for matching jobs right away, then checks new job posts every hour.',
     ],
     link: '/search',
     linkLabel: 'Open Job preferences',

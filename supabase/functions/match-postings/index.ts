@@ -1,6 +1,11 @@
-// POST /functions/v1/match-postings     (pg_cron hourly at :50, or by hand)
-//   Authorization: Bearer <CRON_SECRET>
+// POST /functions/v1/match-postings
+//   Authorization: Bearer <CRON_SECRET>     pg_cron hourly at :50, or by hand
 //   { "userId": "..." }   optional: one user only
+// or
+//   Authorization: Bearer <user JWT>        the web app, for the caller's own
+//   account: when job preferences are saved, and when Today finds a search
+//   that has not been run yet. Answers { done, searched, added }; the app
+//   asks again while `done` is false.
 //
 // For each search profile (an account can hold several; a plan's limit
 // decides how many of them are searched), reads pool postings that arrived
@@ -11,6 +16,13 @@
 //     re-scored by the model when the user has an AI connection
 // and files the best as new roles (score, reasons, gaps, a link to the pool).
 // One "run" event per profile summarises it for Today and the digest.
+//
+// The pool is read 800 postings at a time, oldest first, from the profile's
+// watermark. A profile with more than one page waiting (a new account, or
+// one whose preferences just changed, has the last 30 days to read) is
+// caught up in the same call, after every profile has had its first page.
+// A run claims the profile it works on (migration 0056), so the schedule
+// and the app never match one profile at the same time.
 
 import { judgePrompt, nearMiss, parseJudgeReply } from '../_shared/judge.ts';
 import type { Grade } from '../_shared/role.ts';
@@ -18,7 +30,14 @@ import { FAST_MODEL } from '../_shared/models.ts';
 import { loadConnections, runAi } from '../_shared/ai.ts';
 import { platformKey } from '../_shared/credits.ts';
 import { alertWorthy, buildAlert, type AlertRole } from '../_shared/alert.ts';
-import { json, requireCronSecret, serviceClient } from '../_shared/auth.ts';
+import {
+  hasCronSecret,
+  json,
+  serviceClient,
+  signedInUserId,
+} from '../_shared/auth.ts';
+import { withCors } from '../_shared/cors.ts';
+import { type Left, matchInOrder, readPages } from '../_shared/catch-up.ts';
 import { normaliseUrl, pairKey } from '../_shared/dedupe.ts';
 import { fnv1a } from '../_shared/ingest.ts';
 import {
@@ -43,7 +62,16 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 const RESEND_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const FROM = Deno.env.get('DIGEST_FROM') ?? 'Jobbotix <digest@jobbotix.com>';
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://jobbotix.com';
+/** The schedule: no new page is started after this long. */
 const TIME_BUDGET_MS = 110_000;
+/** One request from the app: short, so the page can show progress and ask again. */
+const USER_BUDGET_MS = 20_000;
+/** Model calls stop this long after the budget; the rules decide the rest. */
+const AI_GRACE_MS = 15_000;
+/** Postings read per page of the pool. */
+const PAGE = 800;
+/** A claim this old belongs to a run that died (seconds). */
+const CLAIM_STALE_S = 240;
 
 interface Sourcing {
   max_new_per_user_per_run: number;
@@ -124,83 +152,189 @@ interface UserSummary {
   errors: string[];
 }
 
-Deno.serve(async (req) => {
-  if (req.method !== 'POST') return json(405, { error: 'POST only' });
-  const denied = requireCronSecret(req);
-  if (denied) return denied;
-  const startedAt = Date.now();
+Deno.serve(
+  withCors(async (req) => {
+    if (req.method !== 'POST') return json(405, { error: 'POST only' });
+    const startedAt = Date.now();
+    // The schedule (cron secret) matches everyone; a signed-in user starts
+    // the same run for their own account only.
+    const scheduled = hasCronSecret(req);
+    const callerId = scheduled ? null : await signedInUserId(req);
+    if (!scheduled && !callerId) return json(401, { error: 'Not allowed' });
 
-  const body = (await req.json().catch(() => ({}))) as { userId?: string };
-  const admin = serviceClient();
+    const body = (scheduled ? await req.json().catch(() => ({})) : {}) as {
+      userId?: string;
+    };
+    const onlyUser = callerId ?? body.userId;
+    const budget = scheduled ? TIME_BUDGET_MS : USER_BUDGET_MS;
+    const outOfTime = () => Date.now() - startedAt > budget;
+    const admin = serviceClient();
 
-  const [{ data: settings }, { data: catalog }] = await Promise.all([
-    admin
-      .from('settings')
-      .select('key, value')
-      .in('key', ['sourcing', 'scoring_defaults']),
-    admin.from('source_catalog').select('id, name'),
-  ]);
-  const setting = (k: string) =>
-    (settings ?? []).find((s) => s.key === k)?.value as
-      Record<string, unknown> | undefined;
-  const cfg: Sourcing = {
-    ...DEFAULT_SOURCING,
-    ...(setting('sourcing') ?? {}),
-  } as Sourcing;
-  const defaults = setting('scoring_defaults');
-  const sourceName = new Map(
-    (catalog ?? []).map((c) => [c.id as string, c.name as string]),
-  );
+    const [{ data: settings }, { data: catalog }] = await Promise.all([
+      admin
+        .from('settings')
+        .select('key, value')
+        .in('key', ['sourcing', 'scoring_defaults']),
+      admin.from('source_catalog').select('id, name'),
+    ]);
+    const setting = (k: string) =>
+      (settings ?? []).find((s) => s.key === k)?.value as
+        Record<string, unknown> | undefined;
+    const cfg: Sourcing = {
+      ...DEFAULT_SOURCING,
+      ...(setting('sourcing') ?? {}),
+    } as Sourcing;
+    const defaults = setting('scoring_defaults');
+    const sourceName = new Map(
+      (catalog ?? []).map((c) => [c.id as string, c.name as string]),
+    );
 
-  let q = admin
-    .from('search_profiles')
-    .select(
-      'id, name, active, created_at, user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, alert_min_score, profiles!inner(email, name, suspended_at)',
-    )
-    // a suspended account is not matched (or scored, or mailed)
-    .is('profiles.suspended_at', null);
-  if (body.userId) q = q.eq('user_id', body.userId);
-  const { data: profiles, error } = await q;
-  if (error) return json(500, { error: error.message });
+    let q = admin
+      .from('search_profiles')
+      .select(
+        'id, name, active, created_at, user_id, target_roles, stacks, languages, employment_types, remote_rules, exclusions, home_country, allowed_countries, remote_only, min_seniority, scoring_weights, last_matched_at, alert_min_score, profiles!inner(email, name, suspended_at)',
+      )
+      // a suspended account is not matched (or scored, or mailed)
+      .is('profiles.suspended_at', null);
+    if (onlyUser) q = q.eq('user_id', onlyUser);
+    const { data: profiles, error } = await q;
+    if (error) return json(500, { error: error.message });
 
-  const byUser = new Map<string, ProfileRow[]>();
-  for (const p of (profiles ?? []) as unknown as ProfileRow[])
-    byUser.set(p.user_id, [...(byUser.get(p.user_id) ?? []), p]);
+    const byUser = new Map<string, ProfileRow[]>();
+    for (const p of (profiles ?? []) as unknown as ProfileRow[])
+      byUser.set(p.user_id, [...(byUser.get(p.user_id) ?? []), p]);
 
-  const users: UserSummary[] = [];
-  const deferred: string[] = [];
-  /** Profiles kept but not searched: over the plan's limit. */
-  let overLimit = 0;
-  for (const [userId, rows] of byUser) {
-    // One profile needs no plan lookup: the main one is always searched.
-    const mine =
-      rows.length > 1
-        ? searchedProfiles(
-            rows,
-            limitOf(await loadEntitlements(admin, userId), 'search_profiles'),
-          )
-        : rows;
-    overLimit += rows.length - mine.length;
-    for (const p of mine) {
-      if (Date.now() - startedAt > TIME_BUDGET_MS) {
-        // picked up next hour from the same watermark
-        if (!deferred.includes(userId)) deferred.push(userId);
-        continue;
-      }
-      users.push(
-        await matchForUser(
-          admin,
-          p,
-          cfg,
-          resolveWeights(defaults, p.scoring_weights),
-          sourceName,
-          mine.length > 1,
-        ),
-      );
+    /** Every profile that is searched, with whether its account has several. */
+    const work: { p: ProfileRow; several: boolean }[] = [];
+    /** Profiles kept but not searched: over the plan's limit. */
+    let overLimit = 0;
+    for (const [userId, rows] of byUser) {
+      // One profile needs no plan lookup: the main one is always searched.
+      const mine =
+        rows.length > 1
+          ? searchedProfiles(
+              rows,
+              limitOf(await loadEntitlements(admin, userId), 'search_profiles'),
+            )
+          : rows;
+      overLimit += rows.length - mine.length;
+      for (const p of mine) work.push({ p, several: mine.length > 1 });
     }
+
+    const users: UserSummary[] = [];
+    /** Another run holds one of these profiles right now. */
+    let busy = false;
+
+    /** One profile: claimed, read (the first page, or its whole backlog), given back. */
+    const run = async (
+      { p, several }: (typeof work)[number],
+      catchUp: boolean,
+    ): Promise<Left> => {
+      const claim = await claimProfile(admin, p.id);
+      if (claim === null) {
+        busy = true;
+        return 'done';
+      }
+      try {
+        return await readPages(
+          async () => {
+            const r = await matchForUser(
+              admin,
+              p,
+              cfg,
+              resolveWeights(defaults, p.scoring_weights),
+              sourceName,
+              several,
+              { claim, aiUntil: startedAt + budget + AI_GRACE_MS },
+            );
+            users.push(r.summary);
+            return r;
+          },
+          catchUp,
+          outOfTime,
+        );
+      } finally {
+        await releaseProfile(admin, p.id, claim);
+      }
+    };
+
+    // Picked up next time from the same watermark.
+    const deferred = [
+      ...new Set(
+        (await matchInOrder(work, run, outOfTime)).map((w) => w.p.user_id),
+      ),
+    ];
+
+    if (!scheduled) {
+      const sum = (k: 'considered' | 'added') =>
+        users.reduce((n, u) => n + u[k], 0);
+      return json(200, {
+        done: !deferred.length && !busy,
+        ...(busy ? { busy: true } : {}),
+        searched: sum('considered'),
+        added: sum('added'),
+      });
+    }
+    return json(200, {
+      users,
+      deferred,
+      ...(overLimit ? { overLimit } : {}),
+      ...(busy ? { busy: true } : {}),
+    });
+  }),
+);
+
+/**
+ * Claims a profile for this run. The claim's token when it is ours, null
+ * when another run holds the profile, and undefined when the database has no
+ * claims yet (the function is ahead of migration 0056): the run goes ahead
+ * unguarded, as it always did.
+ */
+async function claimProfile(
+  admin: SupabaseClient,
+  profileId: string,
+): Promise<string | null | undefined> {
+  const { data, error } = await admin.rpc('claim_profile_match', {
+    p_profile: profileId,
+    p_stale_seconds: CLAIM_STALE_S,
+  });
+  if (error) {
+    console.warn(`claim_profile_match failed: ${error.message}`);
+    return undefined;
   }
-  return json(200, { users, deferred, ...(overLimit ? { overLimit } : {}) });
-});
+  return typeof data === 'string' && data ? data : null;
+}
+
+/** Gives the profile back, if this run still holds it. */
+async function releaseProfile(
+  admin: SupabaseClient,
+  profileId: string,
+  claim: string | undefined,
+): Promise<void> {
+  if (!claim) return;
+  const { error } = await admin
+    .from('search_profiles')
+    .update({ match_claim: null, match_claimed_at: null })
+    .eq('id', profileId)
+    .eq('match_claim', claim);
+  if (error) console.warn(`releasing ${profileId}: ${error.message}`);
+}
+
+/** What a run brings to each page it matches. */
+interface RunContext {
+  /** The run's claim on the profile; its watermark is only written while it holds. */
+  claim: string | undefined;
+  /** No model call is started after this time (ms since the epoch). */
+  aiUntil: number;
+}
+
+interface PageResult {
+  summary: UserSummary;
+  /** The page was full: more of the pool is waiting behind it. */
+  more: boolean;
+  /** The page was not marked as read (the preferences changed mid-run, or the write failed): stop here. */
+  lost: boolean;
+}
 
 async function matchForUser(
   admin: SupabaseClient,
@@ -209,8 +343,9 @@ async function matchForUser(
   weights: Weights,
   sourceName: Map<string, string>,
   /** The account searches with several profiles. */
-  several = false,
-): Promise<UserSummary> {
+  several: boolean,
+  run: RunContext,
+): Promise<PageResult> {
   const now = new Date();
   const summary: UserSummary = {
     userId: p.user_id,
@@ -234,8 +369,9 @@ async function matchForUser(
   // would round it down and re-read the last posting every hour.
   // A profile that is new or was just changed (last_matched_at cleared) is
   // judged against the pool it already holds, weeks back, so a new
-  // designation gets results at once. The pool is read oldest first, 800
-  // postings a run, and the watermark carries the catch-up from hour to hour.
+  // designation gets results at once. The pool is read oldest first, a page
+  // at a time, and the watermark carries the catch-up from page to page (and
+  // on to the next run, when this one runs out of time).
   const floor = new Date(now.getTime() - cfg.first_match_days * 86_400_000);
   const since =
     p.last_matched_at && Date.parse(p.last_matched_at) >= floor.getTime()
@@ -250,7 +386,7 @@ async function matchForUser(
       )
       .gt('first_seen_at', since)
       .order('first_seen_at', { ascending: true })
-      .limit(800),
+      .limit(PAGE),
     admin
       .from('roles')
       .select('url, company, title, posting_id')
@@ -265,10 +401,18 @@ async function matchForUser(
   ]);
   if (postingsRes.error) {
     summary.errors.push(postingsRes.error.message);
-    return summary;
+    return { summary, more: false, lost: false };
   }
   const postings = (postingsRes.data ?? []) as unknown as PostingWithSources[];
-  if (!postings.length) return summary;
+  if (!postings.length) {
+    // Nothing to read for a profile that was never matched (or was just
+    // changed): mark the window as read, so it no longer counts as waiting
+    // for its first search.
+    const lost = p.last_matched_at
+      ? false
+      : !(await markRead(admin, p, since, run.claim));
+    return { summary, more: false, lost };
+  }
 
   const haveIds = new Set(
     (rolesRes.data ?? []).map((r) => r.posting_id).filter(Boolean),
@@ -391,7 +535,11 @@ async function matchForUser(
   // The AI check: one call for the titles the rules are unsure about. An
   // uncertain match it turns down goes to the excluded list with the reason;
   // a near miss it confirms goes through the remaining rules like any other.
-  if (aiAllowed && cfg.ai_judged_per_user_per_run > 0) {
+  if (
+    aiAllowed &&
+    cfg.ai_judged_per_user_per_run > 0 &&
+    Date.now() < run.aiUntil
+  ) {
     const half = Math.max(1, Math.floor(cfg.ai_judged_per_user_per_run / 2));
     const uncertain = candidates
       .filter((c) => c.grade !== 'exact' && c.grade !== 'variant')
@@ -516,7 +664,12 @@ async function matchForUser(
     // three at once when every connection is Anthropic.
     const atOnce = connections.every((c) => c.provider === 'anthropic') ? 3 : 1;
     let limited = false;
-    for (let i = 0; i < top.length && !limited; i += atOnce) {
+    // Out of time: the rest of this page keeps the rule-based score.
+    for (
+      let i = 0;
+      i < top.length && !limited && Date.now() < run.aiUntil;
+      i += atOnce
+    ) {
       await Promise.all(
         top.slice(i, i + atOnce).map(async (c) => {
           const ai = await runAi(
@@ -681,7 +834,11 @@ async function matchForUser(
   // part of Pro (feature instant_alerts): a plan without them keeps its
   // threshold and gets the roles in the digest instead. The plan is only
   // looked up when there is something to send.
-  const worthy = alertWorthy(filed, p.alert_min_score);
+  // Not while a backlog is being read (a new or just-changed profile going
+  // through the last 30 days, page after page): those are not new postings,
+  // and a page each would be a burst of emails. They are in the digest.
+  const backlog = !p.last_matched_at || postings.length === PAGE;
+  const worthy = backlog ? [] : alertWorthy(filed, p.alert_min_score);
   const me = Array.isArray(p.profiles) ? p.profiles[0] : p.profiles;
   const mayAlert =
     worthy.length > 0 &&
@@ -743,10 +900,41 @@ async function matchForUser(
       },
     });
 
-  await admin
-    .from('search_profiles')
-    .update({ last_matched_at: postings[postings.length - 1].first_seen_at })
-    .eq('id', p.id);
+  const kept = await markRead(
+    admin,
+    p,
+    postings[postings.length - 1].first_seen_at,
+    run.claim,
+  );
+  return { summary, more: kept && postings.length === PAGE, lost: !kept };
+}
 
-  return summary;
+/**
+ * Moves the profile's watermark to `upTo`, in the database and on the row in
+ * hand (the next page reads from it). False when it was not moved: the write
+ * failed, or the run no longer holds the profile because the user changed
+ * their preferences meanwhile, which cleared the watermark for a re-match
+ * that this write must not undo.
+ */
+async function markRead(
+  admin: SupabaseClient,
+  p: ProfileRow,
+  upTo: string,
+  claim: string | undefined,
+): Promise<boolean> {
+  let q = admin
+    .from('search_profiles')
+    .update({ last_matched_at: upTo })
+    .eq('id', p.id);
+  if (claim) q = q.eq('match_claim', claim);
+  const { data, error } = await q.select('id');
+  if (error) {
+    // Not marked as read: the next run reads this page again (what it
+    // filed is skipped then), and this one stops here.
+    console.warn(`watermark for ${p.id}: ${error.message}`);
+    return false;
+  }
+  if (claim && !(data ?? []).length) return false;
+  p.last_matched_at = upTo;
+  return true;
 }

@@ -29,6 +29,7 @@ import {
   SavedViewsRepo,
   SearchProfileRepo,
 } from '../../core/data/repos';
+import { SearchRunner } from '../../core/search-runner';
 import { ShellState } from '../../shell/shell-state';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
@@ -236,14 +237,41 @@ const DEFAULT_FILTERS: Filters = {
       @if (!repo.loaded()) {
         <jb-skeleton shape="row" [count]="6" />
       } @else if (repo.roles().length === 0) {
-        <jb-empty-state title="No jobs yet" icon="inbox">
-          The daily search adds jobs here. Until it has run, add a job yourself.
-          <div actions>
-            <a jbButton="primary" routerLink="/jobs/new"
-              ><jb-icon name="plus" /> Add a job</a
-            >
-          </div>
-        </jb-empty-state>
+        @if (search.running()) {
+          <jb-empty-state title="Looking for your jobs" icon="search">
+            <span aria-live="polite">
+              Jobbotix is checking job posts against your job preferences right
+              now. Jobs appear here as they are found.
+              @if (search.searched() > 0) {
+                {{ search.searched() }} job posts checked so far.
+              }
+            </span>
+          </jb-empty-state>
+        } @else if (!hasSearch()) {
+          <jb-empty-state title="No jobs yet" icon="inbox">
+            Jobbotix finds jobs for you once you say what you are looking for:
+            the job titles and skills you want. You can also add a job yourself.
+            <div actions>
+              <a jbButton="primary" routerLink="/search">Set job preferences</a>
+              <a jbButton routerLink="/jobs/new"
+                ><jb-icon name="plus" /> Add a job</a
+              >
+            </div>
+          </jb-empty-state>
+        } @else {
+          <jb-empty-state title="No jobs yet" icon="inbox">
+            Jobbotix checks new job posts every hour and adds the ones that
+            match your job preferences here. Nothing has matched so far; Today
+            says what the last search looked at. You can also add a job
+            yourself.
+            <div actions>
+              <a jbButton="primary" routerLink="/jobs/new"
+                ><jb-icon name="plus" /> Add a job</a
+              >
+              <a jbButton routerLink="/search">Open Job preferences</a>
+            </div>
+          </jb-empty-state>
+        }
       } @else if (rows().length === 0) {
         <jb-empty-state
           title="Nothing matches these filters"
@@ -720,6 +748,16 @@ export class Roles {
   );
 
   private readonly profileRepo = inject(SearchProfileRepo);
+  /** The search started from the app: a new account's first one, or after a change. */
+  protected readonly search = inject(SearchRunner);
+  /** Some search of the account has a job title or a skill to look for. */
+  readonly hasSearch = computed(
+    () =>
+      !this.profileRepo.loaded() ||
+      this.profileRepo
+        .profiles()
+        .some((p) => p.target_roles.length > 0 || p.stacks.length > 0),
+  );
   /** The yearly minimum pay from the search profile, if one is set. */
   readonly minimumPay = computed(() => {
     const ex = (this.profileRepo.profile()?.exclusions ?? {}) as Record<
@@ -808,7 +846,9 @@ export class Roles {
     });
     void this.repo.load();
     void this.viewsRepo.load();
-    if (!this.profileRepo.loaded()) void this.profileRepo.load();
+    // A search that has not been run yet is run now, not on the hour
+    // (ensure() loads the searches when nothing has yet).
+    void this.search.ensure();
     const status = this.route.snapshot.queryParamMap.get(
       'status',
     ) as RoleStatus | null;

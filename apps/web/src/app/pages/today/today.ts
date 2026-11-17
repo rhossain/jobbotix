@@ -34,7 +34,13 @@ import {
   type RoleStatus,
 } from '@jobbotix/shared-types';
 import { Auth } from '../../core/auth';
-import { InterviewsRepo, PeopleRepo, RolesRepo } from '../../core/data/repos';
+import {
+  InterviewsRepo,
+  PeopleRepo,
+  RolesRepo,
+  SearchProfileRepo,
+} from '../../core/data/repos';
+import { SearchRunner } from '../../core/search-runner';
 import { Toast } from '../../shared/toast';
 import {
   clockTime,
@@ -78,8 +84,22 @@ interface Reminder {
       <p eyebrow class="mb-1.5 text-sm font-medium text-brand-ink">
         {{ dateLine }}
       </p>
-      <p lead class="mt-2 max-w-[var(--reading-max)] text-ink-muted md:text-lg">
-        @if (run(); as r) {
+      <p
+        lead
+        class="mt-2 max-w-[var(--reading-max)] text-ink-muted md:text-lg"
+        aria-live="polite"
+      >
+        @if (search.running()) {
+          Jobbotix is checking the last 30 days of job posts against your job
+          preferences. This can take a minute or two.
+          @if (search.searched() > 0) {
+            <span class="mt-1 block text-base">
+              {{ search.searched() }} job posts checked so far,
+              <b class="font-semibold text-ink">{{ search.added() }}</b>
+              {{ search.added() === 1 ? 'job' : 'jobs' }} found.
+            </span>
+          }
+        } @else if (run(); as r) {
           @if (r.added > 0) {
             Jobbotix found
             <b class="font-semibold text-ink">{{ r.added }}</b>
@@ -121,9 +141,15 @@ interface Reminder {
               decided alone{{ t.reason ? ': ' + t.reason : '' }}.
             </span>
           }
+        } @else if (!profiles.loaded() || hasSearch()) {
+          No searches yet. Jobbotix checks new job posts every hour; your first
+          jobs appear within the hour.
         } @else {
-          No searches yet. Jobbotix checks job sites several times a day; your
-          first jobs appear within a few hours of saving your job preferences.
+          No searches yet. Tell Jobbotix what job you want in
+          <a class="text-brand-ink underline" routerLink="/search"
+            >Job preferences</a
+          >
+          and it starts looking right away. No AI setup is needed for that.
         }
       </p>
       <div actions class="hidden gap-2 md:flex">
@@ -370,23 +396,61 @@ interface Reminder {
           @if (!repo.loaded()) {
             <jb-skeleton shape="card" [count]="3" />
           } @else if (fresh().length === 0) {
-            <jb-empty-state
-              [title]="
-                run() ? 'Nothing new since the last search' : 'No jobs yet'
-              "
-              icon="inbox"
-            >
-              The next search adds jobs here, best match first. Jobs you have
-              already sorted are under Jobs and Applications.
-              <div actions>
-                <a jbButton routerLink="/board"
-                  ><jb-icon name="square-kanban" /> Open Applications</a
-                >
-                <a jbButton="ghost" routerLink="/jobs/new"
-                  ><jb-icon name="plus" /> Add a job</a
-                >
-              </div>
-            </jb-empty-state>
+            @if (search.running()) {
+              <jb-empty-state title="Looking for your jobs" icon="search">
+                Jobbotix is checking job posts against your job preferences
+                right now. Jobs appear here as they are found, best match first.
+              </jb-empty-state>
+            } @else if (!hasSearch()) {
+              <jb-empty-state title="No jobs yet" icon="inbox">
+                Jobbotix finds jobs for you once you say what you are looking
+                for: the job titles and skills you want.
+                <div actions>
+                  <a jbButton="primary" routerLink="/search"
+                    >Set job preferences</a
+                  >
+                  <a jbButton="ghost" routerLink="/jobs/new"
+                    ><jb-icon name="plus" /> Add a job</a
+                  >
+                </div>
+              </jb-empty-state>
+            } @else if (run() && repo.roles().length === 0) {
+              <!-- The search ran and nothing matched: say so, and what to do. -->
+              <jb-empty-state title="No matching jobs yet" icon="inbox">
+                Jobbotix checked {{ run()?.searched }} job posts and none
+                matched your job preferences. It keeps checking new job posts
+                every hour. To get more, add other names for your job in Job
+                preferences ("Preview what this finds" shows what each change
+                brings in), or see what was filtered out and why.
+                <div actions>
+                  <a jbButton="primary" routerLink="/search"
+                    >Open Job preferences</a
+                  >
+                  <a jbButton routerLink="/passed-over"
+                    >See what was left out</a
+                  >
+                </div>
+              </jb-empty-state>
+            } @else {
+              <jb-empty-state
+                [title]="
+                  run() ? 'Nothing new since the last search' : 'No jobs yet'
+                "
+                icon="inbox"
+              >
+                Jobbotix checks new job posts every hour and adds your matches
+                here, best match first. Jobs you have already sorted are under
+                Jobs and Applications.
+                <div actions>
+                  <a jbButton routerLink="/board"
+                    ><jb-icon name="square-kanban" /> Open Applications</a
+                  >
+                  <a jbButton="ghost" routerLink="/jobs/new"
+                    ><jb-icon name="plus" /> Add a job</a
+                  >
+                </div>
+              </jb-empty-state>
+            }
           } @else {
             <div class="flex flex-col gap-3">
               @for (role of fresh(); track role.id) {
@@ -434,6 +498,15 @@ interface Reminder {
 })
 export class Today {
   protected readonly repo = inject(RolesRepo);
+  protected readonly profiles = inject(SearchProfileRepo);
+  /** The search started from the app: a new account's first one, or after a change. */
+  protected readonly search = inject(SearchRunner);
+  /** Some search of the account has a job title or a skill to look for. */
+  readonly hasSearch = computed(() =>
+    this.profiles
+      .profiles()
+      .some((p) => p.target_roles.length > 0 || p.stacks.length > 0),
+  );
   private readonly interviewsRepo = inject(InterviewsRepo);
   private readonly peopleRepo = inject(PeopleRepo);
   readonly relationLabels = CONTACT_RELATION_LABELS;
@@ -630,6 +703,9 @@ export class Today {
 
   constructor() {
     void this.repo.load();
+    // A search that has not been run yet (a new account, or preferences just
+    // changed) is run now, not on the hour.
+    void this.search.ensure();
     if (!this.interviewsRepo.loaded())
       void this.interviewsRepo.load().catch(() => undefined);
     if (!this.peopleRepo.loaded())

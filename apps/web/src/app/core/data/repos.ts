@@ -137,6 +137,12 @@ export abstract class SearchProfileRepo {
   abstract create(input: SearchProfileInput): Promise<SearchProfileRow>;
   /** Deletes a profile. The roles it found stay. */
   abstract remove(id: string): Promise<void>;
+  /**
+   * Runs the account's searches now instead of on the hour, a stretch at a
+   * time: call again while `done` is false. Jobs found are filed as the
+   * hourly search files them.
+   */
+  abstract searchNow(): Promise<SearchNowResult>;
   /** Returns the plain ingest key once; the app stores only its hash. */
   abstract createIngestKey(label: string): Promise<string>;
   /**
@@ -163,6 +169,18 @@ export abstract class SearchProfileRepo {
    * with the reason, newest first.
    */
   abstract passedOver(): Promise<PassedOver[]>;
+}
+
+/** One stretch of a search started from the app (SearchProfileRepo.searchNow). */
+export interface SearchNowResult {
+  /** Nothing is left to read: every search is up to date. */
+  done: boolean;
+  /** The hourly search is working on this account right now; ask again shortly. */
+  busy: boolean;
+  /** Job posts read in this stretch. */
+  searched: number;
+  /** Jobs added in this stretch. */
+  added: number;
 }
 
 export type PassedOver = Pick<
