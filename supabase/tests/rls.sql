@@ -2424,4 +2424,59 @@ do $$ begin
   end if;
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- company_key(): the same names, the same keys as companyKey() in shared-types
+-- (libs/shared-types/src/lib/linkedin-links.spec.ts). Change one, change both.
+-- ---------------------------------------------------------------------------
+do $$
+declare r record;
+begin
+  for r in select * from (values
+    ('Acme', 'acme'),
+    ('ACME, Inc.', 'acme'),
+    ('Acme Inc', 'acme'),
+    ('acme llc', 'acme'),
+    ('Acme Corporation', 'acme'),
+    ('The Acme Company', 'acme'),
+    ('Acme Co., Ltd.', 'acme'),
+    ('Globex GmbH', 'globex'),
+    ('Initech Pvt. Ltd.', 'initech'),
+    ('Hooli (YC W21)', 'hooli'),
+    ('Johnson & Johnson', 'johnson and johnson'),
+    ('AT&T', 'at and t'),
+    ('Brain Station 23 Ltd.', 'brain station 23'),
+    ('  Northwind   Traders  ', 'northwind traders'),
+    ('Acme Labs', 'acme labs'),
+    ('Inc', 'inc'),
+    ('The', 'the'),
+    ('Company Co', 'company'),
+    ('', ''),
+    ('---', '')
+  ) as t(name, key) loop
+    if public.company_key(r.name) is distinct from r.key then
+      raise exception 'FAIL: company_key(%) is %, expected %', r.name, public.company_key(r.name), r.key;
+    end if;
+  end loop;
+  if public.company_key(null) <> '' then raise exception 'FAIL: company_key(null) is not empty'; end if;
+end $$;
+-- a connection carries its company's key, kept by the database
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+insert into public.linkedin_connections (user_id, name, company) values
+  ('11111111-1111-1111-1111-111111111111', 'Dana Whitfield', 'ACME, Inc.'),
+  ('11111111-1111-1111-1111-111111111111', 'Ravi Menon', 'The Acme Company'),
+  ('11111111-1111-1111-1111-111111111111', 'Lena Ortiz', 'Acme Labs');
+do $$ begin
+  if (select count(*) from public.linkedin_connections where company_key = public.company_key('Acme')) <> 2 then
+    raise exception 'FAIL: connections at Acme were not found under one key';
+  end if;
+  begin
+    update public.linkedin_connections set company_key = 'forged' where name = 'Lena Ortiz';
+    raise exception 'FAIL: a connection''s company key was set by hand';
+  exception when generated_always or feature_not_supported then null;
+  end;
+  delete from public.linkedin_connections;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

@@ -335,6 +335,11 @@ export type LinkedInConnectionRow = {
   /** '' or https://www.linkedin.com/in/<name> */
   profile_url: string;
   connected_on: string | null;
+  /**
+   * The company's name as it is matched (companyKey), kept by the database
+   * (migration 0061). Absent on a database that does not have it yet.
+   */
+  company_key?: string;
   created_at: string;
 };
 
@@ -713,6 +718,7 @@ export type Database = {
           | 'title'
           | 'profile_url'
           | 'connected_on'
+          | 'company_key'
           | 'created_at'
         >
       >;

@@ -431,6 +431,14 @@ export abstract class LinkedInRepo {
   ): Promise<{ saved: number; failed: number }>;
   /** Up to `limit` connections whose name, company or title contains `q`. */
   abstract search(q: string, limit?: number): Promise<LinkedInConnectionRow[]>;
+  /**
+   * The connections who work at each of these companies, by the company's
+   * key (companyKey), so "Acme" finds people at "ACME, Inc." too. A company
+   * nobody is known at has no entry. One request for the whole list.
+   */
+  abstract atCompanies(
+    companies: string[],
+  ): Promise<Map<string, LinkedInConnectionRow[]>>;
   /** Removes every connection kept for this account. */
   abstract deleteConnections(): Promise<void>;
 }

@@ -48,6 +48,32 @@ describe('MemoryLinkedInRepo', () => {
     expect(await repo.search('dana')).toEqual([]);
   });
 
+  it('finds who works at a company, however its name is written', async () => {
+    const repo = new MemoryLinkedInRepo();
+    await repo.replaceConnections([
+      ...list,
+      {
+        ...list[0],
+        name: 'Lena Ortiz',
+        company: 'ACME, Inc.',
+        profile_url: '',
+      },
+      {
+        ...list[0],
+        name: 'Omar Haddad',
+        company: 'Acme Labs',
+        profile_url: '',
+      },
+    ]);
+    const found = await repo.atCompanies(['The Acme Company', 'Initech', '']);
+    expect([...found.keys()]).toEqual(['acme']);
+    expect(found.get('acme')?.map((c) => c.name)).toEqual([
+      'Dana Whitfield',
+      'Lena Ortiz',
+    ]);
+    expect((await repo.atCompanies([])).size).toBe(0);
+  });
+
   it('forgets everything when asked', async () => {
     const repo = new MemoryLinkedInRepo();
     await repo.replaceConnections(list);
