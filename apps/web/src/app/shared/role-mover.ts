@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import {
   ROLE_STATUS_LABELS,
+  statusLabelsFor,
   type RoleRow,
   type RoleStatus,
 } from '@jobbotix/shared-types';
@@ -22,7 +23,9 @@ export class RoleMover {
       this.toast.error('Could not move the job');
       return false;
     }
-    this.toast.show(`${role.company} moved to ${ROLE_STATUS_LABELS[to]}`, {
+    // a gig's client is unnamed, so its title says which one moved
+    const name = role.entry_kind === 'gig' ? role.title : role.company;
+    this.toast.show(`${name} moved to ${statusLabelsFor(role)[to]}`, {
       action: {
         label: 'Undo',
         run: async () => {

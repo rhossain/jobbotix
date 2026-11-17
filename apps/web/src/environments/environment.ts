@@ -14,4 +14,10 @@ export const environment = {
   supabaseUrl: 'http://127.0.0.1:54321',
   supabaseAnonKey: 'local-anon-key-replace-me',
   appName: 'Jobbotix',
+  /**
+   * Adding gigs from Upwork (the "Add from Upwork" page and the links to
+   * it). Off on the live site until migration 0057 and the add-gig function
+   * are deployed; then set it to true.
+   */
+  upworkGigs: true,
 };

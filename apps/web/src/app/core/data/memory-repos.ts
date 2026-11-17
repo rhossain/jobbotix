@@ -16,6 +16,17 @@ import {
   DEFAULT_MODEL,
   FALLBACK_MODELS,
   heuristicExtract,
+  checkGigDraft,
+  GIG_COMPANY,
+  GIG_SOURCE,
+  GIG_TEXT_MIN,
+  gigBudgetLine,
+  gigOf,
+  heuristicGig,
+  localProposal,
+  normaliseGig,
+  upworkJobUrl,
+  type GigDraft,
   localCompanyResearch,
   keywordReport,
   localTailor,
@@ -439,6 +450,98 @@ export class MemoryRolesRepo extends RolesRepo {
         role_id: id,
         kind: 'ingested',
         payload: { source: 'manual', method: 'heuristic' },
+        created_at: now,
+      });
+    });
+    return { id, existed: false };
+  }
+
+  async readGig(url: string, text: string) {
+    const link = upworkJobUrl(url);
+    if (!link)
+      throw new Error(
+        'Use the link of the job post on Upwork. Open the job on Upwork and copy the address from the top of your browser.',
+      );
+    if (text.trim().length < GIG_TEXT_MIN)
+      throw new Error('Paste the text of the job post');
+    const existing = this.state().roles.find((r) => r.url === link);
+    if (existing) return { id: existing.id, existed: true as const };
+    // Demo mode has no model: the pattern reader fills what it can.
+    const found = heuristicGig(text);
+    const draft: GigDraft = {
+      ...normaliseGig(found),
+      url: link,
+      title: found.title,
+      skills: heuristicExtract(link, `<title></title>${text}`).stack,
+      questions: found.questions,
+      postingText: text.trim().slice(0, 50_000),
+    };
+    return { draft, method: 'heuristic' as const };
+  }
+
+  async saveGig(input: GigDraft) {
+    const draft = checkGigDraft(input);
+    if ('error' in draft) throw new Error(draft.error);
+    const existing = this.state().roles.find((r) => r.url === draft.url);
+    if (existing) return { id: existing.id, existed: true };
+    const { url, title, skills, questions, postingText, ...gig } = draft;
+    const id = newId();
+    const now = new Date().toISOString();
+    this.patch((s) => {
+      s.roles.push({
+        id,
+        user_id: DEMO_USER_ID,
+        entry_kind: 'gig',
+        gig: gig as unknown as Json,
+        company: GIG_COMPANY,
+        title,
+        url,
+        source: GIG_SOURCE,
+        location: 'Remote',
+        remote_scope: 'Remote',
+        type: 'freelance',
+        salary: gigBudgetLine(gig),
+        posted_at: null,
+        found_at: now,
+        stack: skills,
+        score: 0,
+        score_breakdown: {},
+        reasons: [],
+        gaps: [],
+        ai_match: false,
+        status: 'new',
+        cover_letter: '',
+        notes: '',
+        posting_text: postingText,
+        posting_hash: '',
+        status_changed_at: now,
+        follow_up_days: 0,
+        posting_id: null,
+        source_id: null,
+        remote_policy: 'unknown',
+        hiring_countries: [],
+        company_research: {},
+        prep: {},
+        created_at: now,
+        updated_at: now,
+      });
+      questions.forEach((question, position) =>
+        s.answers.push({
+          id: newId(),
+          user_id: DEMO_USER_ID,
+          role_id: id,
+          question,
+          answer: '',
+          position,
+          created_at: now,
+        }),
+      );
+      s.events.push({
+        id: newId(),
+        user_id: DEMO_USER_ID,
+        role_id: id,
+        kind: 'ingested',
+        payload: { source: 'upwork', method: 'pasted' },
         created_at: now,
       });
     });
@@ -1176,7 +1279,7 @@ export class MemoryLettersRepo extends LettersRepo {
     const master = st.resumes.find((r) => r.is_master);
     if (!role) throw new Error('Role not found');
     if (!master) throw new Error('Save a master resume first');
-    const body = localLetter({
+    const ctx = {
       resume: normaliseResume(master.sections),
       posting: {
         company: role.company,
@@ -1188,7 +1291,9 @@ export class MemoryLettersRepo extends LettersRepo {
       },
       voiceSamples: st.voiceSamples.map((v) => v.body),
       current: opts?.rewrite ? role.cover_letter : '',
-    });
+    };
+    // a gig from Upwork gets a proposal, not a cover letter
+    const body = gigOf(role) ? localProposal(ctx) : localLetter(ctx);
     this.roles.patch((s) => {
       const r = s.roles.find((x) => x.id === roleId);
       if (r) {

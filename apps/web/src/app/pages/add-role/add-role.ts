@@ -12,7 +12,8 @@ import {
   ReactiveFormsModule,
   Validators,
 } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { isUpworkUrl } from '@jobbotix/shared-types';
 import { RolesRepo } from '../../core/data/repos';
 import { Toast } from '../../shared/toast';
 import { acceptPosting, bookmarklet, readShared } from '../../shared/capture';
@@ -39,6 +40,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
     Icon,
     PageHeader,
     ReactiveFormsModule,
+    RouterLink,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -148,6 +150,26 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
         </div>
       </form>
 
+      @if (upworkGigs) {
+        <section
+          class="jb-card mt-6 flex flex-col gap-3 p-5 text-sm md:flex-row md:items-center md:justify-between md:p-7"
+          aria-labelledby="upwork-h"
+        >
+          <div class="min-w-0">
+            <h2 id="upwork-h" class="font-semibold text-ink">
+              Found it on Upwork?
+            </h2>
+            <p class="mt-1 text-ink-muted">
+              Freelance jobs from Upwork are added a little differently: you
+              paste the job post, and Jobbotix helps you write the proposal.
+            </p>
+          </div>
+          <a jbButton class="shrink-0" routerLink="/jobs/upwork">
+            Add from Upwork
+          </a>
+        </section>
+      }
+
       <section
         class="jb-card mt-6 p-5 text-sm md:p-7"
         aria-labelledby="anywhere-h"
@@ -193,6 +215,7 @@ export class AddRole {
   private readonly router = inject(Router);
   protected readonly toast = inject(Toast);
   readonly demo = environment.demo;
+  readonly upworkGigs = environment.upworkGigs;
   readonly waiting = signal(false);
   readonly bookmarklet = inject(DomSanitizer).bypassSecurityTrustUrl(
     bookmarklet(typeof location === 'undefined' ? '' : location.origin),
@@ -231,6 +254,16 @@ export class AddRole {
       if (opener && e.source !== opener) return;
       const m = acceptPosting(e.data, e.origin);
       if (!m) return;
+      // A bookmarklet saved before Upwork was handled apart still sends the
+      // page's text. It is dropped unread: Upwork pages are never read.
+      if (isUpworkUrl(m.url)) {
+        done = true;
+        this.waiting.set(false);
+        window.removeEventListener('message', onMessage);
+        this.form.setValue({ url: m.url, text: '' });
+        void this.submit();
+        return;
+      }
       const body = m.text.trim();
       this.form.setValue({
         url: m.url,
@@ -283,6 +316,19 @@ export class AddRole {
     this.error.set('');
     try {
       const { url, text } = this.form.getRawValue();
+      // Upwork jobs never go through the page reader: Jobbotix must not open
+      // an Upwork page. They are added from text the user pastes.
+      if (isUpworkUrl(url.trim())) {
+        if (this.upworkGigs) {
+          await this.router.navigate(['/jobs/upwork'], {
+            queryParams: { url: url.trim() },
+          });
+          return;
+        }
+        throw new Error(
+          'Jobbotix does not read pages on Upwork, because Upwork does not allow it. Adding jobs from Upwork is coming soon.',
+        );
+      }
       const result = await this.repo.addFromUrl(url.trim(), text.trim());
       if (result.existed) this.toast.show('Already in your jobs');
       else this.toast.success('Job added');

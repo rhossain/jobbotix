@@ -14,6 +14,7 @@ import type {
   CompanyResearch,
   Entitlements,
   Feature,
+  GigDraft,
   MarketSignals,
   ModelChoice,
   PrepSheet,
@@ -90,6 +91,20 @@ export abstract class RolesRepo {
     url: string,
     text?: string,
   ): Promise<{ id: string; existed: boolean }>;
+  /**
+   * Reads a job post the user copied from Upwork into fields for them to
+   * check. Nothing is saved, and Upwork itself is never contacted. Resolves
+   * with the existing gig's id instead when the link is already saved.
+   */
+  abstract readGig(
+    url: string,
+    text: string,
+  ): Promise<
+    | { draft: GigDraft; method: 'ai' | 'heuristic' }
+    | { id: string; existed: true }
+  >;
+  /** Saves the checked gig into the pipeline. */
+  abstract saveGig(draft: GigDraft): Promise<{ id: string; existed: boolean }>;
   /**
    * Scores (or re-scores) the role against the current search profile, as the
    * scheduled run would. `aiError` says why the model step was skipped.

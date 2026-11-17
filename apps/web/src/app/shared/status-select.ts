@@ -1,12 +1,13 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
   input,
 } from '@angular/core';
 import {
   ROLE_STATUSES,
-  ROLE_STATUS_LABELS,
+  statusLabelsFor,
   type RoleRow,
   type RoleStatus,
 } from '@jobbotix/shared-types';
@@ -29,7 +30,7 @@ import { Toast } from './toast';
     >
       @for (s of statuses; track s) {
         <option [value]="s" [selected]="s === role().status">
-          {{ labels[s] }}
+          {{ labels()[s] }}
         </option>
       }
     </select>
@@ -42,7 +43,8 @@ export class StatusSelect {
   /** Smaller pill for dense places like board cards. */
   readonly compact = input(false);
   readonly statuses = ROLE_STATUSES;
-  readonly labels = ROLE_STATUS_LABELS;
+  /** A gig's steps read Saved, Drafted, Submitted, Hired. */
+  readonly labels = computed(() => statusLabelsFor(this.role()));
 
   async change(event: Event) {
     const status = (event.target as HTMLSelectElement).value as RoleStatus;
@@ -50,7 +52,7 @@ export class StatusSelect {
     const from = role.status;
     try {
       await this.repo.setStatus(role.id, status);
-      this.toast.show(`Marked ${this.labels[status]}`, {
+      this.toast.show(`Marked ${this.labels()[status]}`, {
         action: {
           label: 'Undo',
           run: async () => {

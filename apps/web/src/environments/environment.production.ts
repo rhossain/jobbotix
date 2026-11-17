@@ -10,4 +10,10 @@ export const environment = {
   supabaseAnonKey:
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imhia2Zpd2xlZXB3aWl6dnp2emt5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM4OTI0NTAsImV4cCI6MjEwOTQ2ODQ1MH0.zoRN1yjHcm1XzPDPSFHAYBwcz0veajb5cqGdAKfROKg',
   appName: 'Jobbotix',
+  /**
+   * Adding gigs from Upwork (the "Add from Upwork" page and the links to
+   * it). Off on the live site until migration 0057 and the add-gig function
+   * are deployed; then set it to true.
+   */
+  upworkGigs: false,
 };

@@ -27,6 +27,7 @@ import {
   type AtsKind,
   type CompanyRow,
   type Entitlements,
+  type GigDraft,
 } from '@jobbotix/shared-types';
 import type {
   CompanyResearch,
@@ -264,6 +265,34 @@ export class SupabaseRolesRepo extends RolesRepo {
     if (!data?.id) throw new Error(data?.error ?? 'Could not add the job');
     await this.load();
     return { id: data.id, existed: data.existed };
+  }
+
+  async readGig(url: string, text: string) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      draft?: GigDraft;
+      method?: 'ai' | 'heuristic';
+      id?: string;
+      existed?: boolean;
+      error?: string;
+    }>('add-gig', { body: { action: 'read', url, text } });
+    if (error) throw await functionError(error);
+    this.notes.report(data);
+    if (data?.id) return { id: data.id, existed: true as const };
+    if (!data?.draft)
+      throw new Error(data?.error ?? 'Could not read the job post');
+    return { draft: data.draft, method: data.method ?? 'heuristic' };
+  }
+
+  async saveGig(draft: GigDraft) {
+    const { data, error } = await this.supabase.functions.invoke<{
+      id?: string;
+      existed?: boolean;
+      error?: string;
+    }>('add-gig', { body: { action: 'save', draft } });
+    if (error) throw await functionError(error);
+    if (!data?.id) throw new Error(data?.error ?? 'Could not save the gig');
+    await this.load();
+    return { id: data.id, existed: !!data.existed };
   }
 
   async rescore(id: string) {

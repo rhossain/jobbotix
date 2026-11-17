@@ -117,6 +117,24 @@ export function gigOf(role: {
   return role.entry_kind === 'gig' ? normaliseGig(role.gig) : null;
 }
 
+/**
+ * A gig nobody has asked a fit check for yet. Gigs are never scored on
+ * their own: the user asks, on the gig's page.
+ */
+export function fitUnchecked(role: {
+  entry_kind?: string | null;
+  score: number;
+  reasons: string[];
+  gaps: string[];
+}): boolean {
+  return (
+    role.entry_kind === 'gig' &&
+    role.score === 0 &&
+    !role.reasons.length &&
+    !role.gaps.length
+  );
+}
+
 const dollars = (n: number) =>
   `$${n.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
 

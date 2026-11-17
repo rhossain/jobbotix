@@ -11,8 +11,10 @@ import {
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import {
   ATS_LABEL,
+  GIG_LEVEL_LABELS,
   ROLE_STATUS_LABELS,
   formatYearly,
+  gigOf,
   meetsMinimum,
   parseSalary,
   postingHealth,
@@ -101,6 +103,7 @@ type Tab =
           <div class="flex min-w-0 items-start gap-4 md:gap-6">
             <jb-match-ring
               [score]="r.score"
+              [unchecked]="!!gig() && unscored()"
               [size]="viewport.phone() ? 'md' : 'lg'"
               [transitionName]="'ring-' + r.id"
             />
@@ -131,6 +134,11 @@ type Tab =
                 @if (r.salary) {
                   <span class="jb-tag">{{ r.salary }}</span>
                 }
+                @for (t of gigTags(); track t.label) {
+                  <span class="jb-tag" [class.jb-tag-warn]="t.warn">{{
+                    t.label
+                  }}</span>
+                }
               </div>
             </div>
           </div>
@@ -144,7 +152,8 @@ type Tab =
               target="_blank"
               rel="noopener"
             >
-              Open job post <jb-icon name="arrow-up-right" [size]="17" />
+              {{ gig() ? 'Open on Upwork' : 'Open job post' }}
+              <jb-icon name="arrow-up-right" [size]="17" />
             </a>
             <jb-share-button kind="role" [roleId]="r.id" />
             <jb-status-select [role]="r" />
@@ -160,7 +169,7 @@ type Tab =
             <jb-tabs
               prefix="role"
               label="Job sections"
-              [tabs]="tabs"
+              [tabs]="visibleTabs()"
               [value]="tab()"
               (valueChange)="tab.set($any($event))"
             />
@@ -179,10 +188,20 @@ type Tab =
                         class="jb-card flex flex-col gap-4 p-5 md:flex-row md:items-center md:justify-between"
                       >
                         <div class="min-w-0">
-                          <h2 class="font-semibold text-ink">Not scored yet</h2>
+                          <h2 class="font-semibold text-ink">
+                            {{
+                              gig() ? 'Fit not checked yet' : 'Not scored yet'
+                            }}
+                          </h2>
                           <p class="mt-1 text-sm text-ink-muted">
-                            Give it a match score from your job preferences, the
-                            same way the daily search does.
+                            @if (gig()) {
+                              See how this job fits your job preferences.
+                              Jobbotix checks a job from Upwork only when you
+                              ask.
+                            } @else {
+                              Give it a match score from your job preferences,
+                              the same way the daily search does.
+                            }
                           </p>
                         </div>
                         <button
@@ -193,7 +212,8 @@ type Tab =
                           [disabled]="scoring()"
                           (click)="rescore(r)"
                         >
-                          <jb-icon name="target" /> Score this job
+                          <jb-icon name="target" />
+                          {{ gig() ? 'Check my fit' : 'Score this job' }}
                         </button>
                       </section>
                     }
@@ -292,7 +312,7 @@ type Tab =
                           id="letter-heading"
                           class="text-lg font-semibold text-ink"
                         >
-                          Cover letter
+                          {{ gig() ? 'Proposal' : 'Cover letter' }}
                         </h2>
                         <div class="flex flex-wrap items-center gap-2">
                           @if (editingLetter()) {
@@ -309,13 +329,17 @@ type Tab =
                               [busy]="savingLetter()"
                               (click)="saveLetter()"
                             >
-                              Save letter
+                              {{ gig() ? 'Save proposal' : 'Save letter' }}
                             </button>
                           } @else {
                             @if (r.cover_letter) {
                               <jb-copy-button
                                 [text]="r.cover_letter"
-                                confirm="Cover letter copied"
+                                [confirm]="
+                                  gig()
+                                    ? 'Proposal copied'
+                                    : 'Cover letter copied'
+                                "
                               />
                             }
                             <button
@@ -387,7 +411,9 @@ type Tab =
                             jbInput
                             [autogrow]="true"
                             id="letter"
-                            aria-label="Cover letter"
+                            [attr.aria-label]="
+                              gig() ? 'Proposal' : 'Cover letter'
+                            "
                             class="min-h-64 leading-relaxed"
                             [value]="letterDraft()"
                             (input)="letterDraft.set($any($event.target).value)"
@@ -396,8 +422,15 @@ type Tab =
                           <pre class="jb-letter">{{ r.cover_letter }}</pre>
                         } @else {
                           <p class="text-sm text-ink-muted">
-                            No letter yet. One is drafted for jobs with a match
-                            score of 70 or more; draft or write one here.
+                            @if (gig()) {
+                              No proposal yet. Draft or write one here, make it
+                              yours, then copy it into Upwork. You always send
+                              it on Upwork yourself.
+                            } @else {
+                              No letter yet. One is drafted for jobs with a
+                              match score of 70 or more; draft or write one
+                              here.
+                            }
                           </p>
                         }
                       </div>
@@ -415,7 +448,9 @@ type Tab =
                           id="answers-heading"
                           class="flex items-center gap-2 text-lg font-semibold text-ink"
                         >
-                          Application answers
+                          {{
+                            gig() ? "Client's questions" : 'Application answers'
+                          }}
                           @if (answers().length) {
                             <span class="jb-count">{{ answers().length }}</span>
                           }
@@ -652,7 +687,7 @@ type Tab =
                 <dt class="text-ink-muted">Pay</dt>
                 <dd class="m-0 text-right text-ink">
                   {{ r.salary || 'Not stated' }}
-                  @if (pay().yearly) {
+                  @if (pay().yearly && !gig()) {
                     <span class="block text-xs text-ink-muted">{{
                       pay().yearly
                     }}</span>
@@ -717,7 +752,7 @@ type Tab =
                   }
                 </ul>
               }
-              @if (careers(); as c) {
+              @if (!gig() && careers(); as c) {
                 <div
                   class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm"
                 >
@@ -739,7 +774,9 @@ type Tab =
                 </div>
               }
             </section>
-            <jb-role-people [role]="r" />
+            @if (!gig()) {
+              <jb-role-people [role]="r" />
+            }
           </aside>
         </div>
       </article>
@@ -819,6 +856,34 @@ export class RoleDetail {
     { id: 'activity', label: 'Activity', icon: 'clock' },
   ];
   readonly tab = signal<Tab>('fit');
+  /** What only a gig added from Upwork has; null on a job. */
+  readonly gig = computed(() => {
+    const r = this.role();
+    return r ? gigOf(r) : null;
+  });
+  /** An Upwork client is unnamed, so a gig has no Company tab. */
+  readonly visibleTabs = computed(() =>
+    this.gig() ? this.tabs.filter((t) => t.id !== 'company') : this.tabs,
+  );
+  /** The facts that decide whether a gig is worth a proposal. */
+  readonly gigTags = computed(() => {
+    const g = this.gig();
+    if (!g) return [];
+    const tags: { label: string; warn?: boolean }[] = [];
+    if (g.connects !== null)
+      tags.push({ label: `${g.connects} Connects to apply` });
+    if (g.paymentVerified !== null)
+      tags.push(
+        g.paymentVerified
+          ? { label: 'Payment verified' }
+          : { label: 'Payment not verified', warn: true },
+      );
+    if (g.clientCountry) tags.push({ label: `Client in ${g.clientCountry}` });
+    if (g.experienceLevel)
+      tags.push({ label: GIG_LEVEL_LABELS[g.experienceLevel] });
+    if (g.duration) tags.push({ label: g.duration });
+    return tags;
+  });
   readonly scoring = signal(false);
   /** Added by hand before scoring on add existed (or with no search profile then). */
   readonly unscored = computed(() => {
@@ -944,6 +1009,10 @@ export class RoleDetail {
       const id = this.id();
       untracked(() => void this.loadSide(id));
     });
+    // a gig has no Company tab; a link that asks for it lands on the first
+    effect(() => {
+      if (this.gig() && this.tab() === 'company') this.tab.set('fit');
+    });
   }
 
   private async loadSide(id: string) {
@@ -1064,7 +1133,8 @@ export class RoleDetail {
       });
       this.letterMethod.set({ method: res.method, model: res.model });
       await this.repo.load();
-      this.toast.success(rewrite ? 'Letter rewritten' : 'Letter drafted');
+      const what = this.gig() ? 'Proposal' : 'Letter';
+      this.toast.success(rewrite ? `${what} rewritten` : `${what} drafted`);
     } catch (e) {
       this.toast.show((e as Error).message || 'Could not draft the letter');
     } finally {
@@ -1150,9 +1220,13 @@ export class RoleDetail {
     try {
       await this.repo.setCoverLetter(r.id, this.letterDraft());
       this.editingLetter.set(false);
-      this.toast.success('Cover letter saved');
+      this.toast.success(this.gig() ? 'Proposal saved' : 'Cover letter saved');
     } catch {
-      this.toast.error('Could not save the cover letter');
+      this.toast.error(
+        this.gig()
+          ? 'Could not save the proposal'
+          : 'Could not save the cover letter',
+      );
     } finally {
       this.savingLetter.set(false);
     }

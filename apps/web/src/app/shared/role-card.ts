@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import {
+  fitUnchecked,
   formatInterviewTime,
   nextInterviewByRole,
   postingHealth,
@@ -44,6 +45,7 @@ import { StatusSelect } from './status-select';
     >
       <jb-match-ring
         [score]="role().score"
+        [unchecked]="unchecked()"
         [size]="viewport.phone() || compact() ? 'sm' : 'md'"
         [transitionName]="'ring-' + role().id"
       />
@@ -166,6 +168,8 @@ export class RoleCard {
       new Date(),
     ),
   );
+  /** A gig from Upwork is scored only when the user asks for a fit check. */
+  protected readonly unchecked = computed(() => fitUnchecked(this.role()));
   readonly showReasons = input(true);
   /** Fewer details: no tag row, a smaller ring. */
   readonly compact = input(false);

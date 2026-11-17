@@ -14,6 +14,7 @@ import {
   EMPLOYMENT_TYPES,
   ROLE_STATUSES,
   ROLE_STATUS_LABELS,
+  fitUnchecked,
   meetsMinimum,
   parseSalary,
   postingHealth,
@@ -30,6 +31,7 @@ import {
   SearchProfileRepo,
 } from '../../core/data/repos';
 import { SearchRunner } from '../../core/search-runner';
+import { environment } from '../../../environments/environment';
 import { ShellState } from '../../shell/shell-state';
 import { RelativeDayPipe, TypeLabelPipe, scoreBand } from '../../shared/format';
 import { RoleCard } from '../../shared/role-card';
@@ -59,6 +61,8 @@ interface Filters {
   q: string;
   status: RoleStatus | '';
   type: EmploymentType | '';
+  /** Jobs, gigs added from Upwork, or both (''). */
+  kind: '' | 'job' | 'gig';
   band: ScoreBand;
   ai: boolean;
   source: string;
@@ -70,6 +74,7 @@ const DEFAULT_FILTERS: Filters = {
   q: '',
   status: '',
   type: '',
+  kind: '',
   band: '',
   ai: false,
   source: '',
@@ -114,6 +119,9 @@ const DEFAULT_FILTERS: Filters = {
         }
       </p>
       <div actions class="hidden gap-2 md:flex">
+        @if (upworkGigs) {
+          <a jbButton routerLink="/jobs/upwork">Add from Upwork</a>
+        }
         <a jbButton="primary" routerLink="/jobs/new"
           ><jb-icon name="plus" /> Add job</a
         >
@@ -408,7 +416,11 @@ const DEFAULT_FILTERS: Filters = {
                       />
                     </td>
                     <td class="py-3 pr-2 pl-3">
-                      <jb-match-ring [score]="r.score" size="xs" />
+                      <jb-match-ring
+                        [score]="r.score"
+                        [unchecked]="fitUnchecked(r)"
+                        size="xs"
+                      />
                     </td>
                     <td class="min-w-0 py-3 pr-4 wrap-anywhere">
                       <a
@@ -542,6 +554,33 @@ const DEFAULT_FILTERS: Filters = {
           }
         </select>
       </label>
+      @if (hasGigs() || filters().kind) {
+        <label
+          [class]="
+            stacked ? 'flex flex-col gap-1.5 text-sm font-medium' : 'contents'
+          "
+        >
+          @if (stacked) {
+            Jobs or Upwork gigs
+          }
+          <select
+            class="jb-input"
+            [class.w-auto]="!stacked"
+            aria-label="Jobs or Upwork gigs"
+            (change)="set('kind', $any($event.target).value)"
+          >
+            <option value="" [selected]="filters().kind === ''">
+              Jobs and gigs
+            </option>
+            <option value="job" [selected]="filters().kind === 'job'">
+              Jobs only
+            </option>
+            <option value="gig" [selected]="filters().kind === 'gig'">
+              Upwork gigs only
+            </option>
+          </select>
+        </label>
+      }
       <label
         [class]="
           stacked ? 'flex flex-col gap-1.5 text-sm font-medium' : 'contents'
@@ -725,8 +764,9 @@ export class Roles {
   /** Filters set besides search and sort, for the phone Filters button. */
   readonly activeCount = computed(() => {
     const f = this.filters();
-    return [f.status, f.type, f.band, f.source, f.pay, f.ai].filter(Boolean)
-      .length;
+    return [f.status, f.type, f.kind, f.band, f.source, f.pay, f.ai].filter(
+      Boolean,
+    ).length;
   });
   readonly active = signal(0);
   private readonly viewsRepo = inject(SavedViewsRepo);
@@ -735,6 +775,13 @@ export class Roles {
   readonly isDefault = computed(
     () => JSON.stringify(this.filters()) === JSON.stringify(DEFAULT_FILTERS),
   );
+
+  /** The account has at least one gig, so the jobs-or-gigs filter is worth showing. */
+  readonly hasGigs = computed(() =>
+    this.repo.roles().some((r) => r.entry_kind === 'gig'),
+  );
+  protected readonly upworkGigs = environment.upworkGigs;
+  protected readonly fitUnchecked = fitUnchecked;
 
   readonly sources = computed(() =>
     [
@@ -792,6 +839,7 @@ export class Roles {
         return false;
       if (f.status && r.status !== f.status) return false;
       if (f.type && r.type !== f.type) return false;
+      if (f.kind && (r.entry_kind ?? 'job') !== f.kind) return false;
       if (f.source && r.source !== f.source) return false;
       if (f.ai && !r.ai_match) return false;
       if (f.band === '80' && r.score < 80) return false;

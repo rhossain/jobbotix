@@ -28,7 +28,8 @@ export function ringBand(score: number): 'high' | 'mid' | 'low' {
   host: {
     class: 'jb-match-ring',
     role: 'img',
-    '[attr.aria-label]': '"Match score " + clamped() + " out of 100"',
+    '[attr.aria-label]':
+      'unchecked() ? "Fit not checked yet" : "Match score " + clamped() + " out of 100"',
     '[attr.data-band]': 'band()',
     '[attr.data-size]': 'size()',
     '[style.width.px]': 'px()',
@@ -56,8 +57,8 @@ export function ringBand(score: number): 'high' | 'mid' | 'low' {
       />
     </svg>
     <span class="value" aria-hidden="true">
-      {{ clamped() }}
-      @if (size() === 'lg') {
+      {{ unchecked() ? '–' : clamped() }}
+      @if (size() === 'lg' && !unchecked()) {
         <small>match</small>
       }
     </span>
@@ -135,6 +136,8 @@ export function ringBand(score: number): 'high' | 'mid' | 'low' {
 export class MatchRing {
   readonly score = input.required<number>();
   readonly size = input<RingSize>('md');
+  /** No score to show yet: a dash stands in for the number. */
+  readonly unchecked = input(false);
   /** Optional view-transition-name so the ring morphs between pages. */
   readonly transitionName = input<string | null>(null);
 

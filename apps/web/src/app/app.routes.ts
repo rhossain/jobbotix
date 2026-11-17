@@ -80,6 +80,13 @@ export const appRoutes: Route[] = [
     title: 'Add a job · Jobbotix',
   },
   {
+    path: 'jobs/upwork',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/add-gig/add-gig').then((m) => m.AddGig),
+    title: 'Add a job from Upwork · Jobbotix',
+  },
+  {
     path: 'jobs/:id',
     canActivate: [authGuard],
     loadComponent: () =>
