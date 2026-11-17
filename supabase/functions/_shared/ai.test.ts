@@ -1238,3 +1238,59 @@ Deno.test('creditNote: says what is missing and what to do', () => {
   });
   assertEquals(readReservation({ ok: true }).ok, false);
 });
+
+Deno.test(
+  'callProvider: no API credit is its own failure, not a bad key or an outage',
+  async () => {
+    // What Anthropic answers for a real key on an account with no balance.
+    const p = provider({
+      status: 400,
+      body: {
+        type: 'error',
+        error: {
+          type: 'invalid_request_error',
+          message:
+            'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.',
+        },
+      },
+    });
+    try {
+      const a = await callProvider(
+        'anthropic',
+        'sk-ant-real',
+        'claude-sonnet-5-5',
+        call,
+      );
+      assert(!a.ok && a.kind === 'no_credit' && a.status === 400);
+    } finally {
+      p.restore();
+    }
+    // A free tier's used-up quota is still a limit that lifts by itself.
+    const q = provider({
+      status: 429,
+      body: { error: { message: 'You exceeded your current quota' } },
+    });
+    try {
+      const b = await callProvider('gemini', 'k', 'gemini-3.8-flash', call);
+      assert(!b.ok && b.kind === 'rate_limited');
+    } finally {
+      q.restore();
+    }
+    // Any other 400 stays a plain error.
+    const r = provider({
+      status: 400,
+      body: { error: { message: 'messages: field required' } },
+    });
+    try {
+      const c = await callProvider(
+        'anthropic',
+        'sk-ant-real',
+        'claude-sonnet-5-5',
+        call,
+      );
+      assert(!c.ok && c.kind === 'error');
+    } finally {
+      r.restore();
+    }
+  },
+);

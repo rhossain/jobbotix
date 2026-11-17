@@ -64,7 +64,8 @@ export interface AiCall {
 }
 
 export type AiFailureKind =
-  'rate_limited' | 'auth' | 'too_large' | 'timeout' | 'error';
+  /** no_credit: the key is real, but its account has no API credit to spend. */
+  'rate_limited' | 'auth' | 'no_credit' | 'too_large' | 'timeout' | 'error';
 
 export type AiAnswer =
   | {
@@ -167,6 +168,15 @@ export function errorDetail(payload: unknown, fallback: string): string {
 
 function failureKind(status: number, detail: string): AiFailureKind {
   if (status === 429) return 'rate_limited';
+  // A paid account with nothing to spend. Anthropic answers 400 "Your
+  // credit balance is too low to access the Anthropic API"; the key itself
+  // is fine, so this is neither a bad key nor an outage.
+  if (
+    status === 402 ||
+    ((status === 400 || status === 403) &&
+      /credit balance|insufficient (credits?|balance|funds)/i.test(detail))
+  )
+    return 'no_credit';
   if (status === 401 || status === 403) return 'auth';
   // Gemini answers a bad key with 400.
   if (status === 400 && /api[ _-]?key/i.test(detail)) return 'auth';
@@ -499,6 +509,12 @@ export type RunResult<T> =
 const RETRY_NOTE =
   '\n\nYour previous reply could not be read. Answer again in exactly the format asked for above, with nothing before or after it.';
 
+/** " API credit is separate from ...", for a provider that explains where its credit comes from. */
+export function creditHelp(provider: ProviderId): string {
+  const help = PROVIDERS[provider].creditHelp;
+  return help ? ` ${help}` : '';
+}
+
 /** One sentence for a failed call, without the provider's raw wording for auth. */
 function failureMessage(
   a: Extract<AiAnswer, { ok: false }>,
@@ -510,6 +526,8 @@ function failureMessage(
       return limitMessage(a.provider, a.retryAt ?? now + 60_000, now);
     case 'auth':
       return `${name} rejected your key. Check it in Settings.`;
+    case 'no_credit':
+      return `${name} could not answer: the account your key belongs to has no API credit left.${creditHelp(a.provider)}`;
     case 'too_large':
       return `This was too long for ${name}'s limits on ${a.model}.`;
     case 'timeout':
@@ -744,7 +762,8 @@ async function runOwn<T>(
           retryAt = Math.min(retryAt ?? at, at);
         } else {
           failed = true;
-          if (answer.kind === 'auth')
+          // A key that is rejected, or has no credit, says so in Settings.
+          if (answer.kind === 'auth' || answer.kind === 'no_credit')
             await patch(conn, {
               status: 'error',
               last_error: failureMessage(answer, now()),

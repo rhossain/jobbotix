@@ -4,7 +4,7 @@
 // per-provider name; ai_connections holds that name and never the key.
 
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { checkKey, probe, type AiAnswer } from './ai.ts';
+import { checkKey, creditHelp, probe, type AiAnswer } from './ai.ts';
 import { goldenSummary, runGolden, type GoldenResult } from './golden.ts';
 import {
   isProviderId,
@@ -59,6 +59,22 @@ export function probeVerdict(
         status: 422,
         error: `${name} rejected that key. Check it where you created it.`,
       };
+    case 'no_credit': {
+      // The key is real; the account behind it has nothing to spend. Mostly
+      // someone with a Claude subscription who expects it to cover the API.
+      const free = Object.values(PROVIDERS)
+        .filter((p) => p.free && p.id !== provider)
+        .map((p) => p.name);
+      return {
+        usable: false,
+        status: 422,
+        error:
+          `${name} accepted this key, but the account it belongs to has no API credit, so it cannot be used yet.${creditHelp(provider)} Add credit, then save the key again.` +
+          (free.length
+            ? ` Or connect ${free.join(' or ')} instead, which ${free.length === 1 ? 'is' : 'are'} free to start.`
+            : ''),
+      };
+    }
     case 'timeout':
       return {
         usable: false,

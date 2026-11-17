@@ -42,6 +42,11 @@ export interface ProviderInfo {
   keyPattern: RegExp;
   /** What the user should know about their data, shown before a key is saved. */
   dataNote: string;
+  /**
+   * Where a paid provider's API credit comes from, for when a key is real
+   * but its account has none (people take a Claude subscription for it).
+   */
+  creditHelp?: string;
   /** The terms may allow training on prompts: the user must tick a box. */
   needsConsent: boolean;
   /** Can search the web during company research. */
@@ -83,6 +88,8 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
     keyPattern: /^sk-ant-[A-Za-z0-9_-]{20,}$/,
     dataNote:
       'Paid by you per call. Anthropic does not train on API prompts by default.',
+    creditHelp:
+      'API credit is separate from a Claude subscription and its usage limit: buy it in the Claude Console, under Settings > Billing.',
     needsConsent: false,
     webSearch: true,
     verified: true,

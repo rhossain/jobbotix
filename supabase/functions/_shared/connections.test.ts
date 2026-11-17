@@ -378,3 +378,26 @@ Deno.test(
     assert(!other.ok && other.status === 404);
   },
 );
+
+Deno.test(
+  'probeVerdict: a real key with no API credit is told where credit comes from',
+  () => {
+    // Anthropic's reply to a key whose account has no balance
+    const v = probeVerdict('anthropic', 'claude-sonnet-5-5', {
+      ok: false,
+      kind: 'no_credit',
+      status: 400,
+      message:
+        'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.',
+      provider: 'anthropic',
+      model: 'claude-sonnet-5-5',
+    });
+    assert(!v.usable && v.status === 422);
+    if (v.usable) return;
+    assert(v.error.startsWith('Anthropic (Claude) accepted this key'));
+    assert(!v.error.includes('could not be reached'));
+    assert(v.error.includes('separate from a Claude subscription'));
+    assert(v.error.includes('Settings > Billing'));
+    assert(v.error.includes('Google Gemini or Groq'));
+  },
+);

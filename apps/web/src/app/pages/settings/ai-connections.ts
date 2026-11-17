@@ -375,6 +375,10 @@ const OTHER = '__other';
                     class="ml-0.5 inline-block align-text-bottom"
                 /></a>
               </p>
+              @if (info.creditHelp) {
+                <!-- Said before the key is pasted: a subscription is not API credit. -->
+                <p class="text-sm text-ink-muted">{{ info.creditHelp }}</p>
+              }
               @if (!info.verified) {
                 <p class="text-xs text-ink-muted">
                   Beta: {{ info.name }} is new in Jobbotix. When its answer
