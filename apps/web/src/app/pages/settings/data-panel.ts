@@ -15,6 +15,7 @@ import {
 } from '../../shared/csv';
 import { Toast } from '../../shared/toast';
 import { Button, Icon } from '../../ui';
+import { LinkedInImport } from './linkedin-import';
 
 function download(name: string, type: string, body: string) {
   const a = document.createElement('a');
@@ -26,10 +27,10 @@ function download(name: string, type: string, body: string) {
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-/** Settings → Your data: download it, bring roles in from a spreadsheet, delete the account. */
+/** Settings → Your data: download it, bring roles in from a spreadsheet or from LinkedIn, delete the account. */
 @Component({
   selector: 'jb-data-panel',
-  imports: [Button, Icon],
+  imports: [Button, Icon, LinkedInImport],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'contents' },
   template: `
@@ -137,6 +138,8 @@ const today = () => new Date().toISOString().slice(0, 10);
       }
     </section>
 
+    <jb-linkedin-import />
+
     <section
       class="jb-card flex flex-col gap-3 border-bad/40 p-5 md:p-6"
       aria-labelledby="delete-h"
@@ -146,8 +149,9 @@ const today = () => new Date().toISOString().slice(0, 10);
       </h2>
       <p class="text-sm text-ink-muted">
         Removes your account and everything in it straight away: jobs, resumes,
-        letters, interviews, contacts, keys and your saved AI keys. It cannot be
-        undone; download your data first if you want a copy.
+        letters, interviews, contacts, LinkedIn connections, keys and your saved
+        AI keys. It cannot be undone; download your data first if you want a
+        copy.
       </p>
       <label class="flex flex-col gap-1.5 text-sm font-medium">
         Type your email to confirm
