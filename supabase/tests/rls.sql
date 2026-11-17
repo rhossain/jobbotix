@@ -2342,4 +2342,86 @@ begin
   delete from public.roles where company in ('Initech', 'Initrode', 'Hooli');
 end $$;
 
+-- ---------------------------------------------------------------------------
+-- LinkedIn connections: private to their owner, no contact details, capped
+-- ---------------------------------------------------------------------------
+do $$ begin
+  if exists (select 1 from information_schema.columns
+              where table_schema = 'public' and table_name = 'linkedin_connections'
+                and (column_name ilike '%email%' or column_name ilike '%phone%')) then
+    raise exception 'FAIL: linkedin_connections can hold an email address or a phone number';
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+insert into public.linkedin_connections (user_id, name, company, title, profile_url, connected_on) values
+  ('11111111-1111-1111-1111-111111111111', 'Dana Whitfield', 'Acme', 'Engineering Manager',
+   'https://www.linkedin.com/in/dana-whitfield-example', '2025-11-17'),
+  ('11111111-1111-1111-1111-111111111111', 'Ravi Menon', 'Globex', 'Senior Recruiter', '', null);
+do $$ begin
+  insert into public.linkedin_connections (user_id, name, company, profile_url)
+  values ('11111111-1111-1111-1111-111111111111', 'Dana Whitfield', 'ACME',
+          'https://www.linkedin.com/in/dana-whitfield-example');
+  raise exception 'FAIL: the same connection was saved twice';
+exception when unique_violation then null;
+end $$;
+do $$ begin
+  insert into public.linkedin_connections (user_id, name, profile_url)
+  values ('11111111-1111-1111-1111-111111111111', 'Mallory', 'https://evil.example/in/mallory');
+  raise exception 'FAIL: a profile link outside LinkedIn was saved';
+exception when check_violation then null;
+end $$;
+do $$ begin
+  insert into public.linkedin_connections (user_id, name)
+  values ('22222222-2222-2222-2222-222222222222', 'Planted');
+  raise exception 'FAIL: A saved a connection into B''s account';
+exception when insufficient_privilege or check_violation then null;
+end $$;
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if (select count(*) from public.linkedin_connections) <> 0 then
+    raise exception 'FAIL: B sees A''s LinkedIn connections';
+  end if;
+  update public.linkedin_connections set company = 'Changed';
+  if found then raise exception 'FAIL: B changed A''s LinkedIn connections'; end if;
+  delete from public.linkedin_connections;
+  if found then raise exception 'FAIL: B deleted A''s LinkedIn connections'; end if;
+end $$;
+reset role; set role anon; reset request.jwt.claim.sub;
+do $$ begin
+  if (select count(*) from public.linkedin_connections) <> 0 then
+    raise exception 'FAIL: a visitor sees LinkedIn connections';
+  end if;
+end $$;
+reset role;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if (select count(*) from public.linkedin_connections) <> 2 then
+    raise exception 'FAIL: A sees % LinkedIn connections, expected 2', (select count(*) from public.linkedin_connections);
+  end if;
+  -- the cap: 30000 in all, and not one more
+  insert into public.linkedin_connections (user_id, name)
+  select '11111111-1111-1111-1111-111111111111', 'Person ' || n from generate_series(1, 29998) n;
+  begin
+    insert into public.linkedin_connections (user_id, name)
+    values ('11111111-1111-1111-1111-111111111111', 'One too many');
+    raise exception 'FAIL: more than 30000 LinkedIn connections were saved';
+  exception when check_violation then null;
+  end;
+  -- "Delete my LinkedIn data"
+  delete from public.linkedin_connections;
+  if (select count(*) from public.linkedin_connections) <> 0 then
+    raise exception 'FAIL: A could not delete their LinkedIn connections';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+-- deleting the account removes them
+do $$ begin
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'public.linkedin_connections'::regclass and contype = 'f' and confdeltype = 'c') then
+    raise exception 'FAIL: LinkedIn connections do not go when the account goes';
+  end if;
+end $$;
+
 \echo RLS tests passed

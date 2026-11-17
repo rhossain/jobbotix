@@ -52,10 +52,15 @@ import {
   SettingsRepo,
   VariantsRepo,
   InterviewsRepo,
+  LinkedInRepo,
   PeopleRepo,
   AccountDataRepo,
   PlanRepo,
 } from './core/data/repos';
+import {
+  MemoryLinkedInRepo,
+  SupabaseLinkedInRepo,
+} from './core/data/linkedin-repos';
 import {
   SupabaseResumesRepo,
   SupabaseRolesRepo,
@@ -104,6 +109,7 @@ export const demoDataProviders: Provider[] = [
   { provide: InterviewsRepo, useClass: MemoryInterviewsRepo },
   { provide: PeopleRepo, useClass: MemoryPeopleRepo },
   { provide: AccountDataRepo, useClass: MemoryAccountDataRepo },
+  { provide: LinkedInRepo, useClass: MemoryLinkedInRepo },
   MemoryPlanRepo,
   { provide: PlanRepo, useExisting: MemoryPlanRepo },
 ];
@@ -129,6 +135,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: InterviewsRepo, useClass: SupabaseInterviewsRepo },
       { provide: PeopleRepo, useClass: SupabasePeopleRepo },
       { provide: AccountDataRepo, useClass: SupabaseAccountDataRepo },
+      { provide: LinkedInRepo, useClass: SupabaseLinkedInRepo },
       { provide: PlanRepo, useClass: SupabasePlanRepo },
     ];
 

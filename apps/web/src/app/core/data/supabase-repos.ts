@@ -1744,6 +1744,7 @@ const EXPORT_TABLES = [
   'contacts',
   'role_contacts',
   'contact_touches',
+  'linkedin_connections',
   'screening_answers',
   'cover_letters',
   'resumes',
@@ -1797,7 +1798,7 @@ export class SupabaseAccountDataRepo extends AccountDataRepo {
           this.supabase.from('roles').insert({
             ...r,
             user_id: user.id,
-            source: 'Imported',
+            source: r.source ?? 'Imported',
           }),
         ),
       );

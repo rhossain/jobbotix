@@ -52,6 +52,7 @@ import type {
   ContactRow,
   RoleContactRow,
   ContactTouchRow,
+  LinkedInConnectionRow,
   MessageKind,
   TouchChannel,
   TouchDirection,
@@ -387,6 +388,46 @@ export interface ImportRoleInput {
   location: string;
   salary: string;
   notes: string;
+  /** Where it came from, shown on the job; 'Imported' when left out. */
+  source?: string;
+  /** When the user first kept it (ISO); now when left out. */
+  found_at?: string;
+  /** When it reached its status, e.g. the day applied (ISO); now when left out. */
+  status_changed_at?: string;
+}
+
+/** Shown as the source of a job that came from the user's LinkedIn archive. */
+export const LINKEDIN_EXPORT_SOURCE = 'LinkedIn export';
+
+/** A connection read from the user's LinkedIn archive. No contact details. */
+export interface LinkedInConnectionInput {
+  name: string;
+  company: string;
+  title: string;
+  profile_url: string;
+  connected_on: string | null;
+}
+
+/**
+ * The user's LinkedIn connections, from the archive they downloaded from
+ * LinkedIn and uploaded themselves. Jobbotix never contacts LinkedIn. The
+ * list can be 30,000 long, so it is counted and searched, never loaded whole.
+ */
+export abstract class LinkedInRepo {
+  /** How many connections are kept; null until first asked. */
+  abstract readonly total: Signal<number | null>;
+  abstract refresh(): Promise<void>;
+  /**
+   * Puts a new archive's list in place of the old one, so people who are no
+   * longer connections go. `failed` counts rows that could not be saved.
+   */
+  abstract replaceConnections(
+    list: LinkedInConnectionInput[],
+  ): Promise<{ saved: number; failed: number }>;
+  /** Up to `limit` connections whose name, company or title contains `q`. */
+  abstract search(q: string, limit?: number): Promise<LinkedInConnectionRow[]>;
+  /** Removes every connection kept for this account. */
+  abstract deleteConnections(): Promise<void>;
 }
 
 export abstract class AccountDataRepo {

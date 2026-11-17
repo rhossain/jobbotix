@@ -322,6 +322,22 @@ export type ContactRow = {
   updated_at: string;
 };
 
+/**
+ * A LinkedIn connection from the archive the user uploaded (migration 0060).
+ * About another person, so it holds no email address and no phone number.
+ */
+export type LinkedInConnectionRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  company: string;
+  title: string;
+  /** '' or https://www.linkedin.com/in/<name> */
+  profile_url: string;
+  connected_on: string | null;
+  created_at: string;
+};
+
 export type RoleContactRow = {
   role_id: string;
   contact_id: string;
@@ -687,6 +703,18 @@ export type Database = {
       role_contacts: Table<
         RoleContactRow,
         Insertable<RoleContactRow, 'created_at'>
+      >;
+      linkedin_connections: Table<
+        LinkedInConnectionRow,
+        Insertable<
+          LinkedInConnectionRow,
+          | 'id'
+          | 'company'
+          | 'title'
+          | 'profile_url'
+          | 'connected_on'
+          | 'created_at'
+        >
       >;
       contact_touches: Table<
         ContactTouchRow,

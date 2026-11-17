@@ -561,7 +561,8 @@ export function readLinkedInExport(
   const titles = new Set<string>();
   const addJobs = (kind: 'applications' | 'savedJobs') =>
     (byKind[kind] ?? []).forEach((file, n) => {
-      const r = reports[kind]![n];
+      const r = reports[kind]?.[n];
+      if (!r) return;
       const status = kind === 'applications' ? 'applied' : 'shortlist';
       let kept = 0;
       for (const job of readJobs(file, status, r)) {
@@ -587,7 +588,8 @@ export function readLinkedInExport(
   const connections: LinkedInConnection[] = [];
   const seen = new Set<string>();
   (byKind.connections ?? []).forEach((file, n) => {
-    const r = reports.connections![n];
+    const r = reports.connections?.[n];
+    if (!r) return;
     let kept = 0;
     for (const c of readConnections(file, r)) {
       const key = (c.profileUrl || `${c.name}|${c.company}`).toLowerCase();

@@ -2481,9 +2481,9 @@ export class MemoryAccountDataRepo extends AccountDataRepo {
           ...r,
           id: newId(),
           user_id: DEMO_USER_ID,
-          source: 'Imported',
-          found_at: now,
-          status_changed_at: now,
+          source: r.source ?? 'Imported',
+          found_at: r.found_at ?? now,
+          status_changed_at: r.status_changed_at ?? now,
           created_at: now,
           updated_at: now,
         });
