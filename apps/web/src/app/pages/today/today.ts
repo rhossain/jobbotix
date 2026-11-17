@@ -53,6 +53,7 @@ import { RoleCard } from '../../shared/role-card';
 import { SetupChecklist } from './setup-checklist';
 import { RoleMover } from '../../shared/role-mover';
 import { copyText } from '../../ui/copy-button';
+import { KnownNudge } from './known-nudge';
 
 interface Reminder {
   event: RoleEventRow;
@@ -65,6 +66,7 @@ interface Reminder {
 @Component({
   selector: 'jb-today',
   imports: [
+    KnownNudge,
     Button,
     CopyButton,
     EmptyState,
@@ -453,6 +455,7 @@ interface Reminder {
             }
           } @else {
             <div class="flex flex-col gap-3">
+              <jb-known-nudge [roles]="fresh()" />
               @for (role of fresh(); track role.id) {
                 <jb-swipe-row
                   [start]="shortlistAction"

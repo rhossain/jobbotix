@@ -57,6 +57,7 @@ import { CompanyPanel } from './company-panel';
 import { PrepPanel } from './prep-panel';
 import { InterviewsPanel } from './interviews-panel';
 import { RolePeople } from './role-people';
+import { RoleConnections } from './role-connections';
 import { VariantPanel } from './variant-panel';
 import { wordCount } from '@jobbotix/shared-types';
 
@@ -81,6 +82,7 @@ const POST_TEXT_MIN = 80;
     PrepPanel,
     InterviewsPanel,
     RolePeople,
+    RoleConnections,
     RelativeDayPipe,
     RouterLink,
     ShareButton,
@@ -835,6 +837,7 @@ const POST_TEXT_MIN = 80;
             </section>
             @if (!gig()) {
               <jb-role-people [role]="r" />
+              <jb-role-connections [role]="r" />
             }
           </aside>
         </div>

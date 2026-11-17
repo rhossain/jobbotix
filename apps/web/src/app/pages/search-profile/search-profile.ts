@@ -16,6 +16,7 @@ import {
   SALARY_CURRENCIES,
   SCORING_WEIGHT_LABELS,
   countryName,
+  linkedInJobSearchUrl,
   localCoverage,
   countryOptions,
   limitOf,
@@ -859,6 +860,21 @@ const MAX_PROFILES = 5;
           </div>
         </form>
 
+        @if (linkedInSearch(); as url) {
+          <p id="sp-linkedin" class="text-sm text-ink-muted">
+            Want to look by hand as well?
+            <a
+              [href]="url"
+              target="_blank"
+              rel="noopener"
+              class="text-brand-ink underline"
+              >Search these jobs on LinkedIn</a
+            >. It opens LinkedIn's own job search in a new tab, with your first
+            job title filled in. Jobbotix does not read LinkedIn; when you find
+            a job there, add it with Add a job.
+          </p>
+        }
+
         <div>
           <button
             type="button"
@@ -990,6 +1006,22 @@ export class SearchProfile {
    */
   private readonly selected = signal<string | 'new' | null>(null);
   readonly isNew = computed(() => this.selected() === 'new');
+  /**
+   * LinkedIn's own job search for the saved search's first job title: a
+   * plain link the user opens themselves. '' until a title is saved.
+   */
+  readonly linkedInSearch = computed(() => {
+    const p = this.current();
+    const title = p?.target_roles?.[0]?.trim();
+    if (!p || !title) return '';
+    const remote = this.remoteOnly() !== false;
+    return linkedInJobSearchUrl({
+      keywords: title,
+      // remote jobs are not tied to the user's own country
+      location: remote || !p.home_country ? '' : countryName(p.home_country),
+      remote,
+    });
+  });
   /** The saved profile in the form; null while a new one is being written. */
   readonly current = computed<SearchProfileRow | null>(() => {
     const sel = this.selected();
