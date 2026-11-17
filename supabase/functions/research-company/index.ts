@@ -44,6 +44,7 @@ import {
   settle,
 } from '../_shared/credits.ts';
 import { requireAiJob } from '../_shared/gate.ts';
+import { isUpworkUrl } from '../_shared/gig.ts';
 import {
   readResearch,
   sharedNote,
@@ -102,6 +103,13 @@ Deno.serve(
       loadConnections(admin, userId),
     ]);
     if (!role) return json(404, { error: 'Role not found' });
+    // A gig from Upwork names no company, and its link must never be opened
+    // or handed to a web search.
+    if (isUpworkUrl(role.url))
+      return json(422, {
+        error:
+          'Upwork does not name the client in a job post, so there is no company to research.',
+      });
 
     const save = async (
       research: CompanyResearch,

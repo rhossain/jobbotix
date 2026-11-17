@@ -2180,4 +2180,76 @@ exception when insufficient_privilege then null;
 end $$;
 reset role; reset request.jwt.claim.sub;
 
+-- ---------------------------------------------------------------------------
+-- Upwork gigs (migration 0057): a gig is its owner's alone, like any role
+-- ---------------------------------------------------------------------------
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+insert into public.roles (user_id, company, title, url, source, type, entry_kind, gig)
+values ('11111111-1111-1111-1111-111111111111', 'Upwork client', 'Angular dashboard',
+        'https://www.upwork.com/jobs/~01aaaaaaaaaaaaaaaa', 'Upwork', 'freelance', 'gig',
+        '{"budgetType":"hourly","rateMin":25,"rateMax":40,"connects":12}');
+-- two gigs from unnamed clients may share a title; the link keeps them apart
+insert into public.roles (user_id, company, title, url, source, type, entry_kind, gig)
+values ('11111111-1111-1111-1111-111111111111', 'Upwork client', 'Angular dashboard',
+        'https://www.upwork.com/jobs/~01bbbbbbbbbbbbbbbb', 'Upwork', 'freelance', 'gig',
+        '{"budgetType":"fixed","budget":1200}');
+do $$ begin
+  insert into public.roles (user_id, company, title, url, entry_kind, gig)
+  values ('11111111-1111-1111-1111-111111111111', 'Upwork client', 'Angular dashboard',
+          'https://www.upwork.com/jobs/~01aaaaaaaaaaaaaaaa', 'gig', '{}');
+  raise exception 'FAIL: the same gig link was saved twice';
+exception when unique_violation then null;
+end $$;
+do $$ begin
+  insert into public.roles (user_id, company, title, url, gig)
+  values ('11111111-1111-1111-1111-111111111111', 'Gamma', 'Not a gig', 'https://g.example/1',
+          '{"budgetType":"fixed"}');
+  raise exception 'FAIL: a job carried gig details';
+exception when check_violation then null;
+end $$;
+do $$ begin
+  insert into public.roles (user_id, company, title, url, entry_kind)
+  values ('11111111-1111-1111-1111-111111111111', 'Gamma', 'Odd kind', 'https://g.example/2', 'task');
+  raise exception 'FAIL: an unknown entry kind was accepted';
+exception when check_violation then null;
+end $$;
+-- jobs keep the one-per-company-and-title rule
+do $$ begin
+  insert into public.roles (user_id, company, title, url)
+  values ('11111111-1111-1111-1111-111111111111', 'ACME', 'senior angular', 'https://a.example/again');
+  raise exception 'FAIL: a second job with the same company and title was accepted';
+exception when unique_violation then null;
+end $$;
+
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if (select count(*) from public.roles where entry_kind = 'gig') <> 0 then
+    raise exception 'FAIL: B sees A''s gigs';
+  end if;
+  update public.roles set gig = '{"budgetType":"fixed","budget":1}' where entry_kind = 'gig';
+  if found then raise exception 'FAIL: B changed A''s gig'; end if;
+  delete from public.roles where entry_kind = 'gig';
+  if found then raise exception 'FAIL: B deleted A''s gig'; end if;
+end $$;
+do $$ begin
+  insert into public.roles (user_id, company, title, url, entry_kind, gig)
+  values ('11111111-1111-1111-1111-111111111111', 'Upwork client', 'Planted',
+          'https://www.upwork.com/jobs/~01cccccccccccccccc', 'gig', '{}');
+  raise exception 'FAIL: B saved a gig into A''s account';
+exception when insufficient_privilege or check_violation then null;
+end $$;
+
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if (select count(*) from public.roles where entry_kind = 'gig') <> 2 then
+    raise exception 'FAIL: A sees % gigs, expected 2', (select count(*) from public.roles where entry_kind = 'gig');
+  end if;
+  if (select gig ->> 'budget' from public.roles where url like '%~01bbbbbbbbbbbbbbbb') <> '1200' then
+    raise exception 'FAIL: A''s gig details were changed';
+  end if;
+end $$;
+delete from public.roles where entry_kind = 'gig';
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed

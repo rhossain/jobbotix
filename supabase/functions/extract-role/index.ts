@@ -28,6 +28,7 @@ import {
   parseExtraction,
   type ExtractedRole,
 } from '../_shared/extract.ts';
+import { isUpworkUrl } from '../_shared/gig.ts';
 import { scoreRole, type RoleScoreFields } from '../_shared/role-score.ts';
 import { requireAiJob } from '../_shared/gate.ts';
 
@@ -65,6 +66,16 @@ Deno.serve(
     if (!/^https?:\/\//i.test(url))
       return json(400, {
         error: 'Paste a link that starts with http:// or https://',
+      });
+
+    // Upwork forbids reading its site by machine, so Jobbotix never opens an
+    // Upwork page and never takes one in here: gigs go through add-gig, from
+    // text the user pastes.
+    if (isUpworkUrl(url))
+      return json(422, {
+        error:
+          'Jobs from Upwork are added with "Add from Upwork": paste the text of the job post there.',
+        upwork: true,
       });
 
     // 1. Get the posting text

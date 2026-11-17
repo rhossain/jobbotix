@@ -25,6 +25,27 @@ export const ROLE_STATUS_LABELS: Record<RoleStatus, string> = {
   skipped: 'Skipped',
 };
 
+/**
+ * The same seven steps, worded for a freelance gig: a proposal is drafted
+ * and submitted, and the good ending is being hired.
+ */
+export const GIG_STATUS_LABELS: Record<RoleStatus, string> = {
+  new: 'Saved',
+  shortlist: 'Drafted',
+  applied: 'Submitted',
+  interview: 'Interview',
+  offer: 'Hired',
+  rejected: 'Declined',
+  skipped: 'Skipped',
+};
+
+/** The status wording for one role: a job's or a gig's. */
+export function statusLabelsFor(role: {
+  entry_kind?: string | null;
+}): Record<RoleStatus, string> {
+  return role.entry_kind === 'gig' ? GIG_STATUS_LABELS : ROLE_STATUS_LABELS;
+}
+
 export const EMPLOYMENT_TYPES: readonly EmploymentType[] = [
   'full_time',
   'contract',

@@ -3,7 +3,8 @@
 //   { "roleId": "...", "model"?: "claude-...", "rewrite"?: true }
 //
 // Drafts (or rewrites) the cover letter for one role from the master resume
-// and the user's voice samples. With an AI connection the model writes it
+// and the user's voice samples. For a gig added from Upwork it writes a
+// proposal instead (gig.ts); the user sends it on Upwork themselves. With an AI connection the model writes it
 // (metered in ai_usage); without one, or when every connection fails, the
 // local template does and `aiNote` says why.
 // The result lands on roles.cover_letter and in cover_letters (one draft per
@@ -23,6 +24,12 @@ import {
   wordCount,
 } from '../_shared/letter.ts';
 import { requireAiJob } from '../_shared/gate.ts';
+import {
+  gigOf,
+  localProposal,
+  PROPOSAL_MIN_WORDS,
+  proposalPrompt,
+} from '../_shared/gig.ts';
 
 Deno.serve(
   withCors(async (req) => {
@@ -98,7 +105,11 @@ Deno.serve(
       current: body.rewrite ? role.cover_letter : '',
     };
 
-    let text = localLetter(ctx);
+    // A gig from Upwork gets a proposal, not a cover letter: shorter, opens
+    // on the client's problem, and never names a price.
+    const gig = gigOf(role);
+    const minWords = gig ? PROPOSAL_MIN_WORDS : LETTER_MIN_WORDS;
+    let text = gig ? localProposal(ctx) : localLetter(ctx);
     let method: 'ai' | 'local' = 'local';
     let model = '';
     let provider = '';
@@ -107,7 +118,7 @@ Deno.serve(
       userId,
       {
         context: resumeContext(ctx.resume),
-        prompt: letterPrompt(ctx),
+        prompt: gig ? proposalPrompt(ctx, gig) : letterPrompt(ctx),
         maxTokens: 1200,
         timeoutMs: 60_000,
       },
@@ -116,7 +127,7 @@ Deno.serve(
         choice: body.model,
         parse: (reply) => {
           const cleaned = parseLetterReply(reply);
-          return wordCount(cleaned) >= LETTER_MIN_WORDS / 2 ? cleaned : null;
+          return wordCount(cleaned) >= minWords / 2 ? cleaned : null;
         },
       },
     );
@@ -156,7 +167,7 @@ Deno.serve(
       role_id: roleId,
       kind: 'generated',
       payload: {
-        what: 'cover letter',
+        what: gig ? 'proposal' : 'cover letter',
         method,
         model: method === 'ai' ? model : undefined,
         provider: method === 'ai' ? provider : undefined,

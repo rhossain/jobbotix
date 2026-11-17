@@ -174,6 +174,13 @@ export type RoleRow = Timestamps & {
   hiring_countries: string[];
   /** CompanyResearch (company.ts); {} until researched. */
   company_research: Json;
+  /**
+   * 'gig' for a freelance job the user added from Upwork; 'job' otherwise.
+   * Absent on rows read before migration 0057, which are all jobs.
+   */
+  entry_kind?: 'job' | 'gig';
+  /** GigDetails (gig.ts) on a gig; {} on a job. */
+  gig?: Json;
 };
 
 export type SourceCatalogRow = Timestamps & {

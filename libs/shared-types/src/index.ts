@@ -31,3 +31,4 @@ export * from './lib/ai-route';
 export * from './lib/admin';
 export * from './lib/excluded';
 export * from './lib/profiles';
+export * from './lib/gig';
