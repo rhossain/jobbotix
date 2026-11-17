@@ -2,6 +2,7 @@ import {
   ApplicationConfig,
   ErrorHandler,
   Provider,
+  inject,
   isDevMode,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
@@ -9,6 +10,7 @@ import { provideServiceWorker } from '@angular/service-worker';
 import {
   provideRouter,
   withComponentInputBinding,
+  withNavigationErrorHandler,
   withViewTransitions,
 } from '@angular/router';
 import { environment } from '../environments/environment';
@@ -76,6 +78,7 @@ import {
 } from './core/data/supabase-repos';
 import { DemoAuth } from './core/demo-auth';
 import { ReportingErrorHandler } from './core/error-report';
+import { StaleBuild, isStaleBuildError } from './core/stale-build';
 
 /**
  * Demo mode: in-memory data and a signed-in demo user, no backend. Exported
@@ -137,6 +140,11 @@ export const appConfig: ApplicationConfig = {
       appRoutes,
       withComponentInputBinding(),
       withViewTransitions({ skipInitialTransition: true }),
+      // A page whose file is gone after a release: load that page again on
+      // the new build (the error handler would only know the page left).
+      withNavigationErrorHandler((e) => {
+        if (isStaleBuildError(e.error)) inject(StaleBuild).recover(e.url);
+      }),
     ),
     ...dataProviders,
     // Installable app: the worker caches the shell; data always goes to Supabase.

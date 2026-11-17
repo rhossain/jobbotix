@@ -1,5 +1,6 @@
 import { ErrorHandler, Injectable, Injector, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
+import { StaleBuild, isStaleBuildError } from './stale-build';
 import { SUPABASE } from './supabase';
 
 /**
@@ -85,6 +86,9 @@ export class ReportingErrorHandler extends ErrorHandler {
 
   override handleError(error: unknown): void {
     super.handleError(error);
+    // A page file that is gone after a release: get the tab onto the new
+    // build instead of reporting it. Reported only when that did not help.
+    if (isStaleBuildError(error) && this.recovered()) return;
     if (environment.demo || typeof location === 'undefined') return;
     const report = toReport(error, location.pathname, navigator.userAgent);
     if (!report || this.sent.has(report.fingerprint) || this.sent.size >= 20)
@@ -100,6 +104,15 @@ export class ReportingErrorHandler extends ErrorHandler {
         );
     } catch {
       /* reporting must never throw */
+    }
+  }
+
+  /** True when the stale build is being dealt with (see StaleBuild.recover). */
+  private recovered(): boolean {
+    try {
+      return this.injector.get(StaleBuild).recover();
+    } catch {
+      return false;
     }
   }
 }
