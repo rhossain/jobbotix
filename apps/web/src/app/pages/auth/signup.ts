@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   inject,
   signal,
 } from '@angular/core';
@@ -13,6 +14,7 @@ import {
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
+import { emailHelp, focusFirstInvalid } from './field-help';
 
 @Component({
   selector: 'jb-signup',
@@ -24,7 +26,7 @@ import { AuthShell } from './auth-shell';
       [lead]="
         open()
           ? 'Free while it is small. No card, no invite needed.'
-          : 'Jobbotix is invite-only while the free tiers settle.'
+          : 'You need an invite code to join for now. It is in the invitation you were sent.'
       "
     >
       <form
@@ -43,6 +45,11 @@ import { AuthShell } from './auth-shell';
               autocomplete="off"
               class="jb-input font-mono uppercase"
             />
+            @if (tried() && !form.controls.inviteCode.value.trim()) {
+              <span class="text-bad"
+                >Enter the invite code from your invitation.</span
+              >
+            }
           </label>
         }
         <label class="flex flex-col gap-1 text-sm">
@@ -53,7 +60,11 @@ import { AuthShell } from './auth-shell';
             formControlName="name"
             autocomplete="name"
             class="jb-input"
+            [attr.aria-invalid]="tried() && form.controls.name.invalid"
           />
+          @if (tried() && form.controls.name.invalid) {
+            <span class="text-bad">Enter your name.</span>
+          }
         </label>
         <label class="flex flex-col gap-1 text-sm">
           <span>Email</span>
@@ -63,7 +74,11 @@ import { AuthShell } from './auth-shell';
             formControlName="email"
             autocomplete="email"
             class="jb-input"
+            [attr.aria-invalid]="tried() && form.controls.email.invalid"
           />
+          @if (tried() && form.controls.email.invalid) {
+            <span class="text-bad">{{ emailHelp(form.controls.email) }}</span>
+          }
         </label>
         <label class="flex flex-col gap-1 text-sm">
           <span
@@ -71,11 +86,25 @@ import { AuthShell } from './auth-shell';
           >
           <input
             id="signup-password"
-            type="password"
+            [type]="show() ? 'text' : 'password'"
             formControlName="password"
             autocomplete="new-password"
             class="jb-input"
+            [attr.aria-invalid]="tried() && form.controls.password.invalid"
           />
+          @if (tried() && form.controls.password.invalid) {
+            <span class="text-bad"
+              >Choose a password with at least 8 characters.</span
+            >
+          }
+        </label>
+        <label class="flex items-center gap-2 text-sm text-ink-muted">
+          <input
+            type="checkbox"
+            [checked]="show()"
+            (change)="show.set($any($event.target).checked)"
+          />
+          Show password
         </label>
         @if (error()) {
           <p class="text-sm text-bad" role="alert">
@@ -84,14 +113,15 @@ import { AuthShell } from './auth-shell';
         }
         @if (done()) {
           <p class="text-sm text-brand-ink" role="status">
-            Account created. Check your inbox if a confirmation email is
-            required, then sign in.
+            Account created. We sent an email to
+            {{ form.controls.email.value }}. Open the link in it to confirm your
+            address, then sign in.
           </p>
         } @else {
           <button
             type="submit"
             class="jb-btn-primary jb-btn-lg mt-2 w-full"
-            [disabled]="form.invalid || busy()"
+            [disabled]="busy()"
           >
             {{ busy() ? 'Creating…' : 'Create account' }}
           </button>
@@ -114,6 +144,11 @@ export class Signup {
   readonly busy = signal(false);
   readonly done = signal(false);
   readonly error = signal('');
+  /** True once Create account was pressed: boxes that need fixing then say so. */
+  readonly tried = signal(false);
+  readonly show = signal(false);
+  protected readonly emailHelp = emailHelp;
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   /** Set from the admin switch; while false an invite code is required. */
   readonly open = signal(false);
   readonly form = new FormGroup({
@@ -140,15 +175,22 @@ export class Signup {
   }
 
   async submit() {
-    if (this.form.invalid || this.busy()) return;
+    if (this.busy()) return;
+    this.tried.set(true);
+    const needsCode =
+      !this.open() && !this.form.controls.inviteCode.value.trim();
+    if (this.form.invalid || needsCode) {
+      if (needsCode)
+        this.host.nativeElement
+          .querySelector<HTMLElement>('#signup-invite')
+          ?.focus();
+      else focusFirstInvalid(this.host.nativeElement);
+      return;
+    }
     this.busy.set(true);
     this.error.set('');
     try {
       const value = this.form.getRawValue();
-      if (!this.open() && !value.inviteCode.trim()) {
-        this.error.set('An invite code is required while sign-up is closed.');
-        return;
-      }
       if (
         value.inviteCode.trim() &&
         !(await this.auth.inviteCodeIsValid(value.inviteCode))

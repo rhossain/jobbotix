@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   inject,
   signal,
 } from '@angular/core';
@@ -13,6 +14,7 @@ import {
 import { Router } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
+import { focusFirstInvalid } from './field-help';
 
 /** Landing page for the email link; Supabase puts a recovery session in the URL. */
 @Component({
@@ -34,11 +36,25 @@ import { AuthShell } from './auth-shell';
           >
           <input
             id="reset-password"
-            type="password"
+            [type]="show() ? 'text' : 'password'"
             formControlName="password"
             autocomplete="new-password"
             class="jb-input"
+            [attr.aria-invalid]="tried() && password.invalid"
           />
+          @if (tried() && password.invalid) {
+            <span class="text-bad"
+              >Choose a password with at least 8 characters.</span
+            >
+          }
+        </label>
+        <label class="flex items-center gap-2 text-sm text-ink-muted">
+          <input
+            type="checkbox"
+            [checked]="show()"
+            (change)="show.set($any($event.target).checked)"
+          />
+          Show password
         </label>
         @if (error()) {
           <p class="text-sm text-bad" role="alert">
@@ -49,7 +65,7 @@ import { AuthShell } from './auth-shell';
           type="submit"
           class="jb-btn-primary jb-btn-lg mt-2 w-full"
           [attr.aria-busy]="busy() ? 'true' : null"
-          [disabled]="password.invalid || busy()"
+          [disabled]="busy()"
         >
           Save password
         </button>
@@ -69,9 +85,17 @@ export class ResetPassword {
   readonly password = this.form.controls.password;
   readonly busy = signal(false);
   readonly error = signal('');
+  readonly tried = signal(false);
+  readonly show = signal(false);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
   async submit() {
-    if (this.password.invalid || this.busy()) return;
+    if (this.busy()) return;
+    this.tried.set(true);
+    if (this.password.invalid) {
+      focusFirstInvalid(this.host.nativeElement);
+      return;
+    }
     this.busy.set(true);
     this.error.set('');
     try {

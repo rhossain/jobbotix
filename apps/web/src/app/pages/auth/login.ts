@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   computed,
   inject,
   signal,
@@ -14,6 +15,7 @@ import {
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
+import { emailHelp, focusFirstInvalid } from './field-help';
 
 @Component({
   selector: 'jb-login',
@@ -59,17 +61,33 @@ import { AuthShell } from './auth-shell';
             formControlName="email"
             autocomplete="email"
             class="jb-input"
+            [attr.aria-invalid]="tried() && form.controls.email.invalid"
           />
+          @if (tried() && form.controls.email.invalid) {
+            <span class="text-bad">{{ emailHelp(form.controls.email) }}</span>
+          }
         </label>
         <label class="flex flex-col gap-1 text-sm">
           <span>Password</span>
           <input
             id="login-password"
-            type="password"
+            [type]="show() ? 'text' : 'password'"
             formControlName="password"
             autocomplete="current-password"
             class="jb-input"
+            [attr.aria-invalid]="tried() && form.controls.password.invalid"
           />
+          @if (tried() && form.controls.password.invalid) {
+            <span class="text-bad">Enter your password.</span>
+          }
+        </label>
+        <label class="flex items-center gap-2 text-sm text-ink-muted">
+          <input
+            type="checkbox"
+            [checked]="show()"
+            (change)="show.set($any($event.target).checked)"
+          />
+          Show password
         </label>
         @if (error()) {
           <p class="text-sm text-bad" role="alert">
@@ -79,7 +97,7 @@ import { AuthShell } from './auth-shell';
         <button
           type="submit"
           class="jb-btn-primary jb-btn-lg mt-2 w-full"
-          [disabled]="form.invalid || busy()"
+          [disabled]="busy()"
         >
           {{ busy() ? 'Signing in…' : 'Sign in' }}
         </button>
@@ -112,6 +130,11 @@ export class Login {
 
   readonly busy = signal(false);
   readonly error = signal('');
+  /** True once Sign in was pressed: empty or mistyped boxes then say so. */
+  readonly tried = signal(false);
+  readonly show = signal(false);
+  protected readonly emailHelp = emailHelp;
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly form = new FormGroup({
     email: new FormControl('', {
       nonNullable: true,
@@ -124,7 +147,12 @@ export class Login {
   });
 
   async submit() {
-    if (this.form.invalid || this.busy()) return;
+    if (this.busy()) return;
+    this.tried.set(true);
+    if (this.form.invalid) {
+      focusFirstInvalid(this.host.nativeElement);
+      return;
+    }
     this.busy.set(true);
     this.error.set('');
     try {

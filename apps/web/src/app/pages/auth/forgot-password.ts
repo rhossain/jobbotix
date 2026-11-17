@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   inject,
   signal,
 } from '@angular/core';
@@ -13,6 +14,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
+import { emailHelp, focusFirstInvalid } from './field-help';
 
 @Component({
   selector: 'jb-forgot-password',
@@ -25,7 +27,8 @@ import { AuthShell } from './auth-shell';
     >
       @if (sent()) {
         <p class="text-sm" role="status">
-          If an account exists for that address, the email is on its way.
+          If there is an account for that address, the email is on its way. It
+          can take a minute; check your spam folder too.
         </p>
       } @else {
         <form
@@ -42,7 +45,11 @@ import { AuthShell } from './auth-shell';
               formControlName="email"
               autocomplete="email"
               class="jb-input"
+              [attr.aria-invalid]="tried() && email.invalid"
             />
+            @if (tried() && email.invalid) {
+              <span class="text-bad">{{ emailHelp(email) }}</span>
+            }
           </label>
           @if (error()) {
             <p class="text-sm text-bad" role="alert">
@@ -53,7 +60,7 @@ import { AuthShell } from './auth-shell';
             type="submit"
             class="jb-btn-primary jb-btn-lg mt-2 w-full"
             [attr.aria-busy]="busy() ? 'true' : null"
-            [disabled]="email.invalid || busy()"
+            [disabled]="busy()"
           >
             Send reset link
           </button>
@@ -78,10 +85,18 @@ export class ForgotPassword {
   readonly email = this.form.controls.email;
   readonly busy = signal(false);
   readonly sent = signal(false);
+  readonly tried = signal(false);
+  protected readonly emailHelp = emailHelp;
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   readonly error = signal('');
 
   async submit() {
-    if (this.email.invalid || this.busy()) return;
+    if (this.busy()) return;
+    this.tried.set(true);
+    if (this.email.invalid) {
+      focusFirstInvalid(this.host.nativeElement);
+      return;
+    }
     this.busy.set(true);
     this.error.set('');
     try {
