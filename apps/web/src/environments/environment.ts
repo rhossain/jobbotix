@@ -16,8 +16,7 @@ export const environment = {
   appName: 'Jobbotix',
   /**
    * Adding gigs from Upwork (the "Add from Upwork" page and the links to
-   * it). Off on the live site until migration 0057 and the add-gig function
-   * are deployed; then set it to true.
+   * it). Needs migration 0057 and the add-gig function on the backend.
    */
   upworkGigs: true,
 };
