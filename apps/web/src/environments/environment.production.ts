@@ -31,10 +31,9 @@ export const environment = {
   linkedinSignIn: true,
   /**
    * "Sign in with LinkedIn" in the LinkedIn card in Settings: LinkedIn as a
-   * second way to sign in
-   * to an account that already exists. Off until "manual linking" is
-   * switched on in the hosted project's auth settings and the two live
-   * LinkedIn sign-in tests have passed.
+   * second way to sign in to an account that already exists. On since
+   * "manual linking" was switched on in the hosted project's auth settings
+   * and both live LinkedIn sign-in tests passed (2026-11-18).
    */
-  linkedinConnect: false,
+  linkedinConnect: true,
 };
