@@ -118,21 +118,22 @@ export function gigOf(role: {
 }
 
 /**
- * A gig nobody has asked a fit check for yet. Gigs are never scored on
- * their own: the user asks, on the gig's page.
+ * A job whose fit has not been worked out, so its 0 is not a score: a gig
+ * nobody asked a fit check for yet (gigs are never scored on their own),
+ * or a job that came in without its post (from a LinkedIn archive or a
+ * spreadsheet) and is scored once the post is pasted on its page.
  */
 export function fitUnchecked(role: {
   entry_kind?: string | null;
   score: number;
   reasons: string[];
   gaps: string[];
+  posting_text?: string | null;
 }): boolean {
-  return (
-    role.entry_kind === 'gig' &&
-    role.score === 0 &&
-    !role.reasons.length &&
-    !role.gaps.length
-  );
+  if (role.score !== 0 || role.reasons.length || role.gaps.length) return false;
+  if (role.entry_kind === 'gig') return true;
+  // only when the row says so: a list without the text knows nothing
+  return role.posting_text !== undefined && !role.posting_text?.trim();
 }
 
 const dollars = (n: number) =>

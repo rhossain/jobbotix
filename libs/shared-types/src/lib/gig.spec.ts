@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   checkGigDraft,
+  emptyGig,
+  fitUnchecked,
   gigBudgetLine,
   gigOf,
   gigPrompt,
@@ -12,7 +14,6 @@ import {
   proposalPrompt,
   upworkJobUrl,
   upworkSearchUrl,
-  emptyGig,
 } from './gig';
 import { emptyResume } from './resume';
 
@@ -299,5 +300,34 @@ describe('proposals', () => {
     expect(text).toContain('I work with Angular every day');
     expect(text).toContain('cutting load time by 40%');
     expect(text).not.toMatch(/\[|\$/);
+  });
+});
+
+describe('fitUnchecked', () => {
+  const base = { score: 0, reasons: [], gaps: [] };
+  it('marks a gig nobody asked a fit check for', () => {
+    expect(fitUnchecked({ ...base, entry_kind: 'gig' })).toBe(true);
+  });
+
+  it('marks a job that came in without its post', () => {
+    expect(fitUnchecked({ ...base, entry_kind: 'job', posting_text: '' })).toBe(
+      true,
+    );
+    expect(fitUnchecked({ ...base, posting_text: null })).toBe(true);
+  });
+
+  it('leaves a real score of 0, and anything scored, alone', () => {
+    expect(fitUnchecked({ ...base, posting_text: 'A post.' })).toBe(false);
+    expect(
+      fitUnchecked({ ...base, gaps: ['On-site only'], posting_text: '' }),
+    ).toBe(false);
+    expect(fitUnchecked({ ...base, score: 40, posting_text: '' })).toBe(false);
+    expect(
+      fitUnchecked({ ...base, entry_kind: 'gig', reasons: ['Angular'] }),
+    ).toBe(false);
+  });
+
+  it('says nothing when the row does not carry the post at all', () => {
+    expect(fitUnchecked({ ...base })).toBe(false);
   });
 });

@@ -109,7 +109,7 @@ const POST_TEXT_MIN = 80;
           <div class="flex min-w-0 items-start gap-4 md:gap-6">
             <jb-match-ring
               [score]="r.score"
-              [unchecked]="!!gig() && unscored()"
+              [unchecked]="(!!gig() && unscored()) || needsPost()"
               [size]="viewport.phone() ? 'md' : 'lg'"
               [transitionName]="'ring-' + r.id"
             />
