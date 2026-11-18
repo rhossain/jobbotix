@@ -3,8 +3,15 @@ import { provideRouter } from '@angular/router';
 import { Auth } from '../../core/auth';
 import { Signup } from './signup';
 
-async function setup() {
+async function setup(open = true, codeIsValid = true) {
   const signUp = vi.fn().mockResolvedValue(undefined);
+  const calls: string[] = [];
+  const reserveLinkedInSignup = vi.fn(async () => {
+    calls.push('reserve');
+  });
+  const signInWithLinkedIn = vi.fn(async () => {
+    calls.push('linkedin');
+  });
   TestBed.configureTestingModule({
     providers: [
       provideRouter([]),
@@ -12,8 +19,10 @@ async function setup() {
         provide: Auth,
         useValue: {
           signUp,
-          signupIsOpen: async () => true,
-          inviteCodeIsValid: async () => true,
+          reserveLinkedInSignup,
+          signInWithLinkedIn,
+          signupIsOpen: async () => open,
+          inviteCodeIsValid: async () => codeIsValid,
           isSignedIn: () => false,
         },
       },
@@ -37,7 +46,25 @@ async function setup() {
     type('#signup-password', 'secret-words');
     type('#signup-confirm', confirm);
   };
-  return { fixture, el, button, signUp, fill };
+  const linkedIn = () =>
+    el.querySelector('#linkedin-continue') as HTMLButtonElement;
+  const press = async () => {
+    linkedIn().click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+  };
+  return {
+    fixture,
+    el,
+    button,
+    signUp,
+    fill,
+    type,
+    press,
+    calls,
+    reserveLinkedInSignup,
+    signInWithLinkedIn,
+  };
 }
 
 describe('Signup', () => {
@@ -84,5 +111,72 @@ describe('Signup', () => {
     eyes[1].click();
     fixture.detectChanges();
     expect([first.type, second.type]).toEqual(['password', 'password']);
+  });
+
+  describe('with LinkedIn', () => {
+    it('goes straight to LinkedIn while sign-up is open', async () => {
+      const { press, calls, signInWithLinkedIn, signUp } = await setup(true);
+      await press();
+      expect(calls).toEqual(['linkedin']);
+      expect(signInWithLinkedIn).toHaveBeenCalledWith('/today');
+      expect(signUp).not.toHaveBeenCalled();
+    });
+
+    it('asks for the invite code and the email address, and nothing else', async () => {
+      const { el, press, type, calls } = await setup(false);
+      await press();
+      expect(calls).toEqual([]);
+      expect(el.textContent).toContain('Enter the invite code');
+      expect(el.ownerDocument.activeElement?.id).toBe('signup-invite');
+      // the name and the passwords are not needed for this route
+      expect(el.textContent).not.toContain('Enter your name.');
+      expect(el.textContent).not.toContain('Choose a password');
+
+      type('#signup-invite', 'abc123');
+      await press();
+      expect(calls).toEqual([]);
+      expect(el.textContent).toContain('Enter your email address.');
+      expect(el.ownerDocument.activeElement?.id).toBe('signup-email');
+    });
+
+    it('hands the code in for that email address before going to LinkedIn', async () => {
+      const { press, type, calls, reserveLinkedInSignup, signUp } =
+        await setup(false);
+      type('#signup-invite', 'abc123');
+      type('#signup-email', 'alex@example.com');
+      await press();
+      expect(calls).toEqual(['reserve', 'linkedin']);
+      expect(reserveLinkedInSignup).toHaveBeenCalledWith(
+        'abc123',
+        'alex@example.com',
+      );
+      expect(signUp).not.toHaveBeenCalled();
+    });
+
+    it('does not leave for LinkedIn with a wrong invite code', async () => {
+      const { el, press, type, calls } = await setup(false, false);
+      type('#signup-invite', 'nope');
+      type('#signup-email', 'alex@example.com');
+      await press();
+      expect(calls).toEqual([]);
+      expect(el.querySelector('#linkedin-error')?.textContent).toContain(
+        'not valid',
+      );
+    });
+
+    it('stays on the page when the code could not be handed in', async () => {
+      const { el, press, type, calls, reserveLinkedInSignup } =
+        await setup(false);
+      reserveLinkedInSignup.mockRejectedValue(
+        new Error('Signing up with LinkedIn is not switched on yet.'),
+      );
+      type('#signup-invite', 'abc123');
+      type('#signup-email', 'alex@example.com');
+      await press();
+      expect(calls).toEqual([]);
+      expect(el.querySelector('#linkedin-error')?.textContent).toContain(
+        'not switched on yet',
+      );
+    });
   });
 });

@@ -75,6 +75,46 @@ export class Auth {
     await this.apply(data.session);
   }
 
+  /**
+   * Sends the browser to LinkedIn's own sign-in page (Sign In with LinkedIn
+   * using OpenID Connect). It comes back to /login signed in, or with the
+   * reason in the address. An account with the same confirmed email address
+   * is the one signed in; a new account is subject to the invite rule.
+   */
+  async signInWithLinkedIn(next?: string | null) {
+    const back = new URL('/login', location.origin);
+    if (next && isLocalPath(next)) back.searchParams.set('next', next);
+    const { error } = await this.supabase.auth.signInWithOAuth({
+      provider: 'linkedin_oidc',
+      options: { redirectTo: back.toString() },
+    });
+    if (error) throw new Error(friendly(error.message));
+  }
+
+  /**
+   * Hands in an invite code ahead of a LinkedIn sign-up, for the email
+   * address the person's LinkedIn account uses. LinkedIn cannot carry the
+   * code, so the database looks it up by that address when the account is
+   * made. Kept for half an hour.
+   */
+  async reserveLinkedInSignup(inviteCode: string, email: string) {
+    const { error } = await this.supabase.rpc('reserve_linkedin_signup', {
+      p_code: inviteCode.trim().toUpperCase(),
+      p_email: email.trim(),
+      p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    });
+    if (!error) return;
+    // The function is not on this server yet.
+    if (
+      error.code === 'PGRST202' ||
+      /could not find the function/i.test(error.message)
+    )
+      throw new Error(
+        'Signing up with LinkedIn is not switched on yet. Create the account with the form above for now.',
+      );
+    throw new Error(friendly(error.message));
+  }
+
   async signOut() {
     await this.supabase.auth.signOut();
   }
@@ -216,6 +256,11 @@ export class Auth {
   }
 }
 
+/** A path inside this app ("/jobs?x=1"), not an address somewhere else. */
+export function isLocalPath(path: string): boolean {
+  return path.startsWith('/') && !path.startsWith('//') && !path.includes('\\');
+}
+
 /** Why a session was ended from the server's side. */
 export type SessionEnded = 'removed' | 'suspended';
 
@@ -259,6 +304,11 @@ function friendly(message: string): string {
     return 'Use at least 8 characters for the password.';
   if (m.includes('expired') || m.includes('link is invalid'))
     return 'This link has expired or was already used. Ask for a new one and try again.';
+  if (
+    m.includes('provider is not enabled') ||
+    m.includes('unsupported provider')
+  )
+    return 'Signing in with LinkedIn is not switched on here. Sign in with your email and password.';
   if (m.includes('rate limit'))
     return 'Too many attempts. Wait a minute and try again.';
   return message;

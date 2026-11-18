@@ -12,14 +12,22 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { environment } from '../../../environments/environment';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
 import { EyeToggle } from './eye-toggle';
 import { emailHelp, focusFirstInvalid } from './field-help';
+import { LinkedInButton } from './linkedin-button';
 
 @Component({
   selector: 'jb-signup',
-  imports: [ReactiveFormsModule, RouterLink, AuthShell, EyeToggle],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    AuthShell,
+    EyeToggle,
+    LinkedInButton,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-auth-shell
@@ -46,7 +54,9 @@ import { emailHelp, focusFirstInvalid } from './field-help';
               autocomplete="off"
               class="jb-input font-mono uppercase"
             />
-            @if (tried() && !form.controls.inviteCode.value.trim()) {
+            @if (
+              (tried() || liTried()) && !form.controls.inviteCode.value.trim()
+            ) {
               <span class="text-bad"
                 >Enter the invite code from your invitation.</span
               >
@@ -75,9 +85,11 @@ import { emailHelp, focusFirstInvalid } from './field-help';
             formControlName="email"
             autocomplete="email"
             class="jb-input"
-            [attr.aria-invalid]="tried() && form.controls.email.invalid"
+            [attr.aria-invalid]="
+              (tried() || liTried()) && form.controls.email.invalid
+            "
           />
-          @if (tried() && form.controls.email.invalid) {
+          @if ((tried() || liTried()) && form.controls.email.invalid) {
             <span class="text-bad">{{ emailHelp(form.controls.email) }}</span>
           }
         </label>
@@ -144,6 +156,23 @@ import { emailHelp, focusFirstInvalid } from './field-help';
           </button>
         }
       </form>
+      @if (linkedIn && !done()) {
+        <jb-linkedin-button
+          [busy]="liBusy()"
+          [error]="liError()"
+          (go)="continueWithLinkedIn()"
+        />
+        <p id="signup-linkedin-help" class="mt-3 text-sm text-ink-muted">
+          @if (open()) {
+            No password to choose: you sign in on LinkedIn, and your name and
+            email address come from your LinkedIn account.
+          } @else {
+            No password to choose. Fill in the invite code and the email address
+            your LinkedIn account uses, then press Continue with LinkedIn. Your
+            name comes from LinkedIn.
+          }
+        </p>
+      }
       <p footer>
         Already have an account?
         <a routerLink="/login" class="font-medium text-brand-ink underline"
@@ -157,6 +186,12 @@ export class Signup {
   private readonly auth = inject(Auth);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
+
+  protected readonly linkedIn = environment.linkedinSignIn;
+  readonly liBusy = signal(false);
+  readonly liError = signal('');
+  /** True once Continue with LinkedIn was pressed: it needs the code and the email only. */
+  readonly liTried = signal(false);
 
   readonly busy = signal(false);
   readonly done = signal(false);
@@ -196,6 +231,47 @@ export class Signup {
 
   constructor() {
     void this.auth.signupIsOpen().then((o) => this.open.set(o));
+  }
+
+  /**
+   * Signs up through LinkedIn. While sign-up is by invite, LinkedIn cannot
+   * carry the code, so it is handed in first for the email address the
+   * LinkedIn account uses; the name and password boxes are not needed.
+   */
+  async continueWithLinkedIn() {
+    if (this.liBusy() || this.busy()) return;
+    this.liError.set('');
+    const { inviteCode, email } = this.form.controls;
+    if (!this.open()) {
+      this.liTried.set(true);
+      const missing = !inviteCode.value.trim()
+        ? '#signup-invite'
+        : email.invalid
+          ? '#signup-email'
+          : '';
+      if (missing) {
+        this.host.nativeElement.querySelector<HTMLElement>(missing)?.focus();
+        return;
+      }
+    }
+    this.liBusy.set(true);
+    try {
+      if (!this.open()) {
+        if (!(await this.auth.inviteCodeIsValid(inviteCode.value))) {
+          this.liError.set(
+            'That invite code is not valid. Check it with the person who gave it to you.',
+          );
+          this.liBusy.set(false);
+          return;
+        }
+        await this.auth.reserveLinkedInSignup(inviteCode.value, email.value);
+      }
+      await this.auth.signInWithLinkedIn('/today');
+      // The browser is leaving for LinkedIn; the button stays busy.
+    } catch (e) {
+      this.liError.set((e as Error).message);
+      this.liBusy.set(false);
+    }
   }
 
   async submit() {

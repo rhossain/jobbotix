@@ -24,4 +24,10 @@ export const environment = {
    * (linkedin_connections) on the backend.
    */
   linkedinImport: true,
+  /**
+   * "Continue with LinkedIn" on Log in and Sign up. Needs the LinkedIn
+   * (OIDC) provider switched on in Supabase, and migration 0062 for a
+   * sign-up by invite code.
+   */
+  linkedinSignIn: true,
 };

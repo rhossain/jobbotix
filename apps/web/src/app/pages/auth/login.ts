@@ -13,14 +13,22 @@ import {
   Validators,
 } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { environment } from '../../../environments/environment';
 import { Auth } from '../../core/auth';
 import { AuthShell } from './auth-shell';
 import { EyeToggle } from './eye-toggle';
 import { emailHelp, focusFirstInvalid } from './field-help';
+import { LinkedInButton, readAuthError } from './linkedin-button';
 
 @Component({
   selector: 'jb-login',
-  imports: [ReactiveFormsModule, RouterLink, AuthShell, EyeToggle],
+  imports: [
+    ReactiveFormsModule,
+    RouterLink,
+    AuthShell,
+    EyeToggle,
+    LinkedInButton,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <jb-auth-shell
@@ -98,6 +106,13 @@ import { emailHelp, focusFirstInvalid } from './field-help';
           {{ busy() ? 'Signing in…' : 'Sign in' }}
         </button>
       </form>
+      @if (linkedIn) {
+        <jb-linkedin-button
+          [busy]="liBusy()"
+          [error]="liError()"
+          (go)="continueWithLinkedIn()"
+        />
+      }
       <p footer>
         <a
           routerLink="/forgot-password"
@@ -124,6 +139,16 @@ export class Login {
     return why === 'removed' || why === 'suspended' ? why : null;
   });
 
+  protected readonly linkedIn = environment.linkedinSignIn;
+  readonly liBusy = signal(false);
+  /** Why a LinkedIn sign-in did not work: read from the address it came back to, or set on a failed start. */
+  readonly liError = signal(
+    readAuthError(
+      this.route.snapshot.queryParamMap,
+      this.route.snapshot.fragment,
+    ) ?? '',
+  );
+
   readonly busy = signal(false);
   readonly error = signal('');
   /** True once Sign in was pressed: empty or mistyped boxes then say so. */
@@ -141,6 +166,22 @@ export class Login {
       validators: [Validators.required],
     }),
   });
+
+  /** Off to LinkedIn's sign-in page; the browser comes back to /login. */
+  async continueWithLinkedIn() {
+    if (this.liBusy()) return;
+    this.liBusy.set(true);
+    this.liError.set('');
+    try {
+      await this.auth.signInWithLinkedIn(
+        this.route.snapshot.queryParamMap.get('next'),
+      );
+      // The browser is leaving for LinkedIn; the button stays busy.
+    } catch (e) {
+      this.liError.set((e as Error).message);
+      this.liBusy.set(false);
+    }
+  }
 
   async submit() {
     if (this.busy()) return;

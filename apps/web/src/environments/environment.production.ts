@@ -22,4 +22,11 @@ export const environment = {
    * (linkedin_connections) was deployed (2026-11-18).
    */
   linkedinImport: true,
+  /**
+   * "Continue with LinkedIn" on Log in and Sign up. The LinkedIn (OIDC)
+   * provider is on in Supabase since 2026-11-18. Signing up that way with
+   * an invite code needs migration 0062; until it is deployed the page says
+   * so and the form still works.
+   */
+  linkedinSignIn: true,
 };

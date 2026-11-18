@@ -38,6 +38,12 @@ export class DemoAuth {
   async signIn() {
     this._status.set('signed_in');
   }
+  async signInWithLinkedIn() {
+    this._status.set('signed_in');
+  }
+  async reserveLinkedInSignup() {
+    /* no-op in demo */
+  }
   async signOut() {
     this._status.set('signed_out');
   }
