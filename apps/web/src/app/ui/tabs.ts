@@ -1,4 +1,5 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   ElementRef,
@@ -178,6 +179,11 @@ export class Tabs<T extends string = string> {
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
+  constructor() {
+    // A page opened on a later tab (/admin/money on a phone) shows it.
+    afterNextRender(() => this.reveal(this.value()));
+  }
+
   select(id: T) {
     this.value.set(id);
     queueMicrotask(() => this.reveal(id));
@@ -204,9 +210,19 @@ export class Tabs<T extends string = string> {
       ?.focus();
   }
 
+  /**
+   * Scrolls the strip sideways so the tab is in view. Only the strip moves:
+   * scrollIntoView would also scroll the page.
+   */
   private reveal(id: T) {
-    this.host.nativeElement
-      .querySelector<HTMLElement>(`#${this.prefix()}-tab-${id}`)
-      ?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
+    const root = this.host.nativeElement;
+    const strip = root.querySelector<HTMLElement>('.strip');
+    const tab = root.querySelector<HTMLElement>(`#${this.prefix()}-tab-${id}`);
+    if (!strip || !tab) return;
+    const s = strip.getBoundingClientRect();
+    const t = tab.getBoundingClientRect();
+    const pad = 16;
+    if (t.left < s.left) strip.scrollLeft -= s.left - t.left + pad;
+    else if (t.right > s.right) strip.scrollLeft += t.right - s.right + pad;
   }
 }
