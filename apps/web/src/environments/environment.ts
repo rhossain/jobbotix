@@ -30,4 +30,10 @@ export const environment = {
    * sign-up by invite code.
    */
   linkedinSignIn: true,
+  /**
+   * "Connected accounts" in Settings: LinkedIn as a second way to sign in
+   * to an account that already exists. Needs "manual linking" switched on
+   * in Supabase's auth settings.
+   */
+  linkedinConnect: true,
 };

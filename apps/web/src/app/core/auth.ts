@@ -5,6 +5,18 @@ import { injectSupabase } from './supabase';
 
 export type AuthStatus = 'loading' | 'signed_out' | 'signed_in';
 
+/** Supabase's name for LinkedIn's sign-in (OpenID Connect). */
+const LINKEDIN = 'linkedin_oidc';
+
+/** How LinkedIn stands as a way to sign in to the current account. */
+export interface LinkedInConnection {
+  connected: boolean;
+  /** The email address of the connected LinkedIn account, when known. */
+  email: string;
+  /** False when LinkedIn is the only way into the account. */
+  canDisconnect: boolean;
+}
+
 /**
  * Session state as signals. `ready` resolves once the stored session (if any)
  * has been read, so guards can wait for it instead of flashing the login page.
@@ -85,7 +97,7 @@ export class Auth {
     const back = new URL('/login', location.origin);
     if (next && isLocalPath(next)) back.searchParams.set('next', next);
     const { error } = await this.supabase.auth.signInWithOAuth({
-      provider: 'linkedin_oidc',
+      provider: LINKEDIN,
       options: { redirectTo: back.toString() },
     });
     if (error) throw new Error(friendly(error.message));
@@ -113,6 +125,47 @@ export class Auth {
         'Signing up with LinkedIn is not switched on yet. Create the account with the form above for now.',
       );
     throw new Error(friendly(error.message));
+  }
+
+  /** Whether LinkedIn is attached to this account as a way to sign in. */
+  async linkedInConnection(): Promise<LinkedInConnection> {
+    const { data, error } = await this.supabase.auth.getUserIdentities();
+    if (error) throw new Error(friendly(error.message));
+    const all = data.identities;
+    const linkedIn = all.find((i) => i.provider === LINKEDIN);
+    const email = linkedIn?.identity_data?.['email'];
+    return {
+      connected: !!linkedIn,
+      email: typeof email === 'string' ? email : '',
+      // The auth server keeps at least one way into an account.
+      canDisconnect: !!linkedIn && all.length > 1,
+    };
+  }
+
+  /**
+   * Attaches LinkedIn to the signed-in account as a second way to sign in,
+   * whatever email address the LinkedIn account uses. The browser goes to
+   * LinkedIn and comes back to Settings.
+   */
+  async connectLinkedIn() {
+    const back = new URL('/settings', location.origin);
+    back.searchParams.set('linkedin', 'back');
+    const { error } = await this.supabase.auth.linkIdentity({
+      provider: LINKEDIN,
+      options: { redirectTo: back.toString() },
+    });
+    if (error) throw new Error(friendly(error.message));
+  }
+
+  async disconnectLinkedIn() {
+    const { data, error } = await this.supabase.auth.getUserIdentities();
+    if (error) throw new Error(friendly(error.message));
+    const linkedIn = data.identities.find((i) => i.provider === LINKEDIN);
+    if (!linkedIn) return;
+    if (data.identities.length < 2)
+      throw new Error(friendly('single identity'));
+    const { error: failed } = await this.supabase.auth.unlinkIdentity(linkedIn);
+    if (failed) throw new Error(friendly(failed.message));
   }
 
   async signOut() {
@@ -309,6 +362,16 @@ function friendly(message: string): string {
     m.includes('unsupported provider')
   )
     return 'Signing in with LinkedIn is not switched on here. Sign in with your email and password.';
+  if (m.includes('manual linking'))
+    return 'Connecting LinkedIn is not switched on yet.';
+  if (m.includes('already linked') || m.includes('identity_already_exists'))
+    return 'That LinkedIn account already signs in to another Jobbotix account.';
+  if (
+    m.includes('single identity') ||
+    m.includes('at least 1 identity') ||
+    m.includes('at least one identity')
+  )
+    return 'LinkedIn is the only way into this account, so it cannot be disconnected.';
   if (m.includes('rate limit'))
     return 'Too many attempts. Wait a minute and try again.';
   return message;

@@ -22,6 +22,7 @@ import { Theme, type ThemePreference } from '../../core/theme';
 import { ShellState } from '../../shell/shell-state';
 import { Tour } from '../../shell/tour';
 import { AiConnections } from './ai-connections';
+import { ConnectedAccounts } from './connected-accounts';
 import { DataPanel } from './data-panel';
 import { PlanCard } from './plan-card';
 import { SupportAccess } from './support-access';
@@ -39,6 +40,7 @@ import {
   selector: 'jb-settings',
   imports: [
     AiConnections,
+    ConnectedAccounts,
     DataPanel,
     PlanCard,
     SupportAccess,
@@ -111,6 +113,8 @@ import {
           </button>
         </div>
       </form>
+
+      <jb-connected-accounts />
 
       <jb-plan-card />
 

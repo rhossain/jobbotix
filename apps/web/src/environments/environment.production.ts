@@ -29,4 +29,11 @@ export const environment = {
    * so and the form still works.
    */
   linkedinSignIn: true,
+  /**
+   * "Connected accounts" in Settings: LinkedIn as a second way to sign in
+   * to an account that already exists. Off until "manual linking" is
+   * switched on in the hosted project's auth settings and the two live
+   * LinkedIn sign-in tests have passed.
+   */
+  linkedinConnect: false,
 };

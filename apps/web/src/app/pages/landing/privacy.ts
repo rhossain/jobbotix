@@ -129,7 +129,8 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
         jobs, and it cannot post or apply for you. It is a way to sign in, not a
         check of who you are. Deleting your Jobbotix account deletes what
         LinkedIn sent with it, and you can withdraw the permission at any time
-        in your LinkedIn settings.
+        in your LinkedIn settings. If you connected LinkedIn from Settings, you
+        can disconnect it there as well.
       </p>
 
       <h2 id="ai" class="mt-10 text-xl font-semibold">AI providers</h2>

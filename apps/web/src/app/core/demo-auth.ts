@@ -44,6 +44,21 @@ export class DemoAuth {
   async reserveLinkedInSignup() {
     /* no-op in demo */
   }
+  /** Demo: connecting and disconnecting LinkedIn just flips this. */
+  private linkedIn = false;
+  async linkedInConnection() {
+    return {
+      connected: this.linkedIn,
+      email: this.linkedIn ? this.demoProfile.email : '',
+      canDisconnect: this.linkedIn,
+    };
+  }
+  async connectLinkedIn() {
+    this.linkedIn = true;
+  }
+  async disconnectLinkedIn() {
+    this.linkedIn = false;
+  }
   async signOut() {
     this._status.set('signed_out');
   }
