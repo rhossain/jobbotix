@@ -17,6 +17,7 @@ import {
 import { filter, map } from 'rxjs';
 import { AppUpdate } from './core/app-update';
 import { Auth } from './core/auth';
+import { SessionPlacement } from './core/session-placement';
 import { SessionWatch } from './core/session-watch';
 import { Shortcuts } from './core/shortcuts';
 import { Theme } from './core/theme';
@@ -103,6 +104,22 @@ export class App {
     /^\/(login|signup|forgot-password|reset-password)/.test(this.url()),
   );
 
+  /**
+   * Pages that are never drawn inside the app, signed in or not: signing in,
+   * signing up, the password pages and the email-link page. A session can
+   * arrive while one of them is up (that is what most of them are for), and
+   * the sidebar must not appear around the form when it does.
+   */
+  protected readonly bare = computed(() =>
+    /^\/(login|signup|forgot-password|reset-password|auth)(\/|$)/.test(
+      this.url(),
+    ),
+  );
+  /** The signed-in app (sidebar, tab bar) is what surrounds the page. */
+  protected readonly inShell = computed(
+    () => this.auth.isSignedIn() && !this.bare(),
+  );
+
   /** Icon rail below 1280px, or when the user collapsed the sidebar. */
   protected readonly rail = computed(
     () => !this.viewport.wide() || this.shell.sidebarCollapsed(),
@@ -115,19 +132,13 @@ export class App {
 
     // The toast stack sits above the phone tab bar while it is shown.
     effect(() => {
-      this.doc.body.classList.toggle('jb-has-tabbar', this.auth.isSignedIn());
+      this.doc.body.classList.toggle('jb-has-tabbar', this.inShell());
     });
 
-    // Signed in while the landing page is showing (another tab signed in, or a
-    // session restored late): move on to Today instead of leaving the landing
-    // page inside the app shell. Login and sign-up navigate on their own (to
-    // their ?next= target), so they are left to it.
-    effect(() => {
-      const url = this.url();
-      if (url === '/' && this.auth.isSignedIn() && this.router.navigated) {
-        void this.router.navigateByUrl('/today', { replaceUrl: true });
-      }
-    });
+    // Signed in or out after the page opened (another tab, a session restored
+    // late): the page is chosen again, so the sign-in form never sits inside
+    // the app and a private page never outlives its session.
+    inject(SessionPlacement).start();
 
     inject(AppUpdate).start();
   }

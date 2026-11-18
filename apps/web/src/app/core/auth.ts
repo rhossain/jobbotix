@@ -51,11 +51,17 @@ export class Auth {
   private verifying: Promise<SessionEnded | null> | null = null;
   /** The session last handed to apply(), and the work it started. */
   private applying: { token: string | null; done: Promise<void> } | null = null;
+  /** Counts session changes, so an older one never finishes over a newer one. */
+  private turn = 0;
 
   constructor() {
-    this.ready = this.supabase.auth
-      .getSession()
-      .then(({ data }) => this.apply(data.session));
+    // A read that fails outright counts as signed out, so the app never
+    // waits on the loading screen for good; a session that turns up after
+    // all is announced by the listener below.
+    this.ready = this.supabase.auth.getSession().then(
+      ({ data }) => this.apply(data.session),
+      () => this.apply(null),
+    );
     this.supabase.auth.onAuthStateChange((_event, session) => {
       void this.apply(session);
     });
@@ -306,6 +312,8 @@ export class Auth {
       .select('*')
       .eq('id', user.id)
       .maybeSingle();
+    // Signed out, or someone else signed in, while this was on its way.
+    if (this.user()?.id !== user.id) return;
     this._profile.set(data ?? null);
   }
 
@@ -326,9 +334,14 @@ export class Auth {
   }
 
   private async runApply(session: Session | null) {
+    const turn = ++this.turn;
     this._session.set(session);
     if (session) {
       await this.refreshProfile();
+      // A later change (signing out, most likely) arrived while the profile
+      // was being read. It has the last word; saying "signed in" now would
+      // show the app with no session behind it.
+      if (turn !== this.turn) return;
       this._status.set('signed_in');
     } else {
       this._profile.set(null);

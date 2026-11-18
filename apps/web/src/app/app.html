@@ -5,7 +5,7 @@
   <jb-logo class="jb-boot" [wordmark]="false" [size]="44" />
   <span class="sr-only">Loading Jobbotix</span>
 </div>
-} @else if (auth.isSignedIn()) {
+} @else if (inShell()) {
 <div class="jb-shell" [attr.data-rail]="rail()">
   @if (!viewport.phone()) {
   <jb-sidebar

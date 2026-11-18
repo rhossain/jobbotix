@@ -170,3 +170,80 @@ describe('Auth start-up', () => {
     expect(fake.profileReads.n).toBe(1);
   });
 });
+
+describe('Auth when the session changes while the profile is being read', () => {
+  /** A client whose profile read waits until the test lets it through. */
+  function slowClient(getSession: () => Promise<unknown>) {
+    let emit: (event: string, session: unknown) => void = () => undefined;
+    const waiting: (() => void)[] = [];
+    const client = {
+      auth: {
+        getSession,
+        onAuthStateChange: (cb: typeof emit) => {
+          emit = cb;
+          return { data: { subscription: {} } };
+        },
+      },
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: () =>
+              new Promise((resolve) =>
+                waiting.push(() => resolve({ data: { id: 'u1' } })),
+              ),
+          }),
+        }),
+      }),
+    };
+    TestBed.configureTestingModule({
+      providers: [{ provide: SUPABASE, useValue: client }],
+    });
+    return {
+      auth: TestBed.inject(Auth),
+      emit: (event: string, session: unknown) => emit(event, session),
+      release: () => waiting.splice(0).forEach((go) => go()),
+    };
+  }
+  const session = {
+    access_token: 'token-1',
+    expires_at: Math.floor(Date.now() / 1000) + 3600,
+    user: { id: 'u1', email: 'a@b.c' },
+  };
+  const tick = () => new Promise((r) => setTimeout(r));
+
+  it('stays signed out when signing out overtakes a sign-in still loading', async () => {
+    const { auth, emit, release } = slowClient(async () => ({
+      data: { session: null },
+    }));
+    await auth.ready;
+    emit('SIGNED_IN', session);
+    await tick();
+    emit('SIGNED_OUT', null);
+    await tick();
+    release();
+    await tick();
+    expect(auth.status()).toBe('signed_out');
+    expect(auth.session()).toBeNull();
+    expect(auth.profile()).toBeNull();
+  });
+
+  it('counts a failed read of the stored session as signed out, not loading for good', async () => {
+    const { auth } = slowClient(() => Promise.reject(new Error('storage')));
+    await auth.ready;
+    expect(auth.status()).toBe('signed_out');
+  });
+
+  it('becomes signed in when the session turns up after a start as signed out', async () => {
+    const { auth, emit, release } = slowClient(async () => ({
+      data: { session: null },
+      error: { message: 'Failed to fetch' },
+    }));
+    await auth.ready;
+    expect(auth.status()).toBe('signed_out');
+    emit('TOKEN_REFRESHED', session);
+    await tick();
+    release();
+    await tick();
+    expect(auth.status()).toBe('signed_in');
+  });
+});
