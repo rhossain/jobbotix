@@ -880,6 +880,10 @@ export type Database = {
       admin_revoke_invite: { Args: { p_code: string }; Returns: undefined };
       admin_overview: { Args: Record<string, never>; Returns: Json };
       signup_is_open: { Args: Record<string, never>; Returns: boolean };
+      reserve_linkedin_signup: {
+        Args: { p_code: string; p_email: string; p_timezone?: string };
+        Returns: undefined;
+      };
       shared_view: { Args: { p_token: string }; Returns: Json };
       market_signals: { Args: Record<string, never>; Returns: Json };
       report_error: { Args: { p: Json }; Returns: undefined };

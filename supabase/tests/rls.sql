@@ -15,7 +15,7 @@ do $$ begin
   insert into auth.users (id, email) values ('22222222-2222-2222-2222-222222222222', 'b@example.com');
   raise exception 'FAIL: sign-up without invite code was accepted';
 exception when others then
-  if sqlerrm not like '%invite code%' then raise; end if;
+  if sqlerrm not like '%valid invite code is required%' then raise; end if;
 end $$;
 
 set role authenticated;
@@ -2478,5 +2478,134 @@ do $$ begin
   delete from public.linkedin_connections;
 end $$;
 reset role; reset request.jwt.claim.sub;
+
+-- ---------------------------------------------------------------------------
+-- Sign in with LinkedIn: the invite rule holds for an account made that way
+-- ---------------------------------------------------------------------------
+-- Sign-up is by invite for these checks, whatever the tests above left.
+select coalesce((select value ->> 'open_signup' from public.settings where key = 'signup'), 'false') as was_open \gset
+insert into public.settings (key, value) values ('signup', '{"open_signup": false}')
+on conflict (key) do update set value = '{"open_signup": false}';
+
+-- The auth server adds the row with what LinkedIn sent and no invite code.
+do $$ begin
+  insert into auth.users (id, email, raw_user_meta_data)
+  values ('99999999-9999-9999-9999-999999999901', 'li-nocode@example.com', '{"name":"No Code","iss":"https://www.linkedin.com/oauth"}');
+  raise exception 'FAIL: a LinkedIn sign-up without an invite code was accepted';
+exception when others then
+  if sqlerrm not like '%valid invite code is required%' then raise; end if;
+end $$;
+
+-- The reservations cannot be read or written directly by anyone.
+set role anon;
+do $$ begin
+  perform 1 from public.signup_tickets;
+  raise exception 'FAIL: anon read the sign-up reservations';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  insert into public.signup_tickets (email, invite_code) values ('x@example.com', 'NOPE');
+  raise exception 'FAIL: anon wrote a sign-up reservation directly';
+exception when insufficient_privilege then null;
+end $$;
+-- A reservation needs a real code and a real address.
+do $$ begin
+  perform public.reserve_linkedin_signup('NOT-A-CODE', 'li-new@example.com');
+  raise exception 'FAIL: a reservation was made with a wrong invite code';
+exception when others then
+  if sqlerrm not like '%valid invite code is required%' then raise; end if;
+end $$;
+reset role;
+
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.admin_create_invite('for a LinkedIn sign-up') as li_code \gset
+reset role; reset request.jwt.claim.sub;
+select set_config('test.li_code', :'li_code', false);
+
+set role anon;
+do $$ begin
+  perform public.reserve_linkedin_signup(current_setting('test.li_code'), 'not an address');
+  raise exception 'FAIL: a reservation was made for something that is not an email address';
+exception when others then
+  if sqlerrm not like '%email address%' then raise; end if;
+end $$;
+-- typed in lower case with spaces, for an address LinkedIn sends in mixed case
+do $$ begin
+  perform public.reserve_linkedin_signup(lower(current_setting('test.li_code')) || ' ', '  LI-New@Example.com ', 'Asia/Dhaka');
+end $$;
+reset role;
+
+-- Someone else arriving from LinkedIn in the meantime gets nothing from it.
+do $$ begin
+  insert into auth.users (id, email, raw_user_meta_data)
+  values ('99999999-9999-9999-9999-999999999902', 'li-other@example.com', '{"name":"Other"}');
+  raise exception 'FAIL: a reservation for one address admitted another';
+exception when others then
+  if sqlerrm not like '%valid invite code is required%' then raise; end if;
+end $$;
+do $$ begin
+  if (select count(*) from public.signup_tickets) <> 1 then
+    raise exception 'FAIL: a refused sign-up used up the reservation';
+  end if;
+end $$;
+
+insert into auth.users (id, email, raw_user_meta_data)
+values ('99999999-9999-9999-9999-999999999903', 'li-new@example.com',
+        '{"name":"Lina Okafor","email":"li-new@example.com","email_verified":true,"picture":"https://example.com/p.jpg"}');
+do $$ declare p public.profiles; begin
+  select * into p from public.profiles where id = '99999999-9999-9999-9999-999999999903';
+  if p.name <> 'Lina Okafor' then raise exception 'FAIL: the name LinkedIn sent was not kept (%)', p.name; end if;
+  if p.timezone <> 'Asia/Dhaka' then raise exception 'FAIL: the time zone was not kept (%)', p.timezone; end if;
+  if p.invite_code <> current_setting('test.li_code') then raise exception 'FAIL: the invite code was not recorded'; end if;
+  if p.is_admin then raise exception 'FAIL: a LinkedIn sign-up became admin'; end if;
+  if (select uses from public.invite_codes where code = current_setting('test.li_code')) <> 1 then
+    raise exception 'FAIL: the invite use was not counted';
+  end if;
+  if exists (select 1 from public.signup_tickets) then
+    raise exception 'FAIL: the reservation was left behind';
+  end if;
+end $$;
+
+-- The code is used up now, so it cannot be reserved a second time.
+set role anon;
+do $$ begin
+  perform public.reserve_linkedin_signup(current_setting('test.li_code'), 'li-again@example.com');
+  raise exception 'FAIL: a used-up invite code was reserved again';
+exception when others then
+  if sqlerrm not like '%valid invite code is required%' then raise; end if;
+end $$;
+reset role;
+
+-- A reservation older than half an hour is not honoured.
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.admin_create_invite('for a late LinkedIn sign-up') as li_late \gset
+reset role; reset request.jwt.claim.sub;
+select set_config('test.li_late', :'li_late', false);
+do $$ begin perform public.reserve_linkedin_signup(current_setting('test.li_late'), 'li-late@example.com'); end $$;
+update public.signup_tickets set created_at = now() - interval '31 minutes' where email = 'li-late@example.com';
+do $$ begin
+  insert into auth.users (id, email, raw_user_meta_data)
+  values ('99999999-9999-9999-9999-999999999904', 'li-late@example.com', '{"name":"Late"}');
+  raise exception 'FAIL: an expired reservation admitted a sign-up';
+exception when others then
+  if sqlerrm not like '%valid invite code is required%' then raise; end if;
+end $$;
+delete from public.signup_tickets;
+
+-- An account that exists is signed in by LinkedIn without any of this: the
+-- auth server attaches the sign-in to the row that is there (an update, not
+-- an insert), so no code is asked for and the profile stays as it was.
+update auth.users
+   set raw_user_meta_data = raw_user_meta_data || '{"name":"Someone Else","picture":"https://example.com/b.jpg","email_verified":true}'
+ where id = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if (select name from public.profiles where id = '22222222-2222-2222-2222-222222222222') = 'Someone Else' then
+    raise exception 'FAIL: signing in with LinkedIn renamed an existing account';
+  end if;
+end $$;
+delete from auth.users where id = '99999999-9999-9999-9999-999999999903';
+update public.settings set value = jsonb_build_object('open_signup', :'was_open'::boolean) where key = 'signup';
 
 \echo RLS tests passed
