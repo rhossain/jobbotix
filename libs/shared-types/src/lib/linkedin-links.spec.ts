@@ -30,6 +30,14 @@ export const COMPANY_KEYS: [name: string, key: string][] = [
   ['Company Co', 'company'],
   ['', ''],
   ['---', ''],
+  ['株式会社スカイコム', '株式会社スカイコム'],
+  ['منصة خطوة التعليمية', 'منصة خطوة التعليمية'],
+  ['সারাবাংলা', 'সারাবাংলা'],
+  ['Индивидуальный предприниматель', 'Индивидуальный предприниматель'],
+  ['Société Générale', 'société générale'],
+  ['Grab – Singapore', 'grab singapore'],
+  ['Acme・Japan', 'acme japan'],
+  ['..', ''],
 ];
 
 describe('companyKey', () => {

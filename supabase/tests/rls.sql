@@ -2451,7 +2451,15 @@ begin
     ('The', 'the'),
     ('Company Co', 'company'),
     ('', ''),
-    ('---', '')
+    ('---', ''),
+    ('株式会社スカイコム', '株式会社スカイコム'),
+    ('منصة خطوة التعليمية', 'منصة خطوة التعليمية'),
+    ('সারাবাংলা', 'সারাবাংলা'),
+    ('Индивидуальный предприниматель', 'Индивидуальный предприниматель'),
+    ('Société Générale', 'société générale'),
+    ('Grab – Singapore', 'grab singapore'),
+    ('Acme・Japan', 'acme japan'),
+    ('..', '')
   ) as t(name, key) loop
     if public.company_key(r.name) is distinct from r.key then
       raise exception 'FAIL: company_key(%) is %, expected %', r.name, public.company_key(r.name), r.key;
@@ -2465,10 +2473,14 @@ set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
 insert into public.linkedin_connections (user_id, name, company) values
   ('11111111-1111-1111-1111-111111111111', 'Dana Whitfield', 'ACME, Inc.'),
   ('11111111-1111-1111-1111-111111111111', 'Ravi Menon', 'The Acme Company'),
-  ('11111111-1111-1111-1111-111111111111', 'Lena Ortiz', 'Acme Labs');
+  ('11111111-1111-1111-1111-111111111111', 'Lena Ortiz', 'Acme Labs'),
+  ('11111111-1111-1111-1111-111111111111', 'Aiko Tanaka', '株式会社スカイコム');
 do $$ begin
   if (select count(*) from public.linkedin_connections where company_key = public.company_key('Acme')) <> 2 then
     raise exception 'FAIL: connections at Acme were not found under one key';
+  end if;
+  if (select company_key from public.linkedin_connections where name = 'Aiko Tanaka') is distinct from '株式会社スカイコム' then
+    raise exception 'FAIL: a company written in Japanese has no key';
   end if;
   begin
     update public.linkedin_connections set company_key = 'forged' where name = 'Lena Ortiz';

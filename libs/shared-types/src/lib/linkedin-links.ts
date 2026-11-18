@@ -42,7 +42,19 @@ const LEGAL_WORDS = new Set([
 ]);
 
 /**
- * The name a company is matched under: lower case, "&" as "and", anything in
+ * Turned into spaces in a company name: ASCII punctuation and spacing, and
+ * a few Unicode spaces, dashes, quotes and CJK punctuation. Letters of every
+ * script are kept, so a name written in Japanese or Bengali still has a key.
+ * public.company_key() lists the same characters.
+ */
+// Control characters are listed on purpose, to match the database rule.
+/* eslint-disable no-control-regex */
+const NOT_IN_A_NAME =
+  /[\u0000-\u002f\u003a-\u0040\u005b-\u0060\u007b-\u007f\u00a0\u00b7\u2010\u2011\u2012\u2013\u2014\u2015\u2018\u2019\u201a\u201b\u201c\u201d\u201e\u201f\u2022\u2026\u3000\u3001\u3002\u30fb\uff08\uff09\uff0c\uff0e\uff06\uff0f\uff1a]+/g;
+/* eslint-enable no-control-regex */
+
+/**
+ * The name a company is matched under: lower case (A-Z), "&" as "and", anything in
  * brackets gone, punctuation as spaces, a leading "the" and trailing legal
  * words dropped. '' for a name with nothing left.
  *
@@ -51,10 +63,13 @@ const LEGAL_WORDS = new Set([
  */
 export function companyKey(name: string): string {
   const words = name
-    .toLowerCase()
+    // only A-Z is lowered: the database lowers nothing else in every locale
+    .replace(/[A-Z]/g, (c) => c.toLowerCase())
     .replace(/\([^)]*\)/g, ' ')
     .replace(/&/g, ' and ')
-    .replace(/[^a-z0-9]+/g, ' ')
+    // ASCII punctuation and a few common Unicode marks become spaces; every
+    // other letter (Japanese, Arabic, Bengali, accented Latin…) is kept
+    .replace(NOT_IN_A_NAME, ' ')
     .trim()
     .split(' ')
     .filter(Boolean);
