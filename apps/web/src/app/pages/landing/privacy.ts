@@ -101,6 +101,37 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
         for anyone else.
       </p>
 
+      <h2 id="linkedin-sign-in" class="mt-10 text-xl font-semibold">
+        Signing in with LinkedIn
+      </h2>
+      <p class="mt-2">
+        "Continue with LinkedIn" is LinkedIn's own sign-in. You type your
+        LinkedIn password on LinkedIn's page, never here, and LinkedIn asks you
+        before it shares anything. It then sends Jobbotix only this:
+      </p>
+      <ul class="mt-2 list-disc space-y-1 pl-5">
+        <li>
+          <span class="font-medium">Your name and email address.</span> They
+          become the name and email of your Jobbotix account. If an account with
+          that email address already exists, you are signed in to it; no second
+          account is made.
+        </li>
+        <li>
+          <span class="font-medium">The link to your profile photo</span> and a
+          number that tells one LinkedIn sign-in from another; LinkedIn may also
+          send the language you use it in. These are kept with your sign-in
+          record. Jobbotix does not show the photo or use it for anything.
+        </li>
+      </ul>
+      <p class="mt-2">
+        That is all. Signing in this way gives Jobbotix no access to your
+        LinkedIn account: it cannot read your profile, connections, messages or
+        jobs, and it cannot post or apply for you. It is a way to sign in, not a
+        check of who you are. Deleting your Jobbotix account deletes what
+        LinkedIn sent with it, and you can withdraw the permission at any time
+        in your LinkedIn settings.
+      </p>
+
       <h2 id="ai" class="mt-10 text-xl font-semibold">AI providers</h2>
       <p class="mt-2">
         Jobbotix calls a model only with a key you connected yourself in

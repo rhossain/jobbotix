@@ -338,6 +338,23 @@ skip_nonce_check = false
 # If enabled, it will allow the user to successfully authenticate when the provider does not return an email address.
 email_optional = false
 
+# Sign in with LinkedIn ("Sign In with LinkedIn using OpenID Connect"). The
+# hosted project has this switched on in the Supabase dashboard, where its
+# Client ID and Secret live; they never go into this repository. It is off
+# here so a local stack starts without them. To try it locally, set the two
+# environment variables and turn it on.
+# Do not push this file's auth settings to the hosted project (`supabase
+# config push`) while it says enabled = false: that would switch LinkedIn
+# sign-in off there.
+[auth.external.linkedin_oidc]
+enabled = false
+client_id = "env(SUPABASE_AUTH_EXTERNAL_LINKEDIN_OIDC_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_LINKEDIN_OIDC_SECRET)"
+redirect_uri = ""
+url = ""
+skip_nonce_check = false
+email_optional = false
+
 # Allow Solana wallet holders to sign in to your project via the Sign in with Solana (SIWS) standard.
 # You can configure "web3" rate limit in the [auth.rate_limit] section and set up [auth.captcha] if self-hosting.
 [auth.web3.solana]
