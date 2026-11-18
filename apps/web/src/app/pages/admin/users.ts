@@ -18,7 +18,8 @@ import { AdminRepo } from '../../core/data/repos';
 import { toCsv } from '../../shared/csv';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
-import { BackLink, Button, Icon, PageHeader, Skeleton } from '../../ui';
+import { Button, Icon, PageHeader, Skeleton } from '../../ui';
+import { AdminTabs } from './admin-tabs';
 
 const PAGE = 50;
 
@@ -38,7 +39,7 @@ function download(name: string, type: string, body: string) {
 @Component({
   selector: 'jb-admin-users',
   imports: [
-    BackLink,
+    AdminTabs,
     Button,
     FormsModule,
     Icon,
@@ -49,9 +50,8 @@ function download(name: string, type: string, body: string) {
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <jb-back-link link="/admin" label="Admin" />
     <jb-page-header
-      title="Users"
+      title="Admin"
       lead="Every account, its plan and how its AI is paid for. Opening this page and each account is recorded."
     >
       <div actions>
@@ -66,7 +66,7 @@ function download(name: string, type: string, body: string) {
         </button>
       </div>
     </jb-page-header>
-
+    <jb-admin-tabs class="mt-6" current="users" />
     <form
       class="mt-6 flex flex-wrap items-end gap-3"
       role="search"

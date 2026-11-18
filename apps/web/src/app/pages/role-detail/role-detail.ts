@@ -459,7 +459,7 @@ const POST_TEXT_MIN = 80;
                           <span>
                             Add
                             <a
-                              routerLink="/settings"
+                              routerLink="/settings/ai"
                               class="text-brand-ink underline"
                               >voice samples</a
                             >

@@ -5,31 +5,81 @@ import {
   signal,
 } from '@angular/core';
 import { FormControl, FormGroup, ReactiveFormsModule } from '@angular/forms';
-import type { InviteCodeRow } from '@jobbotix/shared-types';
+import type { InviteCodeRow, InviteRequestRow } from '@jobbotix/shared-types';
+import { AdminRepo } from '../../core/data/repos';
+import { RelativeDayPipe } from '../../shared/format';
+import { Toast } from '../../shared/toast';
+import { AdminTabs } from './admin-tabs';
 import { injectSupabase } from '../../core/supabase';
-import { BackLink, Confirm, CopyButton, Icon, PageHeader } from '../../ui';
+import { Confirm, CopyButton, Icon, PageHeader } from '../../ui';
 
-/** Admin v0: create and revoke invite codes. */
+/** Admin → Invites: requests from the landing page, and invite codes. */
 @Component({
   selector: 'jb-admin-invites',
-  imports: [BackLink, CopyButton, Icon, PageHeader, ReactiveFormsModule],
+  imports: [
+    AdminTabs,
+    CopyButton,
+    Icon,
+    PageHeader,
+    ReactiveFormsModule,
+    RelativeDayPipe,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <section class="max-w-3xl">
-      <jb-back-link
-        class="mb-4 hidden md:inline-block"
-        link="/admin"
-        label="Admin"
-      />
       <jb-page-header
-        title="Invite codes"
-        lead="Each code admits one person. Send them the link shown next to the code."
+        title="Admin"
+        lead="Who asked for an invite, and the codes that let people sign up. Each code admits one person."
       />
+      <jb-admin-tabs class="mt-6" current="invites" />
 
+      <section class="jb-card mt-6 p-5 md:p-6">
+        <h2 class="jb-section-title">Invite requests</h2>
+        @if (requests().length === 0) {
+          <p class="mt-2 text-sm text-ink-muted">
+            No requests from the landing page yet.
+          </p>
+        } @else {
+          <ul class="mt-2 divide-y divide-line text-sm">
+            @for (r of requests(); track r.id) {
+              <li
+                class="flex flex-wrap items-center justify-between gap-2 py-2"
+              >
+                <span>
+                  <span class="font-medium">{{ r.email }}</span>
+                  <span class="text-ink-muted">
+                    · {{ r.created_at | relativeDay }}</span
+                  >
+                  @if (r.note) {
+                    <span class="block text-ink-muted">{{ r.note }}</span>
+                  }
+                </span>
+                @if (r.invited_code) {
+                  <span class="text-xs text-ink-muted"
+                    >invited ·
+                    <code class="font-mono">{{ r.invited_code }}</code></span
+                  >
+                } @else {
+                  <button
+                    type="button"
+                    class="jb-btn-primary"
+                    (click)="inviteRequest(r)"
+                    [disabled]="busy()"
+                  >
+                    Create invite
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+
+      <h2 class="jb-section-title mt-8">Invite codes</h2>
       <form
         [formGroup]="form"
         (ngSubmit)="create()"
-        class="jb-card mt-6 flex flex-col gap-3 p-5 sm:flex-row sm:items-end"
+        class="jb-card mt-3 flex flex-col gap-3 p-5 sm:flex-row sm:items-end"
         novalidate
       >
         <label class="flex min-w-0 flex-1 flex-col gap-1.5 text-sm font-medium">
@@ -126,6 +176,9 @@ import { BackLink, Confirm, CopyButton, Icon, PageHeader } from '../../ui';
 export class AdminInvites {
   private readonly confirm = inject(Confirm);
   private readonly supabase = injectSupabase();
+  private readonly admin = inject(AdminRepo);
+  private readonly toast = inject(Toast);
+  readonly requests = signal<InviteRequestRow[]>([]);
   readonly origin = location.origin;
   readonly form = new FormGroup({
     note: new FormControl('', { nonNullable: true }),
@@ -138,6 +191,30 @@ export class AdminInvites {
 
   constructor() {
     void this.load();
+    void this.loadRequests();
+  }
+
+  async loadRequests() {
+    try {
+      this.requests.set(await this.admin.requests());
+    } catch (e) {
+      this.error.set((e as Error).message || 'Could not load the requests');
+    }
+  }
+
+  /** Makes a code for someone who asked on the landing page. */
+  async inviteRequest(r: InviteRequestRow) {
+    if (this.busy()) return;
+    this.busy.set(true);
+    try {
+      this.lastCode.set(await this.admin.inviteRequest(r.id));
+      this.toast.show('Invite created');
+      await Promise.all([this.load(), this.loadRequests()]);
+    } catch (e) {
+      this.toast.show((e as Error).message || 'Could not create the invite');
+    } finally {
+      this.busy.set(false);
+    }
   }
 
   statusOf(c: InviteCodeRow): 'Open' | 'Used' | 'Revoked' | 'Expired' {

@@ -78,7 +78,7 @@ import { ShellState } from '../shell/shell-state';
           @if (hasKey()) {
             Your own key is used instead.
           } @else {
-            <a routerLink="/settings" class="underline">Connect a key</a>
+            <a routerLink="/settings/ai" class="underline">Connect a key</a>
             or add credits; until then drafts are written locally.
           }
         </span>
@@ -86,7 +86,7 @@ import { ShellState } from '../shell/shell-state';
     } @else if (!hasKey() && !quiet()) {
       <span class="text-xs text-ink-muted"
         >No AI connected, so drafts use simple templates.
-        <a routerLink="/settings" class="text-brand-ink underline"
+        <a routerLink="/settings/ai" class="text-brand-ink underline"
           >Connect an AI provider</a
         >
         (Gemini and Groq are free) for better-written text.</span

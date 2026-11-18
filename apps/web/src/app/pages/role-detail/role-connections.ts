@@ -98,7 +98,7 @@ const sameLink = (a: string, b: string) =>
             class="mt-1 text-sm wrap-anywhere text-ink-muted"
           >
             Import your LinkedIn file in
-            <a routerLink="/settings" class="text-brand-ink underline"
+            <a routerLink="/settings/linkedin" class="text-brand-ink underline"
               >Settings</a
             >
             and Jobbotix shows here who you already know at

@@ -63,14 +63,14 @@ export const GUIDES: Guide[] = [
     seconds: 46,
     optional: true,
     steps: [
-      'Open Settings from the menu.',
+      'Open Settings from the menu, then the AI tab.',
       'Under AI connections, press Google Gemini. It is free to start and needs no card.',
       'Press Create a key. Google AI Studio opens in a new tab.',
       'In Google AI Studio, sign in with your Google account, create an API key, then copy it.',
       'Back in Jobbotix, tick the box, paste your key and press Check and save.',
       'When it says Working, you are done.',
     ],
-    link: '/settings',
+    link: '/settings/ai',
     linkLabel: 'Open Settings',
   },
   {
@@ -100,13 +100,13 @@ export const GUIDES: Guide[] = [
     steps: [
       'On LinkedIn, open Settings & Privacy, then Data privacy, and choose Get a copy of your data.',
       'Pick the larger archive and request it. LinkedIn emails you when it is ready, usually within a day. The quick archive has no jobs in it.',
-      'In Jobbotix, open Settings and find LinkedIn. Press Choose the LinkedIn file.',
-      'Pick the ZIP file from LinkedIn’s email. It is read in your browser, never uploaded.',
+      'In Jobbotix, open Settings, then the LinkedIn tab.',
+      'Press Choose the LinkedIn file and pick the ZIP from LinkedIn’s email. It is read in your browser, never uploaded.',
       'Untick anything you do not want, then press Import.',
       'Your saved and applied jobs are in Jobs. Paste a job’s post on its page to score it.',
       'On a job, see who you know there, and ask one of them for a referral.',
     ],
-    link: '/settings',
+    link: '/settings/linkedin',
     linkLabel: 'Open Settings',
   },
 ];

@@ -167,7 +167,7 @@ export class Auth {
    * LinkedIn and comes back to Settings.
    */
   async connectLinkedIn() {
-    const back = new URL('/settings', location.origin);
+    const back = new URL('/settings/linkedin', location.origin);
     back.searchParams.set('linkedin', 'back');
     const { error } = await this.supabase.auth.linkIdentity({
       provider: LINKEDIN,

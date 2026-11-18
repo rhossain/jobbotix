@@ -43,6 +43,12 @@ describe('intro tour', () => {
     const paths = new Set(
       [...routes.matchAll(/path: '([^']*)'/g)].map((m) => '/' + m[1]),
     );
+    // pages with tabs: withTab('settings', ['ai', …]) serves /settings/ai
+    for (const m of routes.matchAll(/withTab\('([^']+)', \[([^\]]*)\]\)/g)) {
+      paths.add('/' + m[1]);
+      for (const t of m[2].matchAll(/'([^']+)'/g))
+        paths.add(`/${m[1]}/${t[1]}`);
+    }
     expect(stepRoutes.filter((r) => !paths.has(r))).toEqual([]);
   });
 

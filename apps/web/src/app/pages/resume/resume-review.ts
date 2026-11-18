@@ -129,7 +129,7 @@ export function stillFitting(
       } @else {
         <p class="text-sm text-ink-muted">
           A review needs a model.
-          <a routerLink="/settings" class="text-brand-ink underline"
+          <a routerLink="/settings/ai" class="text-brand-ink underline"
             >Connect an AI provider</a
           >
           first; Gemini and Groq have free tiers.

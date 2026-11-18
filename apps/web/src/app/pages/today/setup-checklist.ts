@@ -148,7 +148,7 @@ export class SetupChecklist {
         id: 'key',
         label: 'Connect an AI provider',
         why: 'AI gives smarter match scores, letters and company research; Gemini and Groq are free to start. Without it Jobbotix uses simple templates.',
-        link: '/settings',
+        link: '/settings/ai',
         action: 'Connect',
         done:
           this.settings.connections().length > 0 ||

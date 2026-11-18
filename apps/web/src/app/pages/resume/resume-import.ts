@@ -108,7 +108,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
         @if (!hasKey()) {
           <p class="text-xs text-ink-muted">
             To read with AI,
-            <a routerLink="/settings" class="text-brand-ink underline"
+            <a routerLink="/settings/ai" class="text-brand-ink underline"
               >connect an AI provider</a
             >
             first. Gemini and Groq have free tiers.

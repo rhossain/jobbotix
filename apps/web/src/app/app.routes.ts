@@ -1,5 +1,11 @@
 import { inject } from '@angular/core';
-import { RedirectFunction, Route, Router } from '@angular/router';
+import {
+  RedirectFunction,
+  Route,
+  Router,
+  type UrlMatcher,
+  type UrlSegment,
+} from '@angular/router';
 import { environment } from '../environments/environment';
 import {
   adminGuard,
@@ -22,6 +28,22 @@ const toJobs =
       ['/jobs', ...path.map((p) => (p === ':id' ? params['id'] : p))],
       { queryParams, fragment: fragment ?? undefined },
     );
+
+/**
+ * Matches /<base> and /<base>/<tab> for the listed tabs, handing the tab to
+ * the page as the "tab" parameter. One route for all of them, so moving
+ * between tabs does not rebuild the page.
+ */
+function withTab(base: string, tabs: string[]): UrlMatcher {
+  return (segments) => {
+    if (segments[0]?.path !== base || segments.length > 2) return null;
+    const tab = segments[1];
+    if (tab && !tabs.includes(tab.path)) return null;
+    const posParams: Record<string, UrlSegment> = {};
+    if (tab) posParams['tab'] = tab;
+    return { consumed: segments, posParams };
+  };
+}
 
 export const appRoutes: Route[] = [
   {
@@ -139,7 +161,9 @@ export const appRoutes: Route[] = [
     title: 'AI usage · Jobbotix',
   },
   {
-    path: 'settings',
+    // /settings, /settings/ai, /settings/linkedin, /settings/data: one route,
+    // so switching tabs keeps the page (and its unsaved form) in place
+    matcher: withTab('settings', ['ai', 'linkedin', 'data']),
     canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/settings/settings').then((m) => m.Settings),
@@ -217,7 +241,8 @@ export const appRoutes: Route[] = [
     title: 'Confirming · Jobbotix',
   },
   {
-    path: 'admin',
+    // /admin, /admin/activity, /admin/money
+    matcher: withTab('admin', ['activity', 'money']),
     canActivate: [authGuard, adminGuard],
     loadComponent: () =>
       import('./pages/admin/overview').then((m) => m.AdminOverview),

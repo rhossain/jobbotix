@@ -69,7 +69,7 @@ export const TOUR_STEPS: readonly TourStep[] = [
       'New, To apply, Applied, Interview, Offer. Pick a column at the top, and change a card’s status from the card. You send each application yourself, then move the card.',
   },
   {
-    route: '/settings',
+    route: '/settings/ai',
     target: 'settings-ai',
     title: 'Optional: connect an AI provider',
     body: 'Jobbotix works without AI. Connect an AI provider here for smarter match scores and better-written letters: Gemini and Groq are free to start, and Anthropic charges you for what you use.',
