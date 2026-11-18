@@ -31,7 +31,8 @@ export const environment = {
    */
   linkedinSignIn: true,
   /**
-   * "Connected accounts" in Settings: LinkedIn as a second way to sign in
+   * "Sign in with LinkedIn" in the LinkedIn card in Settings: LinkedIn as a
+   * second way to sign in
    * to an account that already exists. Needs "manual linking" switched on
    * in Supabase's auth settings.
    */

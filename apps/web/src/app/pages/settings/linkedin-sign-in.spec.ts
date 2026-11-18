@@ -8,7 +8,7 @@ import {
 import { Auth, type LinkedInConnection } from '../../core/auth';
 import { Toast } from '../../shared/toast';
 import { Confirm } from '../../ui';
-import { ConnectedAccounts, linkProblem } from './connected-accounts';
+import { LinkedInSignIn, linkProblem } from './linkedin-sign-in';
 
 const OFF: LinkedInConnection = {
   connected: false,
@@ -48,7 +48,7 @@ async function setup(
   const navigate = vi
     .spyOn(TestBed.inject(Router), 'navigate')
     .mockResolvedValue(true);
-  const fixture = TestBed.createComponent(ConnectedAccounts);
+  const fixture = TestBed.createComponent(LinkedInSignIn);
   await fixture.componentInstance.ready;
   fixture.detectChanges();
   const el: HTMLElement = fixture.nativeElement;
@@ -62,7 +62,7 @@ async function setup(
   return { fixture, el, text, press, auth, navigate, toast };
 }
 
-describe('ConnectedAccounts', () => {
+describe('LinkedInSignIn', () => {
   it('offers to connect LinkedIn and says what that does not give', async () => {
     const { text, press, auth, el } = await setup(OFF);
     expect(text()).toContain('Not connected');

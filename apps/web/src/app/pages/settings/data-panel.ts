@@ -14,9 +14,8 @@ import {
   type ImportPreview,
 } from '../../shared/csv';
 import { Toast } from '../../shared/toast';
-import { environment } from '../../../environments/environment';
 import { Button, Icon } from '../../ui';
-import { LinkedInImport } from './linkedin-import';
+import { LinkedInCard } from './linkedin-card';
 
 function download(name: string, type: string, body: string) {
   const a = document.createElement('a');
@@ -31,7 +30,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 /** Settings → Your data: download it, bring roles in from a spreadsheet or from LinkedIn, delete the account. */
 @Component({
   selector: 'jb-data-panel',
-  imports: [Button, Icon, LinkedInImport],
+  imports: [Button, Icon, LinkedInCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'contents' },
   template: `
@@ -139,9 +138,7 @@ const today = () => new Date().toISOString().slice(0, 10);
       }
     </section>
 
-    @if (linkedinImport) {
-      <jb-linkedin-import />
-    }
+    <jb-linkedin-card />
 
     <section
       class="jb-card flex flex-col gap-3 border-bad/40 p-5 md:p-6"
@@ -188,7 +185,6 @@ export class DataPanel {
   private readonly toast = inject(Toast);
   readonly statusLabels = ROLE_STATUS_LABELS;
   /** Shown once the database has the table it saves to (migration 0060). */
-  readonly linkedinImport = environment.linkedinImport;
 
   readonly exporting = signal(false);
   readonly importing = signal(false);

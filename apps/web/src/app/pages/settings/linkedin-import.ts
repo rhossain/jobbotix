@@ -48,7 +48,8 @@ const pairOf = (company: string, title: string) =>
 const at = (day: string | null) => (day ? `${day}T12:00:00.000Z` : undefined);
 
 /**
- * Settings → Your data → Import from LinkedIn. The user downloads their own
+ * Settings → LinkedIn → Bring in your LinkedIn data (rendered inside the
+ * LinkedIn card). The user downloads their own
  * archive from LinkedIn ("Get a copy of your data") and picks it here. It is
  * read in the browser: saved jobs and applications go to the pipeline, and
  * connections are kept so a job can show who the user knows there. Jobbotix
@@ -60,16 +61,20 @@ const at = (day: string | null) => (day ? `${day}T12:00:00.000Z` : undefined);
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'contents' },
   template: `
-    <section
-      class="jb-card flex flex-col gap-3 p-5 md:p-6"
+    <div
+      id="linkedin-data"
+      class="flex flex-col gap-3"
+      role="group"
       aria-labelledby="li-import-h"
     >
-      <h2 id="li-import-h" class="jb-section-title">Import from LinkedIn</h2>
+      <h3 id="li-import-h" class="font-semibold text-ink">
+        Bring in your LinkedIn data
+      </h3>
       <p class="text-sm text-ink-muted">
         Bring in the jobs you saved and applied to on LinkedIn, and see who you
         know at each company. You download your own data from LinkedIn and pick
-        the file here. Jobbotix never signs in to LinkedIn or opens its pages,
-        and the file is read in your browser, not uploaded.
+        the file here. Jobbotix never opens LinkedIn's pages or reads your
+        LinkedIn account, and the file is read in your browser, not uploaded.
       </p>
       <ol class="flex list-decimal flex-col gap-1 pl-5 text-sm text-ink-muted">
         <li>
@@ -282,7 +287,7 @@ const at = (day: string | null) => (day ? `${day}T12:00:00.000Z` : undefined);
           </button>
         </div>
       }
-    </section>
+    </div>
   `,
 })
 export class LinkedInImport {
