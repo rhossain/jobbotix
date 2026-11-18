@@ -3,7 +3,8 @@ export type GuideId =
   | 'add-your-resume'
   | 'say-what-job-you-want'
   | 'connect-free-ai'
-  | 'review-and-track-jobs';
+  | 'review-and-track-jobs'
+  | 'bring-in-linkedin-data';
 
 export interface Guide {
   /** Also the file name under /help and the anchor on the Help page. */
@@ -89,6 +90,24 @@ export const GUIDES: Guide[] = [
     ],
     link: '/today',
     linkLabel: 'Open Today',
+  },
+  {
+    id: 'bring-in-linkedin-data',
+    title: 'Bring in your LinkedIn data',
+    lead: 'Your saved and applied jobs, and who you know at each company.',
+    seconds: 45,
+    optional: true,
+    steps: [
+      'On LinkedIn, open Settings & Privacy, then Data privacy, and choose Get a copy of your data.',
+      'Pick the larger archive and request it. LinkedIn emails you when it is ready, usually within a day. The quick archive has no jobs in it.',
+      'In Jobbotix, open Settings and find LinkedIn. Press Choose the LinkedIn file.',
+      'Pick the ZIP file from LinkedIn’s email. It is read in your browser, never uploaded.',
+      'Untick anything you do not want, then press Import.',
+      'Your saved and applied jobs are in Jobs. Paste a job’s post on its page to score it.',
+      'On a job, see who you know there, and ask one of them for a referral.',
+    ],
+    link: '/settings',
+    linkLabel: 'Open Settings',
   },
 ];
 

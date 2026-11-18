@@ -24,6 +24,7 @@ import {
   type LinkedInJob,
 } from '../../shared/linkedin-export';
 import { Toast } from '../../shared/toast';
+import { WatchHow } from '../../shared/watch-how';
 import { Button, Confirm, Icon } from '../../ui';
 
 /** Jobs listed one by one in the preview; the rest are counted. */
@@ -57,7 +58,7 @@ const at = (day: string | null) => (day ? `${day}T12:00:00.000Z` : undefined);
  */
 @Component({
   selector: 'jb-linkedin-import',
-  imports: [Button, Icon, RouterLink],
+  imports: [Button, Icon, RouterLink, WatchHow],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'contents' },
   template: `
@@ -76,6 +77,7 @@ const at = (day: string | null) => (day ? `${day}T12:00:00.000Z` : undefined);
         the file here. Jobbotix never opens LinkedIn's pages or reads your
         LinkedIn account, and the file is read in your browser, not uploaded.
       </p>
+      <jb-watch-how guide="bring-in-linkedin-data" />
       <ol class="flex list-decimal flex-col gap-1 pl-5 text-sm text-ink-muted">
         <li>
           On LinkedIn, open Settings &amp; Privacy, then Data privacy, and

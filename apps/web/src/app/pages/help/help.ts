@@ -20,7 +20,7 @@ import { GUIDES, guideLength } from './guides';
   template: `
     <jb-page-header
       title="Help"
-      lead="Four short videos show how to use Jobbotix, in the order to do them. They have no sound; every step is written on screen and again under the video."
+      lead="Short videos show how to use Jobbotix, in the order to do them. They have no sound; every step is written on screen and again under the video."
     >
       <div actions>
         <button type="button" jbButton (click)="tour.start()">
