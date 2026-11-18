@@ -42,6 +42,7 @@ import {
 import { isUpworkUrl } from '../_shared/gig.ts';
 import {
   isLinkedInUrl,
+  jobLinkToKeep,
   LINKEDIN_PASTE_MESSAGE,
   LINKEDIN_TEXT_MIN,
 } from '../_shared/linkedin.ts';
@@ -106,7 +107,10 @@ Deno.serve(
       kept = data as StoredPost & { id: string; url: string };
     }
 
-    const url = kept ? kept.url : (body.url ?? '').trim();
+    // A LinkedIn job is kept under its own short link, whichever of
+    // LinkedIn's long addresses it was copied from, so the same job is
+    // recognised next time.
+    const url = kept ? kept.url : jobLinkToKeep(body.url ?? '');
     if (!/^https?:\/\//i.test(url))
       return json(400, {
         error: 'Paste a link that starts with http:// or https://',

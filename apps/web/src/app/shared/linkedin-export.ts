@@ -1,3 +1,4 @@
+import { linkedInJobId, linkedInJobUrl } from '@jobbotix/shared-types';
 import {
   emptyResume,
   type EducationEntry,
@@ -122,31 +123,9 @@ const clean = (s: string | undefined, max: number) =>
 
 // --- Links -----------------------------------------------------------------
 
-/** The number LinkedIn gives a job, from any of the links it shows for one. */
-export function linkedInJobId(raw: string): string | null {
-  let u: URL;
-  try {
-    u = new URL(raw.trim());
-  } catch {
-    return null;
-  }
-  const host = u.hostname.toLowerCase().replace(/\.$/, '');
-  if (host !== 'linkedin.com' && !host.endsWith('.linkedin.com')) return null;
-  // /jobs/view/4012345678, /jobs/view/senior-engineer-at-acme-4012345678,
-  // /comm/jobs/view/…, and ?currentJobId= on search and collection pages
-  const inPath = /\/jobs\/view\/(?:[^/?#]*-)?(\d{6,})(?:[/?#]|$)/.exec(
-    decodeURIComponent(u.pathname),
-  );
-  if (inPath) return inPath[1];
-  const current = u.searchParams.get('currentJobId') ?? '';
-  return /^\d{6,}$/.test(current) ? current : null;
-}
-
-/** The one address a LinkedIn job is kept under; null when it is not one. */
-export function linkedInJobUrl(raw: string): string | null {
-  const id = linkedInJobId(raw);
-  return id ? `https://www.linkedin.com/jobs/view/${id}/` : null;
-}
+// The job-link helpers live with the other LinkedIn link rules, where the
+// server reads them too.
+export { linkedInJobId, linkedInJobUrl };
 
 /** A member's profile link, tidied; '' when it is not a LinkedIn profile. */
 function profileUrl(raw: string): string {

@@ -78,7 +78,22 @@ describe('AddRole with a LinkedIn link', () => {
     type('#add-url', LINKEDIN);
     type('#add-text', POST);
     await submit();
-    expect(addFromUrl).toHaveBeenCalledWith(LINKEDIN, POST);
+    // kept under the job's own short link
+    expect(addFromUrl).toHaveBeenCalledWith(`${LINKEDIN}/`, POST);
+  });
+
+  it('keeps the short job link when the link came from a search page', async () => {
+    const { addFromUrl, type, submit } = await setup();
+    type(
+      '#add-url',
+      'https://www.linkedin.com/jobs/search-results/?currentJobId=4480004226&eBP=CwEAAAGh7aVVoBeW&refId=hrbf%3D%3D&trackingId=BX%2FrO6%3D%3D&keywords=Frontend%20Developer&geoId=103363366',
+    );
+    type('#add-text', POST);
+    await submit();
+    expect(addFromUrl).toHaveBeenCalledWith(
+      'https://www.linkedin.com/jobs/view/4480004226/',
+      POST,
+    );
   });
 
   it('knows short links and country sites, and leaves other sites alone', async () => {

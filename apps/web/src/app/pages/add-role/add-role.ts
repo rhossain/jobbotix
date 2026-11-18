@@ -16,6 +16,7 @@ import {
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import {
   isLinkedInUrl,
+  jobLinkToKeep,
   isUpworkUrl,
   LINKEDIN_PASTE_MESSAGE,
   LINKEDIN_TEXT_MIN,
@@ -402,7 +403,12 @@ export class AddRole {
           'Jobbotix does not read pages on Upwork, because Upwork does not allow it. Adding jobs from Upwork is coming soon.',
         );
       }
-      const result = await this.repo.addFromUrl(url.trim(), text.trim());
+      // A LinkedIn job is kept under its own short link, whichever of
+      // LinkedIn's long addresses it was copied from.
+      const result = await this.repo.addFromUrl(
+        jobLinkToKeep(url),
+        text.trim(),
+      );
       if (result.existed) this.toast.show('Already in your jobs');
       else this.toast.success('Job added');
       await this.router.navigate(['/jobs', result.id]);
