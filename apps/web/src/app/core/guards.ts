@@ -2,14 +2,45 @@ import { inject } from '@angular/core';
 import { CanActivateFn, CanDeactivateFn, Router } from '@angular/router';
 import { Confirm } from '../ui/confirm';
 import { Auth, isLocalPath } from './auth';
+import { takeAgreed } from './terms';
 
-/** Signed-in users only; everyone else goes to /login with a return path. */
+/**
+ * Signed-in users only; everyone else goes to /login with a return path.
+ * An account with no record of agreeing to the current Terms is asked once,
+ * on /agree, unless the box was ticked on Sign up in this tab just before a
+ * trip to LinkedIn: then it is recorded on the way through.
+ */
 export const authGuard: CanActivateFn = async (_route, state) => {
   const auth = inject(Auth);
   const router = inject(Router);
   await auth.ready;
-  if (auth.isSignedIn()) return true;
-  return router.createUrlTree(['/login'], { queryParams: { next: state.url } });
+  if (!auth.isSignedIn())
+    return router.createUrlTree(['/login'], {
+      queryParams: { next: state.url },
+    });
+  if (!auth.needsTerms()) return true;
+  if (takeAgreed()) {
+    try {
+      await auth.acceptTerms();
+      if (!auth.needsTerms()) return true;
+    } catch {
+      /* ask on /agree instead */
+    }
+  }
+  return router.createUrlTree(['/agree'], { queryParams: { next: state.url } });
+};
+
+/** The page that asks for the Terms: signed in, and only while it is needed. */
+export const agreeGuard: CanActivateFn = async (route) => {
+  const auth = inject(Auth);
+  const router = inject(Router);
+  await auth.ready;
+  if (!auth.isSignedIn()) return router.createUrlTree(['/login']);
+  if (auth.needsTerms()) return true;
+  const next = route.queryParamMap.get('next');
+  return next && isLocalPath(next)
+    ? router.parseUrl(next)
+    : router.createUrlTree(['/today']);
 };
 
 /**

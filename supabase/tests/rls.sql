@@ -2620,4 +2620,97 @@ end $$;
 delete from auth.users where id = '99999999-9999-9999-9999-999999999903';
 update public.settings set value = jsonb_build_object('open_signup', :'was_open'::boolean) where key = 'signup';
 
+-- ---------------------------------------------------------------------------
+-- Terms acceptance: recorded at sign-up or through accept_terms() only
+-- ---------------------------------------------------------------------------
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.admin_create_invite('terms') as t_code \gset
+reset role; reset request.jwt.claim.sub;
+select set_config('test.t_code', :'t_code', false);
+insert into auth.users (id, email, raw_user_meta_data)
+values ('99999999-9999-9999-9999-999999999911', 'terms@example.com',
+        jsonb_build_object('invite_code', :'t_code', 'name', 'T', 'terms_version', '2026-11-13'));
+do $$ declare p public.profiles; begin
+  select * into p from public.profiles where id = '99999999-9999-9999-9999-999999999911';
+  if p.terms_version <> '2026-11-13' or p.terms_accepted_at is null then
+    raise exception 'FAIL: the terms ticked at sign-up were not recorded';
+  end if;
+end $$;
+
+-- a made-up version in the metadata is not recorded
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.admin_create_invite('terms 2') as t_code2 \gset
+reset role; reset request.jwt.claim.sub;
+insert into auth.users (id, email, raw_user_meta_data)
+values ('99999999-9999-9999-9999-999999999912', 'terms2@example.com',
+        jsonb_build_object('invite_code', :'t_code2', 'terms_version', 'yes please'));
+do $$ begin
+  if (select terms_accepted_at from public.profiles where id = '99999999-9999-9999-9999-999999999912') is not null then
+    raise exception 'FAIL: a made-up terms version was recorded';
+  end if;
+end $$;
+
+-- with a LinkedIn sign-up, the version comes with the reserved code
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+select public.admin_create_invite('terms li') as t_code3 \gset
+reset role; reset request.jwt.claim.sub;
+select set_config('test.t_code3', :'t_code3', false);
+set role anon;
+do $$ begin perform public.reserve_linkedin_signup(current_setting('test.t_code3'), 'terms3@example.com', 'UTC', '2026-11-13'); end $$;
+-- the old three-argument call still works
+do $$ begin
+  perform public.reserve_linkedin_signup(current_setting('test.t_code3'), 'terms4@example.com', 'UTC');
+end $$;
+reset role;
+insert into auth.users (id, email, raw_user_meta_data)
+values ('99999999-9999-9999-9999-999999999913', 'terms3@example.com', '{"name":"Li Terms"}');
+do $$ begin
+  if (select terms_version from public.profiles where id = '99999999-9999-9999-9999-999999999913') is distinct from '2026-11-13' then
+    raise exception 'FAIL: the terms ticked before a LinkedIn sign-up were not recorded';
+  end if;
+end $$;
+delete from public.signup_tickets;
+
+-- a user cannot write the columns, only accept through the function
+set role authenticated;
+set request.jwt.claim.sub = '99999999-9999-9999-9999-999999999912';
+do $$ begin
+  update public.profiles set terms_accepted_at = now() - interval '1 year', terms_version = '2020-01-01'
+   where id = auth.uid();
+  raise exception 'FAIL: a user wrote their own terms record';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.accept_terms('whatever');
+  raise exception 'FAIL: an unknown terms version was accepted';
+exception when invalid_parameter_value then null;
+end $$;
+select public.accept_terms('2026-11-13');
+do $$ declare p public.profiles; begin
+  select * into p from public.profiles where id = auth.uid();
+  if p.terms_version <> '2026-11-13' or p.terms_accepted_at < now() - interval '1 minute' then
+    raise exception 'FAIL: accept_terms() did not record';
+  end if;
+end $$;
+-- and after it, the columns are closed again in the same session
+do $$ begin
+  update public.profiles set terms_version = '2020-01-01' where id = auth.uid();
+  raise exception 'FAIL: the terms columns stayed open after accept_terms()';
+exception when insufficient_privilege then null;
+end $$;
+-- other profile edits still work
+update public.profiles set name = 'T2' where id = auth.uid();
+reset role; reset request.jwt.claim.sub;
+set role anon;
+do $$ begin
+  perform public.accept_terms('2026-11-13');
+  raise exception 'FAIL: anon called accept_terms()';
+exception when insufficient_privilege then null;
+end $$;
+reset role;
+delete from auth.users where id in ('99999999-9999-9999-9999-999999999911', '99999999-9999-9999-9999-999999999912', '99999999-9999-9999-9999-999999999913');
+
 \echo RLS tests passed

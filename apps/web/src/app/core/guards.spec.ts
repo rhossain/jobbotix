@@ -8,12 +8,15 @@ import {
   provideRouter,
 } from '@angular/router';
 import { Auth, isLocalPath } from './auth';
-import { guestGuard, landingGuard } from './guards';
+import { agreeGuard, authGuard, guestGuard, landingGuard } from './guards';
+import { TERMS_VERSION, rememberAgreed } from './terms';
 
 function run(
   guard: typeof guestGuard,
   signedIn: boolean,
   query: Record<string, string>,
+  terms: { needs: boolean; accept?: () => Promise<void> } = { needs: false },
+  url = '/jobs',
 ) {
   // several runs in one test: each starts from a clean module
   TestBed.resetTestingModule();
@@ -22,7 +25,15 @@ function run(
       provideRouter([]),
       {
         provide: Auth,
-        useValue: { ready: Promise.resolve(), isSignedIn: () => signedIn },
+        useValue: {
+          ready: Promise.resolve(),
+          isSignedIn: () => signedIn,
+          needsTerms: () => terms.needs,
+          acceptTerms: async () => {
+            await terms.accept?.();
+            terms.needs = false;
+          },
+        },
       },
     ],
   });
@@ -30,7 +41,10 @@ function run(
     queryParamMap: convertToParamMap(query),
   } as ActivatedRouteSnapshot;
   return TestBed.runInInjectionContext(
-    () => guard(route, {} as RouterStateSnapshot) as Promise<boolean | UrlTree>,
+    () =>
+      guard(route, { url } as RouterStateSnapshot) as Promise<
+        boolean | UrlTree
+      >,
   );
 }
 const url = (result: boolean | UrlTree) =>
@@ -79,5 +93,42 @@ describe('isLocalPath', () => {
     expect(isLocalPath('today')).toBe(false);
     expect(isLocalPath('//host/x')).toBe(false);
     expect(isLocalPath('https://host/x')).toBe(false);
+  });
+});
+
+describe('the Terms', () => {
+  afterEach(() => sessionStorage.clear());
+
+  it('asks an account with no record once, then sends it on', async () => {
+    expect(
+      url(await run(authGuard, true, {}, { needs: true }, '/jobs/1')),
+    ).toBe('/agree?next=%2Fjobs%2F1');
+    expect(await run(authGuard, true, {}, { needs: false })).toBe(true);
+  });
+
+  it('records a box ticked on Sign up in this tab, without asking again', async () => {
+    rememberAgreed();
+    const accept = vi.fn(async () => undefined);
+    expect(await run(authGuard, true, {}, { needs: true, accept })).toBe(true);
+    expect(accept).toHaveBeenCalledTimes(1);
+    // used once
+    expect(sessionStorage.getItem('jb-terms-agreed')).toBeNull();
+  });
+
+  it('ignores a box ticked for older Terms', async () => {
+    sessionStorage.setItem('jb-terms-agreed', '2000-01-01');
+    const accept = vi.fn(async () => undefined);
+    expect(
+      url(await run(authGuard, true, {}, { needs: true, accept })),
+    ).toContain('/agree');
+    expect(accept).not.toHaveBeenCalled();
+    expect(TERMS_VERSION).not.toBe('2000-01-01');
+  });
+
+  it('shows the agree page only while it is needed', async () => {
+    expect(await run(agreeGuard, true, {}, { needs: true })).toBe(true);
+    expect(url(await run(agreeGuard, true, { next: '/jobs' }))).toBe('/jobs');
+    expect(url(await run(agreeGuard, true, { next: '//evil' }))).toBe('/today');
+    expect(url(await run(agreeGuard, false, {}))).toBe('/login');
   });
 });

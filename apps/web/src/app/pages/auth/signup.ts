@@ -14,6 +14,7 @@ import {
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { environment } from '../../../environments/environment';
 import { Auth } from '../../core/auth';
+import { rememberAgreed } from '../../core/terms';
 import { AuthShell } from './auth-shell';
 import { EyeToggle } from './eye-toggle';
 import { emailHelp, focusFirstInvalid } from './field-help';
@@ -135,6 +136,38 @@ import { LinkedInButton } from './linkedin-button';
             }}</span>
           }
         </label>
+        <label class="flex items-start gap-2.5 text-sm">
+          <input
+            id="signup-terms"
+            type="checkbox"
+            formControlName="terms"
+            class="mt-1 shrink-0"
+            [attr.aria-invalid]="
+              (tried() || liTried()) && !form.controls.terms.value
+            "
+          />
+          <span class="!font-normal text-ink-muted"
+            >I agree to the
+            <a
+              routerLink="/terms"
+              target="_blank"
+              class="text-brand-ink underline"
+              >Terms</a
+            >
+            and the
+            <a
+              routerLink="/privacy"
+              target="_blank"
+              class="text-brand-ink underline"
+              >Privacy page</a
+            >.</span
+          >
+        </label>
+        @if ((tried() || liTried()) && !form.controls.terms.value) {
+          <span id="signup-terms-help" class="-mt-2 text-sm text-bad"
+            >Tick the box to agree to the Terms and the Privacy page.</span
+          >
+        }
         @if (error()) {
           <p class="text-sm text-bad" role="alert">
             {{ error() }}
@@ -221,6 +254,8 @@ export class Signup {
       validators: [Validators.required, Validators.minLength(8)],
     }),
     confirm: new FormControl('', { nonNullable: true }),
+    /** Agreeing to the Terms and the Privacy page; recorded by the database. */
+    terms: new FormControl(false, { nonNullable: true }),
   });
 
   /** The second password box is empty or differs from the first. */
@@ -241,18 +276,19 @@ export class Signup {
   async continueWithLinkedIn() {
     if (this.liBusy() || this.busy()) return;
     this.liError.set('');
-    const { inviteCode, email } = this.form.controls;
-    if (!this.open()) {
-      this.liTried.set(true);
-      const missing = !inviteCode.value.trim()
+    const { inviteCode, email, terms } = this.form.controls;
+    this.liTried.set(true);
+    const missing =
+      !this.open() && !inviteCode.value.trim()
         ? '#signup-invite'
-        : email.invalid
+        : !this.open() && email.invalid
           ? '#signup-email'
-          : '';
-      if (missing) {
-        this.host.nativeElement.querySelector<HTMLElement>(missing)?.focus();
-        return;
-      }
+          : !terms.value
+            ? '#signup-terms'
+            : '';
+    if (missing) {
+      this.host.nativeElement.querySelector<HTMLElement>(missing)?.focus();
+      return;
     }
     this.liBusy.set(true);
     try {
@@ -266,6 +302,9 @@ export class Signup {
         }
         await this.auth.reserveLinkedInSignup(inviteCode.value, email.value);
       }
+      // Recorded with the reserved code when there is one; otherwise on the
+      // way back from LinkedIn, in this tab.
+      rememberAgreed();
       await this.auth.signInWithLinkedIn('/today');
       // The browser is leaving for LinkedIn; the button stays busy.
     } catch (e) {
@@ -290,6 +329,12 @@ export class Signup {
     if (this.mismatch()) {
       this.host.nativeElement
         .querySelector<HTMLElement>('#signup-confirm')
+        ?.focus();
+      return;
+    }
+    if (!this.form.controls.terms.value) {
+      this.host.nativeElement
+        .querySelector<HTMLElement>('#signup-terms')
         ?.focus();
       return;
     }

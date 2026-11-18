@@ -30,6 +30,7 @@ export class DemoAuth {
   );
   readonly isSignedIn = computed(() => this._status() === 'signed_in');
   readonly isAdmin = computed(() => this.isSignedIn());
+  readonly needsTerms = computed(() => false);
   readonly ready = Promise.resolve();
 
   async signUp() {
@@ -58,6 +59,9 @@ export class DemoAuth {
   }
   async disconnectLinkedIn() {
     this.linkedIn = false;
+  }
+  async acceptTerms() {
+    /* no-op in demo */
   }
   async signOut() {
     this._status.set('signed_out');

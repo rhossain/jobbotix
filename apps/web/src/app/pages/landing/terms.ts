@@ -34,8 +34,10 @@ import { LEGAL, LegalFact, ProSoonNote, seller } from './legal';
         <jb-legal-fact [value]="legal.operator" what="legal name" />,
         <jb-legal-fact [value]="legal.address" what="postal address" />. Write
         to <jb-legal-fact [value]="legal.email" what="contact email" /> about
-        anything on this page. By creating an account you agree to these terms
-        and to the <a routerLink="/privacy" class="underline">privacy page</a>.
+        anything on this page. You agree to these terms and to the
+        <a routerLink="/privacy" class="underline">privacy page</a> when you
+        create an account, by ticking the box on the sign-up page; Jobbotix
+        keeps a record of which version you agreed to and when.
       </p>
 
       <h2 class="mt-10 text-xl font-semibold">What Jobbotix does</h2>

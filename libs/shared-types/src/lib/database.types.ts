@@ -72,6 +72,9 @@ export type ProfileRow = Timestamps & {
   support_access_until?: string | null;
   /** The look of the resume (missing before migration 0038). */
   resume_template?: string;
+  /** Which Terms the person agreed to, and when (missing before migration 0064). */
+  terms_version?: string | null;
+  terms_accepted_at?: string | null;
 };
 
 export type InviteCodeRow = {
@@ -881,9 +884,15 @@ export type Database = {
       admin_overview: { Args: Record<string, never>; Returns: Json };
       signup_is_open: { Args: Record<string, never>; Returns: boolean };
       reserve_linkedin_signup: {
-        Args: { p_code: string; p_email: string; p_timezone?: string };
+        Args: {
+          p_code: string;
+          p_email: string;
+          p_timezone?: string;
+          p_terms_version?: string;
+        };
         Returns: undefined;
       };
+      accept_terms: { Args: { p_version: string }; Returns: undefined };
       shared_view: { Args: { p_token: string }; Returns: Json };
       market_signals: { Args: Record<string, never>; Returns: Json };
       report_error: { Args: { p: Json }; Returns: undefined };

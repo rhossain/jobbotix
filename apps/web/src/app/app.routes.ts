@@ -3,6 +3,7 @@ import { RedirectFunction, Route, Router } from '@angular/router';
 import { environment } from '../environments/environment';
 import {
   adminGuard,
+  agreeGuard,
   authGuard,
   guestGuard,
   landingGuard,
@@ -202,6 +203,12 @@ export const appRoutes: Route[] = [
     loadComponent: () =>
       import('./pages/auth/reset-password').then((m) => m.ResetPassword),
     title: 'New password · Jobbotix',
+  },
+  {
+    path: 'agree',
+    canActivate: [agreeGuard],
+    loadComponent: () => import('./pages/auth/agree').then((m) => m.Agree),
+    title: 'Terms · Jobbotix',
   },
   {
     path: 'auth/confirm',

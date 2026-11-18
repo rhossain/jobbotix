@@ -2,6 +2,7 @@ import { Injectable, computed, signal } from '@angular/core';
 import type { EmailOtpType, Session, User } from '@supabase/supabase-js';
 import type { ProfileRow } from '@jobbotix/shared-types';
 import { injectSupabase } from './supabase';
+import { TERMS_VERSION } from './terms';
 
 export type AuthStatus = 'loading' | 'signed_out' | 'signed_in';
 
@@ -35,6 +36,15 @@ export class Auth {
   readonly user = computed<User | null>(() => this._session()?.user ?? null);
   readonly isSignedIn = computed(() => this._status() === 'signed_in');
   readonly isAdmin = computed(() => this._profile()?.is_admin ?? false);
+  /**
+   * The account has no record of agreeing to the current Terms. False on a
+   * database from before terms were recorded (the column is missing).
+   */
+  readonly needsTerms = computed(() => {
+    const p = this._profile();
+    if (!p || p.terms_accepted_at === undefined) return false;
+    return !p.terms_accepted_at || p.terms_version !== TERMS_VERSION;
+  });
 
   readonly ready: Promise<void>;
   /** A verify() in flight, so several callers share one request. */
@@ -67,6 +77,8 @@ export class Auth {
             ? input.inviteCode.trim().toUpperCase()
             : undefined,
           timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          // the box ticked on the Sign up page; the database records it
+          terms_version: TERMS_VERSION,
         },
       },
     });
@@ -110,17 +122,24 @@ export class Auth {
    * made. Kept for half an hour.
    */
   async reserveLinkedInSignup(inviteCode: string, email: string) {
-    const { error } = await this.supabase.rpc('reserve_linkedin_signup', {
+    const args = {
       p_code: inviteCode.trim().toUpperCase(),
       p_email: email.trim(),
       p_timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    };
+    const missing = (e: { code?: string; message: string }) =>
+      e.code === 'PGRST202' || /could not find the function/i.test(e.message);
+    let { error } = await this.supabase.rpc('reserve_linkedin_signup', {
+      ...args,
+      p_terms_version: TERMS_VERSION,
     });
+    // A database from before terms were recorded (migration 0064) has the
+    // three-argument form only; the agreement is then asked for after.
+    if (error && missing(error))
+      ({ error } = await this.supabase.rpc('reserve_linkedin_signup', args));
     if (!error) return;
     // The function is not on this server yet.
-    if (
-      error.code === 'PGRST202' ||
-      /could not find the function/i.test(error.message)
-    )
+    if (missing(error))
       throw new Error(
         'Signing up with LinkedIn is not switched on yet. Create the account with the form above for now.',
       );
@@ -166,6 +185,15 @@ export class Auth {
       throw new Error(friendly('single identity'));
     const { error: failed } = await this.supabase.auth.unlinkIdentity(linkedIn);
     if (failed) throw new Error(friendly(failed.message));
+  }
+
+  /** Records that the signed-in person agrees to the current Terms. */
+  async acceptTerms() {
+    const { error } = await this.supabase.rpc('accept_terms', {
+      p_version: TERMS_VERSION,
+    });
+    if (error) throw new Error(friendly(error.message));
+    await this.refreshProfile();
   }
 
   async signOut() {

@@ -40,11 +40,18 @@ async function setup(open = true, codeIsValid = true) {
     input.value = value;
     input.dispatchEvent(new Event('input'));
   };
+  const tick = () => {
+    const box = el.querySelector<HTMLInputElement>('#signup-terms');
+    if (!box) throw new Error('#signup-terms not found');
+    box.checked = true;
+    box.dispatchEvent(new Event('change'));
+  };
   const fill = (confirm: string) => {
     type('#signup-name', 'Alex Morgan');
     type('#signup-email', 'alex@example.com');
     type('#signup-password', 'secret-words');
     type('#signup-confirm', confirm);
+    tick();
   };
   const linkedIn = () =>
     el.querySelector('#linkedin-continue') as HTMLButtonElement;
@@ -60,6 +67,7 @@ async function setup(open = true, codeIsValid = true) {
     signUp,
     fill,
     type,
+    tick,
     press,
     calls,
     reserveLinkedInSignup,
@@ -115,7 +123,9 @@ describe('Signup', () => {
 
   describe('with LinkedIn', () => {
     it('goes straight to LinkedIn while sign-up is open', async () => {
-      const { press, calls, signInWithLinkedIn, signUp } = await setup(true);
+      const { press, tick, calls, signInWithLinkedIn, signUp } =
+        await setup(true);
+      tick();
       await press();
       expect(calls).toEqual(['linkedin']);
       expect(signInWithLinkedIn).toHaveBeenCalledWith('/today');
@@ -140,10 +150,11 @@ describe('Signup', () => {
     });
 
     it('hands the code in for that email address before going to LinkedIn', async () => {
-      const { press, type, calls, reserveLinkedInSignup, signUp } =
+      const { press, type, tick, calls, reserveLinkedInSignup, signUp } =
         await setup(false);
       type('#signup-invite', 'abc123');
       type('#signup-email', 'alex@example.com');
+      tick();
       await press();
       expect(calls).toEqual(['reserve', 'linkedin']);
       expect(reserveLinkedInSignup).toHaveBeenCalledWith(
@@ -154,9 +165,10 @@ describe('Signup', () => {
     });
 
     it('does not leave for LinkedIn with a wrong invite code', async () => {
-      const { el, press, type, calls } = await setup(false, false);
+      const { el, press, type, tick, calls } = await setup(false, false);
       type('#signup-invite', 'nope');
       type('#signup-email', 'alex@example.com');
+      tick();
       await press();
       expect(calls).toEqual([]);
       expect(el.querySelector('#linkedin-error')?.textContent).toContain(
@@ -165,8 +177,9 @@ describe('Signup', () => {
     });
 
     it('stays on the page when the code could not be handed in', async () => {
-      const { el, press, type, calls, reserveLinkedInSignup } =
+      const { el, press, type, tick, calls, reserveLinkedInSignup } =
         await setup(false);
+      tick();
       reserveLinkedInSignup.mockRejectedValue(
         new Error('Signing up with LinkedIn is not switched on yet.'),
       );
@@ -177,6 +190,40 @@ describe('Signup', () => {
       expect(el.querySelector('#linkedin-error')?.textContent).toContain(
         'not switched on yet',
       );
+    });
+  });
+
+  describe('the Terms', () => {
+    it('does not create the account until the box is ticked', async () => {
+      const { fixture, el, button, signUp, type } = await setup();
+      type('#signup-name', 'Alex Morgan');
+      type('#signup-email', 'alex@example.com');
+      type('#signup-password', 'secret-words');
+      type('#signup-confirm', 'secret-words');
+      button.click();
+      await fixture.whenStable();
+      fixture.detectChanges();
+      expect(signUp).not.toHaveBeenCalled();
+      expect(el.querySelector('#signup-terms-help')?.textContent).toContain(
+        'Tick the box',
+      );
+      expect(el.ownerDocument.activeElement?.id).toBe('signup-terms');
+    });
+
+    it('does not leave for LinkedIn until the box is ticked', async () => {
+      const { el, press, calls } = await setup(true);
+      await press();
+      expect(calls).toEqual([]);
+      expect(el.ownerDocument.activeElement?.id).toBe('signup-terms');
+    });
+
+    it('remembers the ticked box in this tab for the trip to LinkedIn', async () => {
+      sessionStorage.clear();
+      const { press, tick } = await setup(true);
+      tick();
+      await press();
+      expect(sessionStorage.getItem('jb-terms-agreed')).toBeTruthy();
+      sessionStorage.clear();
     });
   });
 });
