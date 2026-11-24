@@ -26,6 +26,7 @@ import { Theme, type ThemePreference } from '../../core/theme';
 import { ShellState } from '../../shell/shell-state';
 import { Tour } from '../../shell/tour';
 import { AiConnections } from './ai-connections';
+import { HelpChat } from '../../help/help-chat';
 import { DataPanel } from './data-panel';
 import { LinkedInCard } from './linkedin-card';
 import { PlanCard } from './plan-card';
@@ -353,6 +354,24 @@ export function settingsTab(raw: string | null): SettingsTab {
             />
           </section>
 
+          <section class="jb-card p-5 md:p-6">
+            <label class="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                class="mt-1"
+                [checked]="help.showButton()"
+                (change)="help.setShowButton($any($event.target).checked)"
+              />
+              <span>
+                <span class="jb-section-title block">Show the Help button</span>
+                <span class="mt-1 block text-sm text-ink-muted">
+                  The round button in the corner that opens the Help chat. Help
+                  stays in the menu either way.
+                </span>
+              </span>
+            </label>
+          </section>
+
           <!-- Keyboard shortcuts: hidden on phones, which have no keyboard -->
           <section class="jb-card hidden p-5 md:block md:p-6">
             <label class="flex cursor-pointer items-start gap-3">
@@ -410,6 +429,7 @@ export class Settings {
   protected readonly theme = inject(Theme);
   protected readonly tour = inject(Tour);
   protected readonly shell = inject(ShellState);
+  protected readonly help = inject(HelpChat);
   /** AI usage and access keys stay folded away until asked for. */
   protected readonly advancedOpen = signal(false);
   private readonly confirm = inject(Confirm);

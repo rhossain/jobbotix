@@ -101,6 +101,8 @@ import {
   InterviewsRepo,
   PeopleRepo,
   AccountDataRepo,
+  SupportRepo,
+  type SupportRequest,
   PlanRepo,
   type AdminPlan,
   type ImportRoleInput,
@@ -2552,4 +2554,15 @@ function blankRole(): Partial<RoleRow> {
     remote_policy: 'unknown',
     hiring_countries: [],
   };
+}
+
+/** Demo: nothing leaves the browser; the request is only kept here. */
+@Injectable()
+export class MemorySupportRepo extends SupportRepo {
+  readonly sent: SupportRequest[] = [];
+
+  async send(req: SupportRequest) {
+    await new Promise((r) => setTimeout(r, 400));
+    this.sent.push(req);
+  }
 }

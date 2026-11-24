@@ -84,6 +84,8 @@ import {
   InterviewsRepo,
   PeopleRepo,
   AccountDataRepo,
+  SupportRepo,
+  type SupportRequest,
   PlanRepo,
   UpgradeRequiredError,
   type AdminPlan,
@@ -567,6 +569,18 @@ export class SupabaseSavedViewsRepo extends SavedViewsRepo {
       .eq('id', id);
     if (error) throw error;
     this._views.update((vs) => vs.filter((v) => v.id !== id));
+  }
+}
+
+@Injectable()
+export class SupabaseSupportRepo extends SupportRepo {
+  private readonly supabase = injectSupabase();
+
+  async send(req: SupportRequest) {
+    const { error } = await this.supabase.functions.invoke('contact-support', {
+      body: req,
+    });
+    if (error) throw await functionError(error);
   }
 }
 

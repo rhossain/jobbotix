@@ -22,6 +22,9 @@ import { SessionWatch } from './core/session-watch';
 import { Shortcuts } from './core/shortcuts';
 import { Theme } from './core/theme';
 import { Viewport } from './core/viewport';
+import { HelpChat } from './help/help-chat';
+import { HelpFab } from './help/help-fab';
+import { HelpPanel } from './help/help-panel';
 import { CommandPalette } from './shell/command-palette';
 import { Logo } from './shell/logo';
 import { MoreSheet, TabBar, TopBar } from './shell/mobile-nav';
@@ -43,6 +46,8 @@ const PARENTS: [RegExp, { link: string; label: string }][] = [
     Button,
     CommandPalette,
     ConfirmHost,
+    HelpFab,
+    HelpPanel,
     Icon,
     Logo,
     MoreSheet,
@@ -66,6 +71,7 @@ export class App {
   protected readonly viewport = inject(Viewport);
   protected readonly confirm = inject(Confirm);
   protected readonly tour = inject(Tour);
+  protected readonly helpChat = inject(HelpChat);
   private readonly router = inject(Router);
   private readonly doc = inject(DOCUMENT);
   protected readonly title = 'Jobbotix';

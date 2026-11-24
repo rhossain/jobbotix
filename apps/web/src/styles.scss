@@ -784,6 +784,184 @@
     --toast-offset: calc(var(--tabbar-h) + 0.75rem);
   }
 
+  // ---------- Help button (help/help-fab.ts) ----------
+  // The host keeps the full button's size and place at all times, so the
+  // button can measure what is underneath even while it is tucked away.
+  body {
+    --help-size: 48px;
+    --help-right: 16px;
+    --help-bottom: calc(
+      var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px
+    );
+  }
+
+  @media (min-width: 768px) {
+    body {
+      --help-size: 56px;
+      --help-right: 24px;
+      --help-bottom: 24px;
+    }
+  }
+
+  // Toasts (with their Undo buttons) sit above the Help button, never under it.
+  body.jb-has-help {
+    --toast-offset: calc(var(--help-bottom) + var(--help-size) + 0.75rem);
+    --toast-offset-wide: calc(var(--help-bottom) + var(--help-size) + 0.75rem);
+  }
+
+  .jb-help-fab {
+    position: fixed;
+    right: var(--help-right);
+    bottom: var(--help-bottom);
+    z-index: 40;
+    width: var(--help-size);
+    height: var(--help-size);
+    pointer-events: none;
+  }
+
+  .jb-help-fab-btn {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    display: grid;
+    place-items: center;
+    width: var(--help-size);
+    height: var(--help-size);
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--brand);
+    color: var(--ink-on-brand);
+    box-shadow:
+      0 10px 24px -8px color-mix(in srgb, var(--brand) 55%, transparent),
+      0 2px 6px rgb(0 0 0 / 0.12);
+    cursor: pointer;
+    pointer-events: auto;
+    transition:
+      width var(--dur-base) var(--motion-ease),
+      height var(--dur-base) var(--motion-ease),
+      right var(--dur-base) var(--motion-ease),
+      border-radius var(--dur-base) var(--motion-ease),
+      transform var(--dur-base) var(--motion-spring),
+      opacity var(--dur-base) var(--motion-ease),
+      visibility 0s linear 0s,
+      background-color var(--dur-fast) var(--motion-ease);
+
+    &:hover {
+      background: var(--brand-hover);
+    }
+
+    &:active {
+      transform: scale(0.94);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--brand);
+      outline-offset: 3px;
+    }
+  }
+
+  // A slim tab at the screen edge while something sits under the button's spot.
+  .jb-help-fab.is-tucked .jb-help-fab-btn {
+    right: calc(-1 * var(--help-right));
+    width: 26px;
+    height: 44px;
+    border-radius: 12px 0 0 12px;
+    box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.25);
+  }
+
+  .jb-help-fab.is-hidden .jb-help-fab-btn {
+    opacity: 0;
+    transform: translateY(12px) scale(0.8);
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity var(--dur-base) var(--motion-ease),
+      transform var(--dur-base) var(--motion-ease),
+      visibility 0s linear var(--dur-base);
+  }
+
+  // "Help" beside the button on hover or keyboard focus (wide screens).
+  .jb-help-fab-tip {
+    position: absolute;
+    right: calc(100% + 10px);
+    top: 50%;
+    padding: 0.3rem 0.6rem;
+    border-radius: var(--r-control);
+    background: var(--ink);
+    color: var(--surface);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+    opacity: 0;
+    transform: translate(4px, -50%);
+    transition:
+      opacity var(--dur-fast) var(--motion-ease),
+      transform var(--dur-fast) var(--motion-ease);
+    pointer-events: none;
+  }
+
+  @media (hover: hover) {
+    .jb-help-fab-btn:hover .jb-help-fab-tip,
+    .jb-help-fab-btn:focus-visible .jb-help-fab-tip {
+      opacity: 1;
+      transform: translate(0, -50%);
+    }
+  }
+
+  .jb-help-fab.is-tucked .jb-help-fab-tip {
+    display: none;
+  }
+
+  // ---------- Help chat window (help/help-panel.ts) ----------
+  // Phones: the whole screen, over the tab bar. Wider: a window in the
+  // corner where the button was, leaving the page usable beside it.
+  .jb-help-panel {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    display: flex;
+    flex-direction: column;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px)
+      env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    background: var(--surface-raised);
+    color: var(--ink);
+    opacity: 0;
+    transform: translateY(16px);
+    visibility: hidden;
+    transition:
+      opacity var(--dur-base) var(--motion-ease),
+      transform var(--dur-base) var(--motion-ease),
+      visibility 0s linear var(--dur-base);
+
+    &.is-open {
+      opacity: 1;
+      transform: none;
+      visibility: visible;
+      transition:
+        opacity var(--dur-base) var(--motion-ease),
+        transform var(--dur-slow) var(--motion-spring),
+        visibility 0s linear 0s;
+    }
+  }
+
+  @media (min-width: 768px) {
+    .jb-help-panel {
+      inset: auto var(--help-right) var(--help-bottom) auto;
+      width: min(25rem, calc(100vw - 2 * var(--help-right)));
+      height: min(40rem, calc(100dvh - 2 * var(--help-bottom)));
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: var(--r-sheet);
+      box-shadow:
+        var(--elev-overlay),
+        0 2px 8px rgb(0 0 0 / 0.08);
+      transform: translateY(12px) scale(0.96);
+      transform-origin: bottom right;
+    }
+  }
+
   .jb-palette {
     place-items: start center;
     padding-top: max(var(--gutter), 12dvh);

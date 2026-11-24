@@ -461,6 +461,21 @@ export abstract class AccountDataRepo {
   abstract deleteAccount(): Promise<void>;
 }
 
+/** A question the Help chat could not answer, sent on to the support team. */
+export interface SupportRequest {
+  /** The person's own words. */
+  message: string;
+  /** The page they were on when they asked. */
+  page: string;
+  /** The conversation so far, as plain lines, so support sees what was tried. */
+  conversation: string;
+}
+
+export abstract class SupportRepo {
+  /** Emails it to support; the reply goes to the address on the account. */
+  abstract send(req: SupportRequest): Promise<void>;
+}
+
 export abstract class ScreeningRepo {
   abstract addQuestion(roleId: string, question: string): Promise<void>;
   abstract updateAnswer(id: string, answer: string): Promise<void>;

@@ -43,6 +43,11 @@
 <jb-command-palette />
 } @defer (when tour.active(); prefetch on idle) {
 <jb-tour />
+}
+<jb-help-fab />
+<!-- The chat window and its articles load the first time Help is opened. -->
+@defer (when helpChat.open(); prefetch on idle) {
+<jb-help-panel />
 } } @else {
 <header class="jb-public-header print:hidden">
   <a

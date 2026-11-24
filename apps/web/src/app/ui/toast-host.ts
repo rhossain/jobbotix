@@ -67,8 +67,10 @@ import { Icon } from './icon';
       :host {
         left: auto;
         right: var(--gutter);
+        bottom: calc(
+          var(--toast-offset-wide, 1.5rem) + env(safe-area-inset-bottom, 0px)
+        );
         transform: none;
-        --toast-offset: 1.5rem;
       }
     }
     ol {
