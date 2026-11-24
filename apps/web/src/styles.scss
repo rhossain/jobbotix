@@ -790,9 +790,8 @@
   body {
     --help-size: 48px;
     --help-right: 16px;
-    --help-bottom: calc(
-      var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px
-    );
+    // Above the tab bar; each fixed rule adds the home-indicator inset itself.
+    --help-bottom: calc(var(--tabbar-h) + 12px);
   }
 
   @media (min-width: 768px) {
@@ -812,7 +811,7 @@
   .jb-help-fab {
     position: fixed;
     right: var(--help-right);
-    bottom: var(--help-bottom);
+    bottom: calc(var(--help-bottom) + env(safe-area-inset-bottom, 0px));
     z-index: 40;
     width: var(--help-size);
     height: var(--help-size);
@@ -834,7 +833,7 @@
     color: var(--ink-on-brand);
     box-shadow:
       0 10px 24px -8px color-mix(in srgb, var(--brand) 55%, transparent),
-      0 2px 6px rgb(0 0 0 / 0.12);
+      var(--elev-raised);
     cursor: pointer;
     pointer-events: auto;
     transition:
@@ -867,7 +866,7 @@
     width: 26px;
     height: 44px;
     border-radius: 12px 0 0 12px;
-    box-shadow: 0 4px 12px -4px rgb(0 0 0 / 0.25);
+    box-shadow: var(--elev-raised);
   }
 
   .jb-help-fab.is-hidden .jb-help-fab-btn {
@@ -947,16 +946,15 @@
 
   @media (min-width: 768px) {
     .jb-help-panel {
-      inset: auto var(--help-right) var(--help-bottom) auto;
+      inset: auto var(--help-right)
+        calc(var(--help-bottom) + env(safe-area-inset-bottom, 0px)) auto;
       width: min(25rem, calc(100vw - 2 * var(--help-right)));
       height: min(40rem, calc(100dvh - 2 * var(--help-bottom)));
       padding: 0;
       overflow: hidden;
       border: 1px solid var(--line);
       border-radius: var(--r-sheet);
-      box-shadow:
-        var(--elev-overlay),
-        0 2px 8px rgb(0 0 0 / 0.08);
+      box-shadow: var(--elev-overlay);
       transform: translateY(12px) scale(0.96);
       transform-origin: bottom right;
     }

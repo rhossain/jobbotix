@@ -36,7 +36,10 @@
 // Room at the foot of every page for the Help button, so the last row,
 // pager or button can always be scrolled out from under it.
 :host-context(body.jb-has-help) .jb-shell .jb-page {
-  padding-bottom: calc(var(--help-bottom) + var(--help-size) + 1.25rem);
+  padding-bottom: calc(
+    var(--help-bottom) + var(--help-size) + env(safe-area-inset-bottom, 0px) +
+      1.25rem
+  );
 
   @media print {
     padding: 0;

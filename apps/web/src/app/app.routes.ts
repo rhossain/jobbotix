@@ -170,9 +170,15 @@ export const appRoutes: Route[] = [
     title: 'Settings · Jobbotix',
   },
   {
+    // Open to everyone: emails, the landing page and search engines link here.
     path: 'help',
-    canActivate: [authGuard],
     loadComponent: () => import('./pages/help/help').then((m) => m.HelpPage),
+    title: 'Help · Jobbotix',
+  },
+  {
+    path: 'help/:id',
+    loadComponent: () =>
+      import('./pages/help/help-article').then((m) => m.HelpArticlePage),
     title: 'Help · Jobbotix',
   },
   {
