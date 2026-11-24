@@ -2713,4 +2713,47 @@ end $$;
 reset role;
 delete from auth.users where id in ('99999999-9999-9999-9999-999999999911', '99999999-9999-9999-9999-999999999912', '99999999-9999-9999-9999-999999999913');
 
+-- ---------------------------------------------------------------------------
+-- Help tickets: written only by the contact-support function, read by their owner
+-- ---------------------------------------------------------------------------
+insert into public.help_tickets (user_id, message, page)
+values ('11111111-1111-1111-1111-111111111111', 'How do I export my jobs?', '/jobs');
+
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if (select count(*) from public.help_tickets) <> 1 then
+    raise exception 'FAIL: the owner cannot read their help ticket';
+  end if;
+end $$;
+do $$ begin
+  insert into public.help_tickets (user_id, message)
+  values ('11111111-1111-1111-1111-111111111111', 'spam');
+  raise exception 'FAIL: a user wrote a help ticket directly';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  update public.help_tickets set message = 'changed';
+  if (select message from public.help_tickets limit 1) <> 'How do I export my jobs?' then
+    raise exception 'FAIL: a user changed a help ticket';
+  end if;
+exception when insufficient_privilege then null;
+end $$;
+
+set request.jwt.claim.sub = '22222222-2222-2222-2222-222222222222';
+do $$ begin
+  if (select count(*) from public.help_tickets) <> 0 then
+    raise exception 'FAIL: another user can read a help ticket';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
+do $$ begin
+  insert into public.help_tickets (user_id, message)
+  values ('11111111-1111-1111-1111-111111111111', '   ');
+  raise exception 'FAIL: an empty help ticket was accepted';
+exception when check_violation then null;
+end $$;
+delete from public.help_tickets;
+
 \echo RLS tests passed
