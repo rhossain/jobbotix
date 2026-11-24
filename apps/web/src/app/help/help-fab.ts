@@ -12,6 +12,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 import { filter } from 'rxjs';
 import { Viewport } from '../core/viewport';
@@ -125,7 +126,10 @@ export class HelpFab {
     });
 
     inject(Router)
-      .events.pipe(filter((e) => e instanceof NavigationEnd))
+      .events.pipe(
+        filter((e) => e instanceof NavigationEnd),
+        takeUntilDestroyed(),
+      )
       .subscribe(() => {
         this.soon(150);
         this.soon(1200); // pages that load their data after the first paint
