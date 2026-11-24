@@ -82,6 +82,10 @@ const ICONS = [
   'users',
   'circle-play',
   'eye-off',
+  'message-circle-question-mark',
+  'book-open',
+  'thumbs-up',
+  'thumbs-down',
 ];
 
 const out = {};
