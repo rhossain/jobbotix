@@ -1325,17 +1325,18 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     area: 'problems',
     title: 'Why am I not getting any jobs?',
     summary:
-      'Usually the job titles are too narrow, on-site jobs are switched off, or the search has not run yet. Check these in order.',
+      'Usually the job titles are too narrow, on-site jobs are switched off, or the search has not run yet. Go down this checklist.',
     steps: [
-      'Job preferences: are your job titles and skills filled in and saved?',
-      'Question 3: is the country you live in chosen?',
-      'Question 4: if you would work at a workplace, choose on-site and hybrid jobs too.',
-      'Press Suggest other job titles and add other names for your job.',
+      'Job preferences are saved, with at least one job title and your skills.',
+      'Question 3: the country you live in is chosen.',
+      'Question 4: if you would work at a workplace, on-site and hybrid jobs are chosen too.',
+      'Your job titles are not too narrow: press Suggest other job titles and add other names for your job.',
       'Press Preview what this finds to see what each change would bring in.',
       'Look at Filtered out to see which job posts were left out and why.',
     ],
     notes: [
       'After you save, Jobbotix checks the last 30 days of job posts, then new ones every hour. The first jobs usually appear within the hour.',
+      'When the Help chat answers with AI, it checks this list against your set-up and tells you which step to look at first.',
     ],
     link: { to: '/search', label: 'Open Job preferences' },
     pages: ['/today', '/jobs', '/search'],
@@ -1354,11 +1355,15 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     area: 'problems',
     title: 'Why did I not get the daily email?',
     summary:
-      'Check that the daily email is switched on, that today is one of its days, and look in your spam folder.',
+      'Check that the daily email is switched on, that today is one of its days, and look in your spam folder. Go down this checklist.',
     steps: [
-      'Open Job preferences, press More options and look under Emails: is "Send me a daily email with new jobs" ticked?',
-      'Check the time and days it is set to, and your timezone in Settings.',
+      'Open Job preferences, press More options and look under Emails: "Send me a daily email with new jobs" is ticked.',
+      'Today is one of the days it is set to, and its time has passed in your timezone (your timezone is in Settings).',
+      '"Only jobs with a match score of at least" is not set too high: it limits which jobs the email lists.',
       'Look in your spam or promotions folder, and mark the email as not spam.',
+    ],
+    notes: [
+      'When the Help chat answers with AI, it checks this list against your set-up and tells you which step to look at first.',
     ],
     link: { to: '/search', label: 'Open Job preferences' },
     pages: ['/search', '/today'],

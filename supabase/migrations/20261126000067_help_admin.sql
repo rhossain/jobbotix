@@ -141,6 +141,8 @@ begin
     'remote_only', v_sp.remote_only,
     'daily_email', v_sp.digest_enabled,
     'daily_email_time', to_char(v_sp.digest_time, 'HH24:MI'),
+    'daily_email_days', coalesce(cardinality(v_sp.digest_days), 0),
+    'daily_email_min_score', v_sp.digest_min_score,
     'last_search', v_sp.last_matched_at,
     'jobs', (select count(*) from public.roles where user_id = p_user),
     'jobs_last_7_days', (select count(*) from public.roles

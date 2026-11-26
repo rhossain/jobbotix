@@ -179,16 +179,22 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
         A question you type in the Help chat is answered by AI from Jobbotix's
         help articles. It goes to your own AI connection when you have one, and
         otherwise to Anthropic on Jobbotix's account, at no cost to you. The
-        model gets your question, the page you are on and the help articles;
-        nothing from your resume, jobs or notes.
+        model gets your question, the page you are on, the help articles and a
+        short summary of your set-up, so it can tell you why something is not
+        working: your plan, whether your resume and job preferences are saved,
+        the country you live in, how many job titles, skills and other countries
+        you chose, whether you want remote jobs only, your daily email settings
+        and timezone, and how many jobs were found or filtered out. Nothing from
+        your resume, jobs or notes, and not your job titles themselves.
       </p>
       <p class="mt-2">
-        The question, the answer, the page and whether you said it helped are
-        kept for 30 days, so the admin can see which questions the articles do
-        not answer, and then deleted. The suggested questions in the chat are
-        answered in your browser and nothing is sent. When you choose Send to
-        support, your question, the page and the chat before it are emailed to
-        the support team and kept with your account.
+        The admin sees the questions without your name or email, to improve the
+        help articles. The question, the answer, the page and whether you said
+        it helped are kept for 30 days, so the admin can see which questions the
+        articles do not answer, and then deleted. The suggested questions in the
+        chat are answered in your browser and nothing is sent. When you choose
+        Send to support, your question, the page and the chat before it are
+        emailed to the support team and kept with your account.
       </p>
 
       <h2 class="mt-10 text-xl font-semibold">Who can see what</h2>

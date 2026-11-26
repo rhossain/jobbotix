@@ -3,6 +3,7 @@ import { HELP_ARTICLES } from './help-articles.ts';
 import { HELP_QUESTIONS } from './help-questions.ts';
 import {
   buildHelpCall,
+  describeSetup,
   HELP_MAX_ANSWER,
   parseHelpReply,
   readHelpAsk,
@@ -10,8 +11,9 @@ import {
 
 Deno.test('every test question names a real article or is a decline', () => {
   const ids = new Set(HELP_ARTICLES.map((a) => a.id));
-  for (const t of HELP_QUESTIONS)
+  for (const t of HELP_QUESTIONS) {
     assert(t.decline || (t.article && ids.has(t.article)), t.q);
+  }
   assertEquals(HELP_QUESTIONS.length, 40);
 });
 
@@ -87,5 +89,54 @@ Deno.test('parseHelpReply refuses what it cannot use', () => {
       [],
     )?.found,
     false,
+  );
+});
+
+Deno.test('describeSetup: counts and switches in plain lines', () => {
+  assertEquals(describeSetup(null), '');
+  assertEquals(describeSetup('text'), '');
+  const none = describeSetup({ plan: 'Free', preferences_saved: false });
+  assert(none.includes('Job preferences: not saved yet'));
+  assert(none.includes('Resume: not saved yet'));
+  assert(none.includes('Last search for new jobs: not run yet'));
+  const full = describeSetup({
+    plan: 'Pro',
+    resume_saved: true,
+    preferences_saved: true,
+    job_titles: 3,
+    skills: 8,
+    home_country: 'DE',
+    other_countries: 2,
+    remote_only: false,
+    daily_email: true,
+    daily_email_time: '06:45',
+    daily_email_days: 5,
+    daily_email_min_score: 70,
+    timezone: 'Europe/Berlin',
+    last_search: '2026-11-26T09:12:44.1+00:00',
+    jobs: 12,
+    jobs_last_7_days: 4,
+    own_ai: true,
+  });
+  assert(full.includes('3 job title(s), 8 skill(s)'));
+  assert(full.includes('remote, hybrid and on-site'));
+  assert(
+    full.includes('at 06:45 on 5 day(s) a week, jobs scoring at least 70'),
+  );
+  assert(full.includes('2026-11-26 09:12 UTC'));
+  assert(full.includes('Their own AI connection: yes'));
+});
+
+Deno.test('the set-up goes in the question, not the cached part', () => {
+  const p = buildHelpCall(
+    { question: 'why no jobs', page: '' },
+    { preferences_saved: false },
+  );
+  assert(p.call.prompt.startsWith('Their set-up:'));
+  assert(!(p.call.context ?? '').includes('Their set-up'));
+  assert(
+    !buildHelpCall({ question: 'why no jobs', page: '' }).call.prompt.includes(
+      'set-up',
+    ),
   );
 });

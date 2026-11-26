@@ -7,17 +7,19 @@ function providers(
   replies: Record<string, { status?: number; body: unknown }[]>,
 ) {
   const sent: string[] = [];
+  const bodies: string[] = [];
   const real = globalThis.fetch;
-  globalThis.fetch = ((url: string | URL) => {
+  globalThis.fetch = ((url: string | URL, init?: RequestInit) => {
     const host = new URL(String(url)).host;
     sent.push(host);
+    bodies.push(String(init?.body ?? ''));
     const list = replies[host] ?? [{ status: 500, body: {} }];
     const r = list.length > 1 ? list.shift()! : list[0];
     return Promise.resolve(
       new Response(JSON.stringify(r.body), { status: r.status ?? 200 }),
     );
   }) as typeof fetch;
-  return { sent, restore: () => (globalThis.fetch = real) };
+  return { sent, bodies, restore: () => (globalThis.fetch = real) };
 }
 
 const reply = (o: unknown) => JSON.stringify(o);
@@ -45,6 +47,7 @@ function db(opts: {
   connections?: { provider: string }[];
   own?: unknown;
   platform?: unknown;
+  setup?: unknown;
 }) {
   const saved: Record<string, unknown>[] = [];
   const rpcs: { fn: string; args: Record<string, unknown> }[] = [];
@@ -59,7 +62,7 @@ function db(opts: {
   }));
   const admin = {
     from(table: string) {
-      if (table === 'help_messages')
+      if (table === 'help_messages') {
         return {
           insert: (row: Record<string, unknown>) => {
             saved.push(row);
@@ -71,8 +74,10 @@ function db(opts: {
             };
           },
         };
-      if (table === 'ai_usage')
+      }
+      if (table === 'ai_usage') {
         return { insert: () => Promise.resolve({ error: null }) };
+      }
       return {
         select: () => {
           const q = {
@@ -88,7 +93,7 @@ function db(opts: {
     },
     rpc: (fn: string, args: Record<string, unknown>) => {
       rpcs.push({ fn, args });
-      if (fn === 'help_ai_check')
+      if (fn === 'help_ai_check') {
         return Promise.resolve({
           data:
             args['p_route'] === 'own'
@@ -96,8 +101,16 @@ function db(opts: {
               : (opts.platform ?? { ok: true, model: 'claude-haiku-5-5' }),
           error: null,
         });
-      if (fn === 'help_ai_log')
+      }
+      if (fn === 'help_ai_log') {
         return Promise.resolve({ data: 0.0003, error: null });
+      }
+      if (fn === 'help_setup') {
+        return Promise.resolve({
+          data: opts.setup ?? null,
+          error: opts.setup ? null : { message: 'none' },
+        });
+      }
       return Promise.resolve({ data: 'their-key', error: null }); // vault
     },
   };
@@ -255,3 +268,49 @@ Deno.test(
     }
   },
 );
+
+Deno.test(
+  'the AI is told the set-up in brief, and nothing personal',
+  async () => {
+    const p = providers({ 'api.anthropic.com': [claude(GOOD)] });
+    const d = db({
+      setup: {
+        plan: 'Free',
+        resume_saved: true,
+        preferences_saved: true,
+        job_titles: 2,
+        skills: 5,
+        home_country: 'BD',
+        other_countries: 0,
+        remote_only: true,
+        daily_email: false,
+        jobs: 0,
+        jobs_last_7_days: 0,
+        filtered_out_last_7_days: 41,
+        own_ai: false,
+      },
+    });
+    try {
+      await answerHelp(
+        d.admin,
+        'u1',
+        { question: 'why do I get no jobs?', page: '/today' },
+        'sk-platform',
+      );
+      const body = p.bodies[0];
+      assert(body.includes('Their set-up'));
+      assert(body.includes('remote only'));
+      assert(body.includes('filtered out in the last 7 days: 41'));
+      assert(body.includes('Daily email: off'));
+    } finally {
+      p.restore();
+    }
+  },
+);
+
+Deno.test('without any AI, the set-up is not read', async () => {
+  const d = db({});
+  const r = await answerHelp(d.admin, 'u1', ASK, '');
+  assertEquals(r.route, 'articles');
+  assert(!d.rpcs.some((x) => x.fn === 'help_setup'));
+});

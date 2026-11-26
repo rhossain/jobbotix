@@ -6,9 +6,9 @@ import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { callProvider, loadConnections, runAi } from './ai.ts';
 import {
   buildHelpCall,
-  parseHelpReply,
   type HelpAsk,
   type HelpReply,
+  parseHelpReply,
 } from './help.ts';
 
 type Admin = Pick<SupabaseClient, 'from' | 'rpc'>;
@@ -30,8 +30,9 @@ async function gate(
     return { ok: false, reason: 'off' };
   }
   const d = data as Record<string, unknown>;
-  if (d.ok === true && typeof d.model === 'string')
+  if (d.ok === true && typeof d.model === 'string') {
     return { ok: true, model: d.model };
+  }
   const reason = d.reason;
   return {
     ok: false,
@@ -62,7 +63,16 @@ export async function answerHelp(
   ask: HelpAsk,
   key: string,
 ): Promise<HelpAnswer> {
-  const prompt = buildHelpCall(ask);
+  // Counts and switches about their account, so "why do I get no jobs?"
+  // can name the likely cause. Only read when an AI may answer.
+  const connections = await loadConnections(admin, userId);
+  let setup: unknown;
+  if (connections.length || key) {
+    const { data, error } = await admin.rpc('help_setup', { p_user: userId });
+    if (error) console.error(`help_setup failed: ${error.message}`);
+    else setup = data;
+  }
+  const prompt = buildHelpCall(ask, setup);
   const parse = (text: string) => parseHelpReply(text, prompt.allowed);
   let reply: HelpReply | null = null;
   let route: 'own' | 'platform' | 'articles' = 'articles';
@@ -70,7 +80,6 @@ export async function answerHelp(
   let reason: 'off' | 'budget' | 'daily_limit' | 'failed' | undefined;
 
   // 1. Their own AI.
-  const connections = await loadConnections(admin, userId);
   if (connections.length) {
     const g = await gate(admin, userId, 'own');
     if (g.ok) {
