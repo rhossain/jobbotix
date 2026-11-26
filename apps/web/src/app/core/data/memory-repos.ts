@@ -103,6 +103,8 @@ import {
   AccountDataRepo,
   SupportRepo,
   type SupportRequest,
+  HelpAiRepo,
+  type HelpAiAnswer,
   PlanRepo,
   type AdminPlan,
   type ImportRoleInput,
@@ -2564,5 +2566,43 @@ export class MemorySupportRepo extends SupportRepo {
   async send(req: SupportRequest) {
     await new Promise((r) => setTimeout(r, 400));
     this.sent.push(req);
+  }
+}
+
+/**
+ * Demo: no AI and no server. A short answer is made from the best help
+ * article, as an AI answer would read, so the chat can be tried as it works
+ * for real. The articles load only when the first question is asked.
+ */
+@Injectable()
+export class MemoryHelpAiRepo extends HelpAiRepo {
+  async ask(question: string, page: string): Promise<HelpAiAnswer> {
+    const { searchHelp } = await import('../../help/search');
+    await new Promise((r) => setTimeout(r, 700));
+    const hits = searchHelp(question, page, 3);
+    const best = hits[0]?.article;
+    if (!best)
+      return {
+        id: null,
+        route: 'platform',
+        found: false,
+        answer:
+          'I am not sure. The help articles do not cover that, and I can only help with using Jobbotix.',
+        articles: [],
+        ownAi: false,
+      };
+    const steps = (best.steps ?? []).map((s, i) => `${i + 1}. ${s}`);
+    return {
+      id: null,
+      route: 'platform',
+      found: true,
+      answer: [best.summary, ...steps].join('\n'),
+      articles: hits.map((h) => h.article.id).slice(0, 2),
+      ownAi: false,
+    };
+  }
+
+  async feedback() {
+    /* nothing kept in the demo */
   }
 }

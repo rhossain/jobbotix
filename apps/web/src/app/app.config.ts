@@ -35,6 +35,7 @@ import {
   MemoryPeopleRepo,
   MemoryAccountDataRepo,
   MemorySupportRepo,
+  MemoryHelpAiRepo,
   MemoryPlanRepo,
 } from './core/data/memory-repos';
 import {
@@ -57,6 +58,7 @@ import {
   PeopleRepo,
   AccountDataRepo,
   SupportRepo,
+  HelpAiRepo,
   PlanRepo,
 } from './core/data/repos';
 import {
@@ -82,6 +84,7 @@ import {
   SupabasePeopleRepo,
   SupabaseAccountDataRepo,
   SupabaseSupportRepo,
+  SupabaseHelpAiRepo,
   SupabasePlanRepo,
 } from './core/data/supabase-repos';
 import { DemoAuth } from './core/demo-auth';
@@ -113,6 +116,7 @@ export const demoDataProviders: Provider[] = [
   { provide: PeopleRepo, useClass: MemoryPeopleRepo },
   { provide: AccountDataRepo, useClass: MemoryAccountDataRepo },
   { provide: SupportRepo, useClass: MemorySupportRepo },
+  { provide: HelpAiRepo, useClass: MemoryHelpAiRepo },
   { provide: LinkedInRepo, useClass: MemoryLinkedInRepo },
   MemoryPlanRepo,
   { provide: PlanRepo, useExisting: MemoryPlanRepo },
@@ -140,6 +144,7 @@ const dataProviders: Provider[] = environment.demo
       { provide: PeopleRepo, useClass: SupabasePeopleRepo },
       { provide: AccountDataRepo, useClass: SupabaseAccountDataRepo },
       { provide: SupportRepo, useClass: SupabaseSupportRepo },
+      { provide: HelpAiRepo, useClass: SupabaseHelpAiRepo },
       { provide: LinkedInRepo, useClass: SupabaseLinkedInRepo },
       { provide: PlanRepo, useClass: SupabasePlanRepo },
     ];

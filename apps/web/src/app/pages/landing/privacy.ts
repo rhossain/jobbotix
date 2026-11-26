@@ -159,8 +159,9 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
       </ul>
       <p class="mt-2">
         Each provider's own terms cover what it receives. Without a connection
-        nothing is sent to any model: scoring and drafting use Jobbotix's
-        built-in rules and templates.
+        nothing about you is sent to any model: scoring and drafting use
+        Jobbotix's built-in rules and templates. The one exception is a question
+        you type in the Help chat, below.
       </p>
       <p class="mt-2">
         Two results are kept once for everyone, so the same work is not paid for
@@ -171,6 +172,23 @@ import { PROVIDER_ORDER, PROVIDERS } from '@jobbotix/shared-types';
         pays for web research on a company, what it found about the company is
         reused for 30 days for anyone who looks at that company. Your account,
         your resume and your notes are never part of either.
+      </p>
+
+      <h2 id="help-chat" class="mt-10 text-xl font-semibold">Help chat</h2>
+      <p class="mt-2">
+        A question you type in the Help chat is answered by AI from Jobbotix's
+        help articles. It goes to your own AI connection when you have one, and
+        otherwise to Anthropic on Jobbotix's account, at no cost to you. The
+        model gets your question, the page you are on and the help articles;
+        nothing from your resume, jobs or notes.
+      </p>
+      <p class="mt-2">
+        The question, the answer, the page and whether you said it helped are
+        kept for 30 days, so the admin can see which questions the articles do
+        not answer, and then deleted. The suggested questions in the chat are
+        answered in your browser and nothing is sent. When you choose Send to
+        support, your question, the page and the chat before it are emailed to
+        the support team and kept with your account.
       </p>
 
       <h2 class="mt-10 text-xl font-semibold">Who can see what</h2>

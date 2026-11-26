@@ -471,6 +471,30 @@ export interface SupportRequest {
   conversation: string;
 }
 
+/** A Help chat question, answered by the help-chat function. */
+export interface HelpAiAnswer {
+  /** Its record, for Yes or No; null when it could not be kept. */
+  id: string | null;
+  /** own: the person's AI; platform: Jobbotix's; articles: no AI answer. */
+  route: 'own' | 'platform' | 'articles';
+  /** false: the help articles do not answer it. */
+  found: boolean;
+  /** Written by AI; '' on the articles route. */
+  answer: string;
+  /** Help article ids: those the answer used, or the best matches. */
+  articles: string[];
+  /** Why there is no AI answer, on the articles route. */
+  reason?: 'off' | 'budget' | 'daily_limit' | 'failed';
+  /** The person has an AI connection of their own. */
+  ownAi: boolean;
+}
+
+export abstract class HelpAiRepo {
+  abstract ask(question: string, page: string): Promise<HelpAiAnswer>;
+  /** Whether an answer helped; best effort, never throws. */
+  abstract feedback(id: string, value: 'yes' | 'no'): Promise<void>;
+}
+
 export abstract class SupportRepo {
   /** Emails it to support; the reply goes to the address on the account. */
   abstract send(req: SupportRequest): Promise<void>;

@@ -1,4 +1,4 @@
-import { DOCUMENT } from '@angular/common';
+import { DOCUMENT, NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -15,14 +15,14 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterLink } from '@angular/router';
 import { filter, map } from 'rxjs';
 import { Auth } from '../core/auth';
-import { SupportRepo } from '../core/data/repos';
+import { HelpAiRepo, SupportRepo, type HelpAiAnswer } from '../core/data/repos';
 import { Viewport } from '../core/viewport';
 import { Logo } from '../shell/logo';
 import { Tour } from '../shell/tour';
 import { Button, Icon } from '../ui';
 import { HELP_EMAIL, articleById, type HelpArticle } from './articles';
 import { HelpArticleView } from './help-article-view';
-import { HelpChat, type HelpMessage } from './help-chat';
+import { HelpChat, type HelpMessage, type NewMessage } from './help-chat';
 import { searchHelp, suggestionsFor } from './search';
 
 const MAX_QUESTION = 500;
@@ -38,7 +38,7 @@ const MAX_QUESTION = 500;
  */
 @Component({
   selector: 'jb-help-panel',
-  imports: [Button, HelpArticleView, Icon, Logo, RouterLink],
+  imports: [Button, HelpArticleView, Icon, Logo, NgTemplateOutlet, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class: 'jb-help-panel print:hidden',
@@ -159,50 +159,93 @@ const MAX_QUESTION = 500;
                     }
                   </div>
                 }
-                <div
-                  class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3"
-                >
-                  @switch (x.feedback) {
-                    @case ('yes') {
-                      <p class="text-sm text-ink-muted">
-                        <jb-icon
-                          name="circle-check"
-                          [size]="16"
-                          class="text-good"
-                        />
-                        Glad that helped.
-                      </p>
+                @if (x.hint; as h) {
+                  <p class="mt-3 text-xs text-ink-muted">
+                    {{ h.text }}
+                    @if (h.connectAi) {
+                      <a
+                        class="text-brand-ink underline"
+                        routerLink="/settings/ai"
+                        (click)="followed()"
+                        >Connect your own AI</a
+                      >
                     }
-                    @case ('no') {
-                      <p class="text-sm text-ink-muted">Thanks for saying.</p>
-                    }
-                    @default {
-                      <p class="mr-auto text-sm text-ink-muted">
-                        Did this answer your question?
-                      </p>
-                      <span class="flex gap-2">
-                        <button
-                          type="button"
-                          jbButton
-                          size="sm"
-                          (click)="feedback(m.id, 'yes')"
-                        >
-                          <jb-icon name="thumbs-up" /> Yes
-                        </button>
-                        <button
-                          type="button"
-                          jbButton
-                          size="sm"
-                          (click)="feedback(m.id, 'no')"
-                        >
-                          <jb-icon name="thumbs-down" /> No
-                        </button>
-                      </span>
-                    }
-                  }
-                </div>
+                  </p>
+                }
+                <ng-container
+                  *ngTemplateOutlet="
+                    rate;
+                    context: { id: m.id, fb: x.feedback }
+                  "
+                />
               </div>
             }
+          }
+          @case ('ai') {
+            @if (ai(m); as x) {
+              <div class="bubble bot w-full">
+                <p class="text-sm whitespace-pre-line text-ink">{{ x.text }}</p>
+                @if (x.found && x.articles.length) {
+                  @if (x.articles[0].link; as l) {
+                    <div class="mt-3">
+                      <a
+                        jbButton="primary"
+                        size="sm"
+                        [routerLink]="l.to"
+                        (click)="followed()"
+                        >{{ l.label }} <jb-icon name="chevron-right"
+                      /></a>
+                    </div>
+                  }
+                  <p class="mt-3 text-xs font-semibold text-ink-faint">
+                    From the help
+                    {{ x.articles.length > 1 ? 'articles' : 'article' }}
+                  </p>
+                  <div class="mt-1.5 flex flex-col items-start gap-1.5">
+                    @for (o of x.articles; track o.id) {
+                      <button type="button" class="chip" (click)="pick(o)">
+                        {{ o.title }}
+                      </button>
+                    }
+                  </div>
+                } @else if (!x.found) {
+                  <div class="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      jbButton="primary"
+                      size="sm"
+                      (click)="toSupport()"
+                    >
+                      <jb-icon name="mail" /> Send to support
+                    </button>
+                    <a
+                      jbButton
+                      size="sm"
+                      routerLink="/help"
+                      (click)="followed()"
+                      ><jb-icon name="book-open" /> All help</a
+                    >
+                  </div>
+                }
+                <p class="mt-3 text-[0.6875rem] text-ink-faint">
+                  Written by AI from our help articles. It can be wrong.
+                </p>
+                @if (x.found) {
+                  <ng-container
+                    *ngTemplateOutlet="
+                      rate;
+                      context: { id: m.id, fb: x.feedback }
+                    "
+                  />
+                }
+              </div>
+            }
+          }
+          @case ('thinking') {
+            <div class="bubble bot" role="status">
+              <span class="sr-only">Writing an answer</span>
+              <span class="dots" aria-hidden="true"><i></i><i></i><i></i></span>
+            </div>
           }
           @case ('none') {
             <div class="bubble bot">
@@ -292,6 +335,47 @@ const MAX_QUESTION = 500;
       }
     </div>
 
+    <ng-template #rate let-id="id" let-fb="fb">
+      <div
+        class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-3"
+      >
+        @switch (fb) {
+          @case ('yes') {
+            <p class="text-sm text-ink-muted">
+              <jb-icon name="circle-check" [size]="16" class="text-good" />
+              Glad that helped.
+            </p>
+          }
+          @case ('no') {
+            <p class="text-sm text-ink-muted">Thanks for saying.</p>
+          }
+          @default {
+            <p class="mr-auto text-sm text-ink-muted">
+              Did this answer your question?
+            </p>
+            <span class="flex gap-2">
+              <button
+                type="button"
+                jbButton
+                size="sm"
+                (click)="feedback(id, 'yes')"
+              >
+                <jb-icon name="thumbs-up" /> Yes
+              </button>
+              <button
+                type="button"
+                jbButton
+                size="sm"
+                (click)="feedback(id, 'no')"
+              >
+                <jb-icon name="thumbs-down" /> No
+              </button>
+            </span>
+          }
+        }
+      </div>
+    </ng-template>
+
     <form
       class="border-t border-line p-3"
       (submit)="$event.preventDefault(); ask()"
@@ -316,7 +400,7 @@ const MAX_QUESTION = 500;
           iconOnly
           aria-label="Ask"
           class="shrink-0"
-          [disabled]="!question().trim()"
+          [disabled]="!question().trim() || busy()"
         >
           <jb-icon name="send" />
         </button>
@@ -378,6 +462,41 @@ const MAX_QUESTION = 500;
       border-color: var(--brand);
       background: var(--brand-tint);
     }
+    .dots {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px 2px;
+    }
+    .dots i {
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--ink-faint);
+      animation: jb-dot 1.2s infinite ease-in-out;
+    }
+    .dots i:nth-child(2) {
+      animation-delay: 0.15s;
+    }
+    .dots i:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+    @keyframes jb-dot {
+      0%,
+      80%,
+      100% {
+        opacity: 0.3;
+        transform: translateY(0);
+      }
+      40% {
+        opacity: 1;
+        transform: translateY(-3px);
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .dots i {
+        animation: none;
+      }
+    }
     .chip:focus-visible {
       outline: 2px solid var(--brand);
       outline-offset: 2px;
@@ -391,6 +510,7 @@ export class HelpPanel {
   private readonly viewport = inject(Viewport);
   private readonly tour = inject(Tour);
   private readonly supportRepo = inject(SupportRepo);
+  private readonly helpAi = inject(HelpAiRepo);
   private readonly doc = inject(DOCUMENT);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly scroller =
@@ -401,6 +521,8 @@ export class HelpPanel {
   protected readonly helpEmail = HELP_EMAIL;
   protected readonly maxQuestion = MAX_QUESTION;
   protected readonly question = signal('');
+  /** A question is with the AI: one at a time. */
+  protected readonly busy = signal(false);
 
   private readonly page = toSignal(
     this.router.events.pipe(
@@ -456,7 +578,25 @@ export class HelpPanel {
     const also = m.also
       .map((id) => articleById(id))
       .filter((a): a is HelpArticle => !!a);
-    return { article, also, intro: m.intro, feedback: m.feedback };
+    return {
+      article,
+      also,
+      intro: m.intro,
+      feedback: m.feedback,
+      hint: m.hint,
+    };
+  }
+
+  protected ai(m: HelpMessage) {
+    if (m.from !== 'bot' || m.kind !== 'ai') return null;
+    return {
+      text: m.text,
+      found: m.found,
+      feedback: m.feedback,
+      articles: m.articleIds
+        .map((id) => articleById(id))
+        .filter((a): a is HelpArticle => !!a),
+    };
   }
 
   protected support(m: HelpMessage) {
@@ -477,10 +617,14 @@ export class HelpPanel {
     this.ask();
   }
 
-  /** Asks the typed question, or `text` when given. */
-  protected ask(text = this.question()) {
+  /**
+   * Asks the typed question, or `text` when given. The help-chat function
+   * answers with AI when it can; otherwise, or when it cannot be reached,
+   * the best article is shown, found here in the browser.
+   */
+  protected async ask(text = this.question()) {
     const q = text.trim().slice(0, MAX_QUESTION);
-    if (!q) return;
+    if (!q || this.busy()) return;
     this.chat.add({ from: 'me', text: q });
     if (text === this.question()) {
       this.question.set('');
@@ -488,19 +632,66 @@ export class HelpPanel {
       el.value = '';
       el.style.height = '';
     }
-    const hits = searchHelp(q, this.page());
-    if (!hits.length) {
-      this.chat.add({ from: 'bot', kind: 'none', question: q });
-      return;
+    this.busy.set(true);
+    const thinking = this.chat.add({ from: 'bot', kind: 'thinking' });
+    try {
+      const r = await this.helpAi.ask(q, this.page());
+      this.chat.replace(thinking, this.fromServer(r, q));
+    } catch {
+      this.chat.replace(thinking, this.fromSearch(q));
+    } finally {
+      this.busy.set(false);
     }
+  }
+
+  /** The function's answer as a chat message. */
+  private fromServer(r: HelpAiAnswer, q: string): NewMessage {
+    const ids = r.articles.filter((id) => !!articleById(id));
+    if (r.route !== 'articles')
+      return {
+        from: 'bot',
+        kind: 'ai',
+        text: r.answer,
+        articleIds: ids.slice(0, 3),
+        found: r.found,
+        serverId: r.id,
+      };
+    if (!ids.length) return { from: 'bot', kind: 'none', question: q };
+    const limited = r.reason === 'daily_limit' || r.reason === 'budget';
+    return {
+      from: 'bot',
+      kind: 'answer',
+      articleId: ids[0],
+      also: ids.slice(1, 3),
+      serverId: r.id,
+      intro:
+        r.reason === 'daily_limit'
+          ? 'You have used today’s AI answers, so here is the closest help article:'
+          : r.reason === 'budget'
+            ? 'AI answers are paused until next month, so here is the closest help article:'
+            : 'Here is what I found:',
+      hint:
+        limited && !r.ownAi
+          ? {
+              text: 'With your own free AI connected, you get more answers each day.',
+              connectAi: true,
+            }
+          : undefined,
+    };
+  }
+
+  /** Without the server: the best article, found in the browser. */
+  private fromSearch(q: string): NewMessage {
+    const hits = searchHelp(q, this.page());
+    if (!hits.length) return { from: 'bot', kind: 'none', question: q };
     const [best, ...rest] = hits;
-    this.chat.add({
+    return {
       from: 'bot',
       kind: 'answer',
       articleId: best.article.id,
       also: rest.map((h) => h.article.id),
       intro: 'Here is what I found:',
-    });
+    };
   }
 
   /** A suggested question: asked as if typed, answered with that article. */
@@ -516,7 +707,10 @@ export class HelpPanel {
   }
 
   protected feedback(id: number, value: 'yes' | 'no') {
-    this.chat.patch(id, { feedback: value });
+    const m = this.chat.messages().find((x) => x.id === id);
+    const serverId = m && 'serverId' in m ? m.serverId : null;
+    if (serverId) void this.helpAi.feedback(serverId, value);
+    this.chat.patch(id, { feedback: value } as Partial<HelpMessage>);
     if (value === 'no') {
       this.chat.add({
         from: 'bot',
@@ -590,6 +784,10 @@ export class HelpPanel {
             const a = articleById(m.articleId);
             const fb = m.feedback ? ` (helpful: ${m.feedback})` : '';
             return `Shown: ${a?.title ?? m.articleId}${fb}`;
+          }
+          case 'ai': {
+            const fb = m.feedback ? ` (helpful: ${m.feedback})` : '';
+            return `AI answered: ${m.text.replace(/\s+/g, ' ').slice(0, 300)}${fb}`;
           }
           case 'none':
             return 'No article found';

@@ -18,7 +18,25 @@ export type HelpMessage =
       also: string[];
       intro: string;
       feedback?: 'yes' | 'no';
+      /** Its record on the server (help_messages), for Yes or No. */
+      serverId?: string | null;
+      /** Below the answer: why there was no AI answer, and what would help. */
+      hint?: { text: string; connectAi: boolean };
     }
+  | {
+      id: number;
+      from: 'bot';
+      kind: 'ai';
+      /** Written by AI from the articles; plain text, steps one per line. */
+      text: string;
+      /** The articles it was written from, best first. */
+      articleIds: string[];
+      /** false: the articles did not answer it. */
+      found: boolean;
+      serverId: string | null;
+      feedback?: 'yes' | 'no';
+    }
+  | { id: number; from: 'bot'; kind: 'thinking' }
   | { id: number; from: 'bot'; kind: 'none'; question: string }
   | { id: number; from: 'bot'; kind: 'text'; text: string }
   | {
@@ -30,7 +48,7 @@ export type HelpMessage =
       error?: string;
     };
 
-type NewMessage = HelpMessage extends infer M
+export type NewMessage = HelpMessage extends infer M
   ? M extends HelpMessage
     ? Omit<M, 'id'>
     : never
@@ -75,6 +93,13 @@ export class HelpChat {
     const id = this.nextId++;
     this.messages.update((list) => [...list, { ...m, id } as HelpMessage]);
     return id;
+  }
+
+  /** Puts `m` where message `id` was (a "thinking" bubble becomes its answer). */
+  replace(id: number, m: NewMessage) {
+    this.messages.update((list) =>
+      list.map((x) => (x.id === id ? ({ ...m, id } as HelpMessage) : x)),
+    );
   }
 
   patch(id: number, change: Partial<HelpMessage>) {

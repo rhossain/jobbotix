@@ -1149,6 +1149,28 @@ export const HELP_ARTICLES: readonly HelpArticle[] = [
     words: ['usage', 'cost', 'tokens', 'how much', 'calls'],
   },
   {
+    id: 'help-chat-ai',
+    area: 'ai',
+    title: 'How does the Help chat answer my questions?',
+    summary:
+      'A typed question is answered by AI from these help articles, at no cost to you. A suggested question shows its article straight away.',
+    notes: [
+      'If you connected your own AI, the Help chat uses it. Otherwise it uses Jobbotix’s AI: 10 answers a day on Free and 100 on Pro.',
+      'When the day’s answers are used up, the chat shows the closest help article instead, and answers again the next day (UTC).',
+      'AI can be wrong. If an answer does not help, press No and send your question to the support team.',
+    ],
+    link: { to: '/help', label: 'Browse all help' },
+    words: [
+      'help chat',
+      'chatbot',
+      'bot',
+      'assistant',
+      'answers',
+      'limit',
+      'how many questions',
+    ],
+  },
+  {
     id: 'choose-model',
     area: 'ai',
     title: 'Can I choose which AI model writes a draft?',

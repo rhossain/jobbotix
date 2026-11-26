@@ -99,9 +99,18 @@ describe('suggestionsFor', () => {
 });
 
 describe('the Edge Functions copy', () => {
-  it('matches the articles and search (run node tools/sync-help.mjs)', async () => {
-    // @ts-expect-error: a plain .mjs script without types
-    const { buildCopy, COPY } = await import('../../../../../tools/sync-help.mjs');
-    expect(readFileSync(COPY, 'utf8')).toBe(buildCopy());
+  it('matches the articles and search (run node tools/sync-help.mjs)', () => {
+    const read = (path: string) =>
+      readFileSync(new URL(path, import.meta.url), 'utf8');
+    const copy = read(
+      '../../../../../supabase/functions/_shared/help-articles.ts',
+    );
+    // Each source, less its imports, appears in the copy as it is.
+    for (const file of ['./articles.ts', './search.ts']) {
+      const body = read(file)
+        .replace(/^import .*;\n/gm, '')
+        .trim();
+      expect(copy.includes(body), file).toBe(true);
+    }
   });
 });

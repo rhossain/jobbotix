@@ -86,6 +86,8 @@ import {
   AccountDataRepo,
   SupportRepo,
   type SupportRequest,
+  HelpAiRepo,
+  type HelpAiAnswer,
   PlanRepo,
   UpgradeRequiredError,
   type AdminPlan,
@@ -569,6 +571,29 @@ export class SupabaseSavedViewsRepo extends SavedViewsRepo {
       .eq('id', id);
     if (error) throw error;
     this._views.update((vs) => vs.filter((v) => v.id !== id));
+  }
+}
+
+@Injectable()
+export class SupabaseHelpAiRepo extends HelpAiRepo {
+  private readonly supabase = injectSupabase();
+
+  async ask(question: string, page: string): Promise<HelpAiAnswer> {
+    const { data, error } = await this.supabase.functions.invoke('help-chat', {
+      body: { question, page },
+    });
+    if (error) throw await functionError(error);
+    return data as HelpAiAnswer;
+  }
+
+  async feedback(id: string, value: 'yes' | 'no') {
+    try {
+      await this.supabase.functions.invoke('help-chat', {
+        body: { action: 'feedback', id, value },
+      });
+    } catch {
+      /* a lost Yes or No is not worth an error */
+    }
   }
 }
 
