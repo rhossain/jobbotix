@@ -2834,4 +2834,83 @@ end $$;
 delete from public.help_messages;
 delete from public.ai_usage where job = 'help';
 
+-- ---------------------------------------------------------------------------
+-- Admin view of the Help chat: admins only; questions carry no user ids
+-- ---------------------------------------------------------------------------
+insert into public.help_messages (user_id, question, route, found, feedback)
+values ('11111111-1111-1111-1111-111111111111', 'How do I add a job?', 'own', true, 'no'),
+       ('11111111-1111-1111-1111-111111111111', 'how do I  add a job?', 'articles', false, null);
+
+set role authenticated;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  perform public.admin_help(14);
+  raise exception 'FAIL: a non-admin read the help questions';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.admin_set_help_ai('{"enabled": false}');
+  raise exception 'FAIL: a non-admin changed the help settings';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
+update public.profiles set is_admin = true where id = '11111111-1111-1111-1111-111111111111';
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$
+declare v jsonb;
+begin
+  v := public.admin_help(14);
+  if (v -> 'totals' ->> 'asked')::int <> 2 or (v -> 'totals' ->> 'not_found')::int <> 1
+     or (v -> 'totals' ->> 'no')::int <> 1 then
+    raise exception 'FAIL: help totals wrong: %', v -> 'totals';
+  end if;
+  if jsonb_array_length(v -> 'most_asked') <> 1 or (v -> 'most_asked' -> 0 ->> 'times')::int <> 2 then
+    raise exception 'FAIL: the same question in other spacing did not count once: %', v -> 'most_asked';
+  end if;
+  if (v -> 'questions' -> 0) ? 'user_id' then
+    raise exception 'FAIL: help questions carry a user id';
+  end if;
+  v := public.admin_set_help_ai('{"daily_free": 12, "enabled": true}');
+  if (v ->> 'daily_free')::int <> 12 or (v ->> 'model') is null then
+    raise exception 'FAIL: help settings not merged: %', v;
+  end if;
+  begin
+    perform public.admin_set_help_ai('{"daily_free": 1.5}');
+    raise exception 'FAIL: a fractional daily limit was accepted';
+  exception when invalid_parameter_value then null;
+  end;
+  begin
+    perform public.admin_set_help_ai('{"model": "gpt"}');
+    raise exception 'FAIL: an unknown help setting was accepted';
+  exception when invalid_parameter_value then null;
+  end;
+  perform public.admin_set_help_ai('{"daily_free": 10}');
+end $$;
+reset role; reset request.jwt.claim.sub;
+update public.profiles set is_admin = false where id = '11111111-1111-1111-1111-111111111111';
+delete from public.help_messages;
+
+-- help_setup: counts and switches only, for the service role only
+do $$
+declare v jsonb;
+begin
+  v := public.help_setup('11111111-1111-1111-1111-111111111111');
+  if not (v ? 'plan' and v ? 'resume_saved' and v ? 'remote_only' and v ? 'own_ai') then
+    raise exception 'FAIL: help_setup missing keys: %', v;
+  end if;
+  if v::text ~* 'summary|experience|notes' then
+    raise exception 'FAIL: help_setup carries personal text: %', v;
+  end if;
+end $$;
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  perform public.help_setup('11111111-1111-1111-1111-111111111111');
+  raise exception 'FAIL: a signed-in user called help_setup';
+exception when insufficient_privilege then null;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
 \echo RLS tests passed
