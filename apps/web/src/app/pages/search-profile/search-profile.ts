@@ -46,6 +46,7 @@ import { WatchHow } from '../../shared/watch-how';
 import { Button, CopyButton, Icon, PageHeader, Skeleton } from '../../ui';
 import { Confirm } from '../../ui/confirm';
 import { environment } from '../../../environments/environment';
+import { HelpQ } from '../../help/help-link';
 
 const splitLines = (s: string) =>
   s
@@ -62,6 +63,7 @@ const MAX_PROFILES = 5;
   imports: [
     Button,
     CopyButton,
+    HelpQ,
     Icon,
     PageHeader,
     ReactiveFormsModule,
@@ -424,7 +426,10 @@ const MAX_PROFILES = 5;
           </fieldset>
 
           <fieldset class="jb-sp-group flex flex-col gap-2.5 text-sm">
-            <legend class="jb-section-title mb-2">4. Remote or on-site?</legend>
+            <legend class="jb-section-title mb-2 flex items-center gap-2">
+              4. Remote or on-site?
+              <jb-help-q question="Remote or on-site: which should I choose?" />
+            </legend>
             <label class="flex items-start gap-2">
               <input
                 id="sp-work-remote"

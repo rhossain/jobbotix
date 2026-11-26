@@ -1,14 +1,16 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import { HelpLink } from '../help/help-link';
 import { Icon } from './icon';
 import type { IconName } from './icons.generated';
 
 /**
  * What an empty screen says: what will appear here and how to get the first
- * one. Body text is projected; actions go in an [actions] element.
+ * one. Body text is projected; actions go in an [actions] element. With
+ * `help`, a "Need help with this?" link opens the Help chat on that question.
  */
 @Component({
   selector: 'jb-empty-state',
-  imports: [Icon],
+  imports: [HelpLink, Icon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -29,6 +31,9 @@ import type { IconName } from './icons.generated';
         <div class="mt-4 flex flex-wrap gap-2 empty:hidden">
           <ng-content select="[actions]" />
         </div>
+        @if (help()) {
+          <jb-help-link class="mt-3" [question]="help()" />
+        }
       </div>
     </div>
   `,
@@ -37,4 +42,6 @@ export class EmptyState {
   readonly title = input.required<string>();
   readonly icon = input<IconName>('inbox');
   readonly compact = input(false);
+  /** A question for the Help chat; shows "Need help with this?". */
+  readonly help = input('');
 }

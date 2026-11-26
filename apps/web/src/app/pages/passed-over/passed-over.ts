@@ -22,6 +22,7 @@ import {
   PageHeader,
   Skeleton,
 } from '../../ui';
+import { HelpLink } from '../../help/help-link';
 
 interface Row extends PassedOver {
   group: ExcludedGroupId;
@@ -38,6 +39,7 @@ const FIRST = 8;
 @Component({
   selector: 'jb-passed-over',
   imports: [
+    HelpLink,
     BackLink,
     Button,
     EmptyState,
@@ -58,10 +60,17 @@ const FIRST = 8;
     <div class="mt-6 flex flex-col gap-6 md:mt-8">
       @if (error()) {
         <p class="text-sm text-bad" role="alert">{{ error() }}</p>
+        <jb-help-link
+          question="Something looks broken or out of date. What should I do?"
+        />
       } @else if (rows() === null) {
         <jb-skeleton shape="row" [count]="6" />
       } @else if (!rows()!.length) {
-        <jb-empty-state title="Nothing filtered out yet" icon="inbox">
+        <jb-empty-state
+          title="Nothing filtered out yet"
+          icon="inbox"
+          help="Why was a job filtered out, and can I add it back?"
+        >
           When the search leaves a job post out, for its country, pay, level or
           a low score, it is listed here with the reason.
           <div actions>

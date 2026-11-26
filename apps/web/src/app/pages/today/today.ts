@@ -404,7 +404,11 @@ interface Reminder {
                 right now. Jobs appear here as they are found, best match first.
               </jb-empty-state>
             } @else if (!hasSearch()) {
-              <jb-empty-state title="No jobs yet" icon="inbox">
+              <jb-empty-state
+                title="No jobs yet"
+                icon="inbox"
+                help="How do I say what job I want?"
+              >
                 Jobbotix finds jobs for you once you say what you are looking
                 for: the job titles and skills you want.
                 <div actions>
@@ -418,7 +422,11 @@ interface Reminder {
               </jb-empty-state>
             } @else if (run() && repo.roles().length === 0) {
               <!-- The search ran and nothing matched: say so, and what to do. -->
-              <jb-empty-state title="No matching jobs yet" icon="inbox">
+              <jb-empty-state
+                title="No matching jobs yet"
+                icon="inbox"
+                help="Why am I not getting any jobs?"
+              >
                 Jobbotix checked {{ run()?.searched }} job posts and none
                 matched your job preferences. It keeps checking new job posts
                 every hour. To get more, add other names for your job in Job

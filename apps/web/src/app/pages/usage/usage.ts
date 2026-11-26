@@ -33,6 +33,7 @@ import {
   Tabs,
   type TabItem,
 } from '../../ui';
+import { HelpLink } from '../../help/help-link';
 
 type Period = '7' | '30' | '90' | 'all';
 
@@ -40,6 +41,7 @@ type Period = '7' | '30' | '90' | 'all';
 @Component({
   selector: 'jb-usage',
   imports: [
+    HelpLink,
     BarRow,
     Button,
     EmptyState,
@@ -79,8 +81,15 @@ type Period = '7' | '30' | '90' | 'all';
         <jb-skeleton shape="line" [count]="6" />
       } @else if (error()) {
         <p class="text-sm text-bad" role="alert">{{ error() }}</p>
+        <jb-help-link
+          question="Something looks broken or out of date. What should I do?"
+        />
       } @else if (!summary().total.calls) {
-        <jb-empty-state title="No AI calls in this period" icon="gauge">
+        <jb-empty-state
+          title="No AI calls in this period"
+          icon="gauge"
+          help="How do I see how much AI I have used?"
+        >
           Match scores, letters, screening answers, interview prep and company
           research use a model once an AI provider is connected in Settings.
           Each call shows up here with its tokens and cost.

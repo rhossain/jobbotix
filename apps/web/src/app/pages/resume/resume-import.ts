@@ -22,13 +22,14 @@ import { openLinkedInArchive } from '../../shared/linkedin-archive';
 import { readLinkedInExport } from '../../shared/linkedin-export';
 import { ModelPicker } from '../../shared/model-picker';
 import { Icon } from '../../ui';
+import { HelpLink } from '../../help/help-link';
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
 /** Reads a resume from pasted text, a .docx, a PDF or a text file and parses it. */
 @Component({
   selector: 'jb-resume-import',
-  imports: [Icon, ModelPicker, RouterLink],
+  imports: [HelpLink, Icon, ModelPicker, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="jb-card flex flex-col gap-4 p-5 md:p-6">
@@ -186,6 +187,7 @@ const MAX_BYTES = 10 * 1024 * 1024;
         <p class="text-sm text-bad" role="alert">
           {{ error() }}
         </p>
+        <jb-help-link question="How do I add my resume?" />
       }
       @if (aiBusy() && !result()) {
         <p class="text-sm text-ink-muted" role="status">
@@ -242,6 +244,9 @@ const MAX_BYTES = 10 * 1024 * 1024;
           </div>
           @if (aiError()) {
             <p class="text-sm text-bad" role="alert">{{ aiError() }}</p>
+            <jb-help-link
+              question="What does it mean when AI says a limit was reached?"
+            />
           }
           <p class="text-sm">
             Found

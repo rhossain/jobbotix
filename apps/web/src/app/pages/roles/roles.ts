@@ -256,7 +256,11 @@ const DEFAULT_FILTERS: Filters = {
             </span>
           </jb-empty-state>
         } @else if (!hasSearch()) {
-          <jb-empty-state title="No jobs yet" icon="inbox">
+          <jb-empty-state
+            title="No jobs yet"
+            icon="inbox"
+            help="How do I say what job I want?"
+          >
             Jobbotix finds jobs for you once you say what you are looking for:
             the job titles and skills you want. You can also add a job yourself.
             <div actions>
@@ -267,7 +271,11 @@ const DEFAULT_FILTERS: Filters = {
             </div>
           </jb-empty-state>
         } @else {
-          <jb-empty-state title="No jobs yet" icon="inbox">
+          <jb-empty-state
+            title="No jobs yet"
+            icon="inbox"
+            help="Why am I not getting any jobs?"
+          >
             Jobbotix checks new job posts every hour and adds the ones that
             match your job preferences here. Nothing has matched so far; Today
             says what the last search looked at. You can also add a job
@@ -284,6 +292,7 @@ const DEFAULT_FILTERS: Filters = {
         <jb-empty-state
           title="Nothing matches these filters"
           icon="list-filter"
+          help="How do I search, filter and sort my jobs?"
         >
           {{ repo.roles().length }} jobs are hidden by the current filters.
           <div actions>

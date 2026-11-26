@@ -21,6 +21,8 @@ import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { WatchHow } from '../../shared/watch-how';
 import { Button, Confirm, Icon } from '../../ui';
+import { HelpQ } from '../../help/help-link';
+import { HelpLink } from '../../help/help-link';
 
 export interface ConnectionStatus {
   tone: 'good' | 'warn' | 'bad' | 'plain';
@@ -75,7 +77,15 @@ const OTHER = '__other';
  */
 @Component({
   selector: 'jb-ai-connections',
-  imports: [Button, FormsModule, Icon, RelativeDayPipe, WatchHow],
+  imports: [
+    HelpLink,
+    Button,
+    FormsModule,
+    HelpQ,
+    Icon,
+    RelativeDayPipe,
+    WatchHow,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'contents' },
   template: `
@@ -84,7 +94,10 @@ const OTHER = '__other';
       class="jb-card flex flex-col gap-4 p-5 md:p-6"
       data-tour="settings-ai"
     >
-      <h2 class="jb-section-title">AI connections</h2>
+      <h2 class="jb-section-title flex items-center gap-2">
+        AI connections
+        <jb-help-q question="What does AI do in Jobbotix, and do I need it?" />
+      </h2>
       <p class="text-sm text-ink-muted">
         Jobbotix gives every new job a match score at no cost. Connect an AI
         provider with your own key and it also takes a closer look at the best
@@ -142,6 +155,9 @@ const OTHER = '__other';
               }
               @if (rowError()[c.id]; as err) {
                 <p class="text-sm text-bad" role="alert">{{ err }}</p>
+                <jb-help-link
+                  question="What does it mean when AI says a limit was reached?"
+                />
               }
               <div class="flex flex-wrap items-end gap-2">
                 <label class="flex min-w-0 flex-col gap-1 text-xs">
@@ -430,6 +446,7 @@ const OTHER = '__other';
               </div>
               @if (addError()) {
                 <p class="text-sm text-bad" role="alert">{{ addError() }}</p>
+                <jb-help-link question="Which AI providers can I connect?" />
               }
             </form>
           }

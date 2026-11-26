@@ -80,6 +80,7 @@ const COLUMNS: RoleStatus[] = [
         data-tour="board"
         title="This page fills itself"
         icon="square-kanban"
+        help="What do the stages mean?"
       >
         Each daily search adds new jobs to the first column.
       </jb-empty-state>

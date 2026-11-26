@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { HELP_AREAS, HELP_ARTICLES } from './articles';
 import { searchHelp, suggestionsFor, terms } from './search';
@@ -113,4 +113,29 @@ describe('the Edge Functions copy', () => {
       expect(copy.includes(body), file).toBe(true);
     }
   });
+});
+
+describe('help questions asked from the pages', () => {
+  // Every "?" and "Need help with this?" asks an article's own question, so
+  // the chat answers it from that article, with or without AI.
+  const pages = new URL('../pages/', import.meta.url);
+  const files = readdirSync(pages, { recursive: true, encoding: 'utf8' })
+    .filter((f) => f.endsWith('.ts') && !f.includes('spec'))
+    .map((f) => readFileSync(new URL(f, pages), 'utf8'));
+  const asked = new Set<string>();
+  for (const src of files)
+    for (const m of src.matchAll(
+      /<jb-(?:help-q|help-link|empty-state)\b[^>]*?\s(?:question|help)="([^"]+)"/g,
+    ))
+      asked.add(m[1]);
+
+  it('finds the questions', () => {
+    expect(asked.size).toBeGreaterThan(15);
+  });
+
+  for (const q of asked)
+    it(`"${q}" is answered by the article of that title`, () => {
+      const hit = searchHelp(q, '', 1)[0];
+      expect(hit?.article.title).toBe(q);
+    });
 });

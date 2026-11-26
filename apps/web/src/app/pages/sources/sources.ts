@@ -22,6 +22,7 @@ import { Auth } from '../../core/auth';
 import { RelativeDayPipe } from '../../shared/format';
 import { Toast } from '../../shared/toast';
 import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
+import { HelpLink } from '../../help/help-link';
 
 type Health = 'ok' | 'failing' | 'needs-key' | 'off' | 'waiting';
 
@@ -40,6 +41,7 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
 @Component({
   selector: 'jb-sources',
   imports: [
+    HelpLink,
     Button,
     EmptyState,
     Icon,
@@ -88,6 +90,7 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
       </form>
       @if (linkError()) {
         <p class="mt-2 text-bad" role="alert">{{ linkError() }}</p>
+        <jb-help-link question="How do I follow a company?" />
       }
       @if (follows() === null) {
         <jb-skeleton class="mt-3 block" shape="line" [count]="2" />
@@ -137,10 +140,17 @@ const KIND_LABEL: Record<SourceCatalogRow['kind'], string> = {
     <div class="mt-8 flex flex-col gap-6">
       @if (error()) {
         <p class="text-sm text-bad" role="alert">{{ error() }}</p>
+        <jb-help-link
+          question="Something looks broken or out of date. What should I do?"
+        />
       } @else if (sources() === null) {
         <jb-skeleton shape="tile" [count]="4" />
       } @else if (!sources()!.length) {
-        <jb-empty-state title="No job sites yet" icon="compass">
+        <jb-empty-state
+          title="No job sites yet"
+          icon="compass"
+          help="Where do my jobs come from?"
+        >
           Job sites will appear here shortly.
         </jb-empty-state>
       } @else {

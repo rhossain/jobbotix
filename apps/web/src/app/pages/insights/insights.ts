@@ -65,7 +65,11 @@ const WEEKS = 8;
         </div>
         <jb-skeleton shape="line" [count]="6" />
       } @else if (repo.roles().length === 0) {
-        <jb-empty-state title="Nothing to measure yet" icon="chart-column">
+        <jb-empty-state
+          title="Nothing to measure yet"
+          icon="chart-column"
+          help="What does the Progress page show?"
+        >
           Once jobs land and you move them through Applications, this page shows
           how many you apply to each week, how often you hear back, and where
           time goes.

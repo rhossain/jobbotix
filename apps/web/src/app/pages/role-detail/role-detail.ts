@@ -60,6 +60,8 @@ import { RolePeople } from './role-people';
 import { RoleConnections } from './role-connections';
 import { VariantPanel } from './variant-panel';
 import { wordCount } from '@jobbotix/shared-types';
+import { HelpQ } from '../../help/help-link';
+import { HelpLink } from '../../help/help-link';
 
 type Tab =
   'fit' | 'company' | 'resume' | 'prep' | 'interviews' | 'posting' | 'activity';
@@ -70,8 +72,10 @@ const POST_TEXT_MIN = 80;
 @Component({
   selector: 'jb-role-detail',
   imports: [
+    HelpLink,
     BackLink,
     Button,
+    HelpQ,
     CompanyPanel,
     CopyButton,
     EmptyState,
@@ -231,6 +235,9 @@ const POST_TEXT_MIN = 80;
                           <p class="text-sm text-bad" role="alert">
                             {{ postError() }}
                           </p>
+                          <jb-help-link
+                            question="Why does a job ask me to paste its post?"
+                          />
                         }
                         <div>
                           <button
@@ -348,7 +355,10 @@ const POST_TEXT_MIN = 80;
                       <div
                         class="-mt-1 flex flex-wrap items-center justify-between gap-2 text-xs text-ink-muted"
                       >
-                        <span>{{ scoredLine() }}</span>
+                        <span class="inline-flex items-center gap-2"
+                          >{{ scoredLine() }}
+                          <jb-help-q question="What does the match score mean?"
+                        /></span>
                         <button
                           type="button"
                           jbButton="ghost"

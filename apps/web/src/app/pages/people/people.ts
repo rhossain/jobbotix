@@ -51,7 +51,11 @@ import { Button, EmptyState, Icon, PageHeader, Skeleton } from '../../ui';
       <div class="mt-8"><jb-skeleton shape="card" [count]="3" /></div>
     } @else if (!repo.contacts().length) {
       <div class="mt-8">
-        <jb-empty-state title="No contacts yet" icon="users">
+        <jb-empty-state
+          title="No contacts yet"
+          icon="users"
+          help="How do I keep track of recruiters and people I know?"
+        >
           Add the recruiter who wrote to you, the hiring manager on a job post,
           or a former colleague at a company you like. Jobbotix drafts the
           message, logs what you sent and tells you when to follow up.

@@ -31,6 +31,7 @@ import {
   Icon,
   PageHeader,
 } from '../../ui';
+import { HelpLink } from '../../help/help-link';
 
 const amount = (v: string): number | null => {
   const n = Number(v.replace(/[$,\s]/g, ''));
@@ -51,6 +52,7 @@ const lines = (v: string, split: RegExp) =>
 @Component({
   selector: 'jb-add-gig',
   imports: [
+    HelpLink,
     BackLink,
     Button,
     Field,
@@ -167,6 +169,7 @@ const lines = (v: string, split: RegExp) =>
               <jb-icon name="circle-x" [size]="18" class="mt-px" />
               {{ error() }}
             </p>
+            <jb-help-link question="How do I add an Upwork job?" />
           }
           @if (busy()) {
             <p
@@ -359,6 +362,7 @@ const lines = (v: string, split: RegExp) =>
               <jb-icon name="circle-x" [size]="18" class="mt-px" />
               {{ error() }}
             </p>
+            <jb-help-link question="How do I add an Upwork job?" />
           }
 
           <div

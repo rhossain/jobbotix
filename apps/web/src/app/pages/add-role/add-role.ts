@@ -33,6 +33,7 @@ import {
   PageHeader,
 } from '../../ui';
 import { environment } from '../../../environments/environment';
+import { HelpLink } from '../../help/help-link';
 
 const URL_PATTERN = /^https?:\/\/\S+$/i;
 
@@ -40,6 +41,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
 @Component({
   selector: 'jb-add-role',
   imports: [
+    HelpLink,
     BackLink,
     Button,
     Field,
@@ -134,6 +136,7 @@ const URL_PATTERN = /^https?:\/\/\S+$/i;
             <jb-icon name="circle-x" [size]="18" class="mt-px" />
             {{ error() }}
           </p>
+          <jb-help-link question="How do I add a job I found myself?" />
         }
         @if (waiting()) {
           <p
