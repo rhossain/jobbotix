@@ -97,3 +97,11 @@ describe('suggestionsFor', () => {
       expect(suggestionsFor(page)).toHaveLength(3);
   });
 });
+
+describe('the Edge Functions copy', () => {
+  it('matches the articles and search (run node tools/sync-help.mjs)', async () => {
+    // @ts-expect-error: a plain .mjs script without types
+    const { buildCopy, COPY } = await import('../../../../../tools/sync-help.mjs');
+    expect(readFileSync(COPY, 'utf8')).toBe(buildCopy());
+  });
+});

@@ -2756,4 +2756,82 @@ exception when check_violation then null;
 end $$;
 delete from public.help_tickets;
 
+-- ---------------------------------------------------------------------------
+-- Help answers: read by their owner only; limits and budget hold
+-- ---------------------------------------------------------------------------
+insert into public.help_messages (user_id, question, route, answer, articles)
+values ('11111111-1111-1111-1111-111111111111', 'How do I add a job?', 'own', 'Open Jobs.', '{add-job}');
+
+set role authenticated;
+set request.jwt.claim.sub = '11111111-1111-1111-1111-111111111111';
+do $$ begin
+  if (select count(*) from public.help_messages) <> 1 then
+    raise exception 'FAIL: the owner cannot read their help answer';
+  end if;
+end $$;
+do $$ begin
+  insert into public.help_messages (user_id, question, route)
+  values ('11111111-1111-1111-1111-111111111111', 'spam', 'own');
+  raise exception 'FAIL: a user wrote a help answer directly';
+exception when insufficient_privilege then null;
+end $$;
+do $$ begin
+  perform public.help_ai_check('11111111-1111-1111-1111-111111111111', 'platform');
+  raise exception 'FAIL: a user called help_ai_check';
+exception when insufficient_privilege then null;
+end $$;
+set request.jwt.claim.sub = '33333333-3333-3333-3333-333333333333';
+do $$ begin
+  if (select count(*) from public.help_messages) <> 0 then
+    raise exception 'FAIL: another user can read a help answer';
+  end if;
+end $$;
+reset role; reset request.jwt.claim.sub;
+
+do $$
+declare v jsonb;
+begin
+  -- Own key: 30 a day, one used above.
+  v := public.help_ai_check('11111111-1111-1111-1111-111111111111', 'own');
+  if not (v ->> 'ok')::boolean or (v ->> 'left')::int <> 28 then
+    raise exception 'FAIL: own-key help check: %', v;
+  end if;
+  insert into public.help_messages (user_id, question, route)
+  select '11111111-1111-1111-1111-111111111111', 'q' || g, 'own' from generate_series(1, 29) g;
+  v := public.help_ai_check('11111111-1111-1111-1111-111111111111', 'own');
+  if (v ->> 'reason') is distinct from 'daily_limit' then
+    raise exception 'FAIL: own-key daily limit not applied: %', v;
+  end if;
+
+  -- Jobbotix's key: a separate count, and the monthly budget.
+  v := public.help_ai_check('11111111-1111-1111-1111-111111111111', 'platform');
+  if not (v ->> 'ok')::boolean then
+    raise exception 'FAIL: platform help refused while under its limits: %', v;
+  end if;
+  perform public.help_ai_log('11111111-1111-1111-1111-111111111111', 'claude-haiku-5-5', 3000, 300);
+  if (select cost_usd from public.ai_usage where job = 'help' order by created_at desc limit 1) <> 0.00045 then
+    raise exception 'FAIL: help answer costed wrongly';
+  end if;
+  update public.settings set value = jsonb_set(value, '{monthly_budget_usd}', '0.0001') where key = 'help_ai';
+  v := public.help_ai_check('11111111-1111-1111-1111-111111111111', 'platform');
+  if (v ->> 'reason') is distinct from 'budget' then
+    raise exception 'FAIL: help budget not applied: %', v;
+  end if;
+  update public.settings set value = jsonb_set(value, '{enabled}', 'false') where key = 'help_ai';
+  v := public.help_ai_check('11111111-1111-1111-1111-111111111111', 'platform');
+  if (v ->> 'reason') is distinct from 'off' then
+    raise exception 'FAIL: help switch not applied: %', v;
+  end if;
+  update public.settings set value = jsonb_set(jsonb_set(value, '{enabled}', 'true'), '{monthly_budget_usd}', '5') where key = 'help_ai';
+
+  -- Old answers go after 30 days.
+  update public.help_messages set created_at = now() - interval '31 days' where question = 'q1';
+  perform public.purge_help_messages();
+  if exists (select 1 from public.help_messages where question = 'q1') then
+    raise exception 'FAIL: help answers older than 30 days were kept';
+  end if;
+end $$;
+delete from public.help_messages;
+delete from public.ai_usage where job = 'help';
+
 \echo RLS tests passed

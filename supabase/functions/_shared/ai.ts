@@ -46,7 +46,8 @@ export type AiJobName =
   | 'import'
   | 'research'
   | 'thank_you'
-  | 'message';
+  | 'message'
+  | 'help';
 
 export interface AiCall {
   prompt: string;

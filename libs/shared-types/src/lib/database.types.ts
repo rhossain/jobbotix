@@ -45,7 +45,8 @@ export type AiJob =
   | 'import'
   | 'research'
   | 'thank_you'
-  | 'message';
+  | 'message'
+  | 'help';
 export type VariantStatus = 'draft' | 'approved';
 export type RemotePolicy =
   'worldwide' | 'region_locked' | 'hybrid' | 'onsite' | 'unknown';
