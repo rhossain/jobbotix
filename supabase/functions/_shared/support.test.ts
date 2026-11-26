@@ -2,6 +2,7 @@ import { deepStrictEqual as assertEquals, ok as assert } from 'node:assert';
 import {
   readSupportInput,
   supportEmail,
+  senderNamed,
   supportSubject,
   SUPPORT_MAX_MESSAGE,
 } from './support.ts';
@@ -53,4 +54,17 @@ Deno.test('supportEmail escapes what the person typed', () => {
   assert(!e.html.includes('<b>x</b>'));
   assert(e.text.includes('Page: https://jobbotix.com/jobs'));
   assert(e.text.includes('From: Ann <a@b.c>'));
+});
+
+Deno.test('senderNamed reuses a verified sender address', () => {
+  assertEquals(
+    senderNamed('Jobbotix Help', 'Jobbotix <digest@jobbotix.com>'),
+    'Jobbotix Help <digest@jobbotix.com>',
+  );
+  assertEquals(
+    senderNamed('Jobbotix Help', ' digest@jobbotix.com '),
+    'Jobbotix Help <digest@jobbotix.com>',
+  );
+  assertEquals(senderNamed('Jobbotix Help', undefined), null);
+  assertEquals(senderNamed('Jobbotix Help', 'not an address'), null);
 });

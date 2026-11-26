@@ -8,7 +8,8 @@
 //
 // Secrets: RESEND_API_KEY (already set for the daily email).
 // Optional: SUPPORT_TO (default support@jobbotix.com),
-//           SUPPORT_FROM (default "Jobbotix Help <help@jobbotix.com>"),
+//           SUPPORT_FROM (default: the DIGEST_FROM address, named
+//           "Jobbotix Help"; else help@jobbotix.com),
 //           APP_URL (default https://jobbotix.com).
 
 import { json, serviceClient, signedInUserId } from '../_shared/auth.ts';
@@ -16,14 +17,18 @@ import { withCors } from '../_shared/cors.ts';
 import { loadEntitlements } from '../_shared/gate.ts';
 import {
   readSupportInput,
+  senderNamed,
   supportEmail,
   SUPPORT_DAILY_LIMIT,
 } from '../_shared/support.ts';
 
 const RESEND_KEY = Deno.env.get('RESEND_API_KEY') ?? '';
 const TO = Deno.env.get('SUPPORT_TO') ?? 'support@jobbotix.com';
+// The daily email's sender is already verified in Resend; reuse its address.
 const FROM =
-  Deno.env.get('SUPPORT_FROM') ?? 'Jobbotix Help <help@jobbotix.com>';
+  Deno.env.get('SUPPORT_FROM') ??
+  senderNamed('Jobbotix Help', Deno.env.get('DIGEST_FROM')) ??
+  'Jobbotix Help <help@jobbotix.com>';
 const APP_URL = (Deno.env.get('APP_URL') ?? 'https://jobbotix.com').replace(
   /\/$/,
   '',

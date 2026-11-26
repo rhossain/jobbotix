@@ -20,6 +20,20 @@ export interface SupportSender {
   userId: string;
 }
 
+/**
+ * `name <address>` using the address from another sender such as
+ * "Jobbotix <digest@jobbotix.com>" or a bare "digest@jobbotix.com".
+ */
+export function senderNamed(
+  name: string,
+  from: string | undefined,
+): string | null {
+  const m =
+    from?.match(/<([^>\s]+@[^>\s]+)>/) ??
+    from?.trim().match(/^([^\s<>]+@[^\s<>]+)$/);
+  return m ? `${name} <${m[1]}>` : null;
+}
+
 /** The request as the browser sent it, cut to size; null when unusable. */
 export function readSupportInput(body: unknown): SupportInput | null {
   const b = (body ?? {}) as Record<string, unknown>;
