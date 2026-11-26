@@ -268,6 +268,13 @@ export const appRoutes: Route[] = [
     title: 'Account · Admin · Jobbotix',
   },
   {
+    path: 'admin/help',
+    canActivate: [authGuard, adminGuard],
+    loadComponent: () =>
+      import('./pages/admin/help').then((m) => m.AdminHelpPage),
+    title: 'Help chat · Admin · Jobbotix',
+  },
+  {
     path: 'admin/invites',
     canActivate: [authGuard, adminGuard],
     loadComponent: () =>

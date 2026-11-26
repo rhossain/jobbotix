@@ -90,6 +90,7 @@ import {
   type HelpAiAnswer,
   PlanRepo,
   UpgradeRequiredError,
+  type AdminHelp,
   type AdminPlan,
   type ImportRoleInput,
   type ContactInput,
@@ -105,7 +106,10 @@ import {
   type NewAiConnection,
   type ProAiPatch,
   type SearchNowResult,
+  type HelpAiPatch,
+  type HelpAiSettings,
 } from './repos';
+import { readAdminHelp, readHelpSettings } from './admin-help';
 
 /**
  * Real data layer: supabase-js with RLS doing the per-user filtering. Reads go
@@ -1313,6 +1317,24 @@ export class SupabaseAdminRepo extends AdminRepo {
       .limit(500);
     if (error) throw new Error(error.message);
     return data ?? [];
+  }
+
+  async help(days: number): Promise<AdminHelp> {
+    const { data, error } = await this.supabase.rpc('admin_help', {
+      p_days: days,
+    });
+    // Keep the code: PGRST202 means the database is not updated yet.
+    if (error)
+      throw Object.assign(new Error(error.message), { code: error.code });
+    return readAdminHelp(data);
+  }
+
+  async setHelpAi(patch: HelpAiPatch): Promise<HelpAiSettings> {
+    const { data, error } = await this.supabase.rpc('admin_set_help_ai', {
+      p_patch: patch as Json,
+    });
+    if (error) throw new Error(error.message);
+    return readHelpSettings(data);
   }
 
   async overview() {

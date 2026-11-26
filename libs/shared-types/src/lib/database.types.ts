@@ -901,6 +901,8 @@ export type Database = {
       ai_route_info: { Args: Record<string, never>; Returns: Json };
       admin_pro_ai: { Args: Record<string, never>; Returns: Json };
       admin_set_pro_ai: { Args: { p_patch: Json }; Returns: Json };
+      admin_help: { Args: { p_days: number }; Returns: Json };
+      admin_set_help_ai: { Args: { p_patch: Json }; Returns: Json };
       entitlements_for: { Args: { p_user: string }; Returns: Json };
       credit_balance: { Args: { p_user: string }; Returns: number };
       admin_plans: { Args: Record<string, never>; Returns: Json };

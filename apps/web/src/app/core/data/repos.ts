@@ -591,6 +591,71 @@ export interface ProAiPatch {
   daily_credit_cap?: number;
 }
 
+/** settings.help_ai: the Help chat's AI switch and limits. */
+export interface HelpAiSettings {
+  enabled: boolean;
+  monthly_budget_usd: number;
+  daily_free: number;
+  daily_pro: number;
+  daily_own: number;
+  model: string;
+}
+export type HelpAiPatch = Partial<
+  Pick<
+    HelpAiSettings,
+    'enabled' | 'monthly_budget_usd' | 'daily_free' | 'daily_pro' | 'daily_own'
+  >
+>;
+
+/** One Help chat question as the admin sees it: no name, no email. */
+export interface AdminHelpQuestion {
+  id: string;
+  question: string;
+  page: string;
+  route: 'own' | 'platform' | 'articles';
+  found: boolean;
+  feedback: 'yes' | 'no' | null;
+  articles: string[];
+  model: string;
+  created_at: string;
+}
+
+/** Admin → Help: what people ask the Help chat. */
+export interface AdminHelp {
+  settings: HelpAiSettings;
+  monthSpendUsd: number;
+  monthAnswers: number;
+  totals: {
+    asked: number;
+    own: number;
+    platform: number;
+    articles: number;
+    not_found: number;
+    yes: number;
+    no: number;
+    people: number;
+  };
+  /** The same question asked more than once (case and spacing ignored). */
+  mostAsked: {
+    question: string;
+    times: number;
+    not_found: number;
+    no: number;
+    last: string;
+  }[];
+  questions: AdminHelpQuestion[];
+  /** Send to support requests; these carry the sender. */
+  tickets: {
+    id: string;
+    user_id: string | null;
+    email: string | null;
+    message: string;
+    page: string;
+    created_at: string;
+    emailed_at: string | null;
+  }[];
+}
+
 export abstract class AdminRepo {
   abstract overview(): Promise<{ users: AdminUser[]; totals: AdminTotals }>;
   /** The Pro route (AI on credits): its switch, limits and this month's spend. */
@@ -641,6 +706,9 @@ export abstract class AdminRepo {
   abstract deleteUser(userId: string, confirmEmail: string): Promise<void>;
   /** Error reports from the last `days`, newest first (admins only). */
   abstract errors(days: number): Promise<AppErrorRow[]>;
+  /** The Help chat's questions of the last `days` (1–30), and its settings. */
+  abstract help(days: number): Promise<AdminHelp>;
+  abstract setHelpAi(patch: HelpAiPatch): Promise<HelpAiSettings>;
   abstract requests(): Promise<InviteRequestRow[]>;
   /** Creates an invite code for a request and links it; returns the code. */
   abstract inviteRequest(id: string): Promise<string>;

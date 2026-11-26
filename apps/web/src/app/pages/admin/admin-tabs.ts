@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { PageTabs, type PageTab } from '../../shared/page-tabs';
 
-export type AdminTab = 'overview' | 'users' | 'activity' | 'money' | 'invites';
+export type AdminTab =
+  'overview' | 'users' | 'activity' | 'money' | 'help' | 'invites';
 
 export const ADMIN_TABS: PageTab<AdminTab>[] = [
   { id: 'overview', label: 'Overview', icon: 'gauge', link: '/admin' },
@@ -13,6 +14,12 @@ export const ADMIN_TABS: PageTab<AdminTab>[] = [
     link: '/admin/activity',
   },
   { id: 'money', label: 'Plans & AI', icon: 'sparkles', link: '/admin/money' },
+  {
+    id: 'help',
+    label: 'Help chat',
+    icon: 'message-circle-question-mark',
+    link: '/admin/help',
+  },
   {
     id: 'invites',
     label: 'Invites',

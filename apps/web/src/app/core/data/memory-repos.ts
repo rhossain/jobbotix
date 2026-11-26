@@ -117,6 +117,9 @@ import {
   type AiCheck,
   type NewAiConnection,
   type ProAiPatch,
+  type AdminHelp,
+  type HelpAiPatch,
+  type HelpAiSettings,
 } from './repos';
 import {
   DEMO_USER_ID,
@@ -1554,6 +1557,108 @@ export class MemoryPlanRepo extends PlanRepo {
 @Injectable()
 export class MemoryAdminRepo extends AdminRepo {
   private readonly roles = inject(MemoryRolesRepo);
+  private helpAi: HelpAiSettings = {
+    enabled: true,
+    monthly_budget_usd: 5,
+    daily_free: 10,
+    daily_pro: 100,
+    daily_own: 30,
+    model: 'claude-haiku-5-5',
+  };
+
+  async help(days: number): Promise<AdminHelp> {
+    // Demo questions, so the page shows what a real week looks like.
+    const ago = (h: number) =>
+      new Date(Date.now() - h * 3_600_000).toISOString();
+    const q = (
+      h: number,
+      question: string,
+      page: string,
+      route: 'own' | 'platform' | 'articles',
+      found: boolean,
+      feedback: 'yes' | 'no' | null,
+      articles: string[],
+    ) => ({
+      id: `hq-${h}`,
+      question,
+      page,
+      route,
+      found,
+      feedback,
+      articles,
+      model: route === 'articles' ? '' : 'anthropic:claude-haiku-5-5',
+      created_at: ago(h),
+    });
+    const questions = [
+      q(2, 'why do I get no jobs?', '/today', 'platform', true, 'yes', [
+        'no-jobs',
+      ]),
+      q(
+        5,
+        'Can it apply for me automatically?',
+        '/jobs',
+        'platform',
+        false,
+        'no',
+        [],
+      ),
+      q(9, 'how do I add a job I found', '/jobs', 'articles', true, null, [
+        'add-job',
+      ]),
+      q(26, 'Why do I get no jobs', '/search', 'own', true, null, ['no-jobs']),
+      q(
+        50,
+        'what does the match score mean',
+        '/jobs/r1',
+        'platform',
+        true,
+        'yes',
+        ['match-score'],
+      ),
+      q(70, 'export to google sheets?', '/jobs', 'articles', false, null, []),
+    ].filter((x) => x.created_at >= ago(days * 24));
+    return {
+      settings: { ...this.helpAi },
+      monthSpendUsd: 0.04,
+      monthAnswers: 31,
+      totals: {
+        asked: questions.length,
+        own: questions.filter((x) => x.route === 'own').length,
+        platform: questions.filter((x) => x.route === 'platform').length,
+        articles: questions.filter((x) => x.route === 'articles').length,
+        not_found: questions.filter((x) => !x.found).length,
+        yes: questions.filter((x) => x.feedback === 'yes').length,
+        no: questions.filter((x) => x.feedback === 'no').length,
+        people: 3,
+      },
+      mostAsked: [
+        {
+          question: 'why do I get no jobs?',
+          times: 2,
+          not_found: 0,
+          no: 0,
+          last: ago(2),
+        },
+      ],
+      questions,
+      tickets: [
+        {
+          id: 'ht-1',
+          user_id: DEMO_USER_ID,
+          email: 'demo@jobbotix.com',
+          message: 'Can it apply for me automatically? I could not find it.',
+          page: '/jobs',
+          created_at: ago(5),
+          emailed_at: ago(5),
+        },
+      ],
+    };
+  }
+
+  async setHelpAi(patch: HelpAiPatch): Promise<HelpAiSettings> {
+    this.helpAi = { ...this.helpAi, ...patch };
+    return { ...this.helpAi };
+  }
 
   async errors(): Promise<AppErrorRow[]> {
     // demo mode reports nothing; show what a grouped report looks like
